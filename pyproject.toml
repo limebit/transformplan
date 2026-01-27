@@ -1,5 +1,5 @@
 [project]
-name = "custom_module"
+name = "transformplan"
 version = "0.0.1"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["custom_module"]
+packages = ["transformplan"]
 
 [tool.ruff]
 exclude = ["__pycache__", ".git", ".github", ".ruff_cache", ".venv"]

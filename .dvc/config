@@ -2,4 +2,4 @@
     remote = hetzner
     autostage = true
 ['remote "hetzner"']
-    url = ssh://storagebox/home/project-data/python-template
+    url = ssh://storagebox/home/project-data/transformplan

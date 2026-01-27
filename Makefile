@@ -57,11 +57,11 @@ format: install-dev
 clean:
 ifeq ($(OS),Windows_NT)
 	@if exist $(VENV_NAME) $(rmrf) $(VENV_NAME)
-	@for %%d in (.ruff_cache .pytest_cache custom_module.egg-info) do @if exist %%d $(rmrf) %%d
+	@for %%d in (.ruff_cache .pytest_cache transformplan.egg-info) do @if exist %%d $(rmrf) %%d
 	@if exist .vscode\*.log $(rmf) .vscode\*.log
 	@for /d /r %%i in (__pycache__) do @if exist "%%i" $(rmrf) "%%i"
 else
-	$(rmrf) $(VENV_NAME) .ruff_cache .pytest_cache custom_module.egg-info
+	$(rmrf) $(VENV_NAME) .ruff_cache .pytest_cache transformplan.egg-info
 	$(rmf) .vscode/*.log
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 endif

@@ -9,5 +9,5 @@ services:
         USE_POWERLEVEL10K: ${USE_POWERLEVEL10K:-false}
     container_name: devcontainer
     volumes:
-      - ..:/python-template:cached
+      - ..:/transformplan:cached
     command: /bin/sh -c "while sleep 1000; do :; done"

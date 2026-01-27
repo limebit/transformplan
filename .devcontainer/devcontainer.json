@@ -2,7 +2,7 @@
   "name": "Devcontainer",
   "dockerComposeFile": "docker-compose.devcontainer.yml",
   "service": "devcontainer",
-  "workspaceFolder": "/python-template",
+  "workspaceFolder": "/transformplan",
   "containerUser": "vscode",
   "initializeCommand": "find ~/.ssh/ -type f -exec grep -l 'PRIVATE' {} \\; | xargs ssh-add",
   "postStartCommand": "make install",
