@@ -1,0 +1,8 @@
+# Like .gitignore, but for DVC
+.git
+.venv
+__pycache__
+*.pyc
+.DS_Store
+.gitkeep
+.gitignore

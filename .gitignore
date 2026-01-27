@@ -1,0 +1,11 @@
+.venv
+*/.ipynb_checkpoints
+.DS_Store
+*.egg-info
+.vscode/*.log
+__pycache__
+*.pyc
+
+# DVC
+.dvc/tmp/
+.dvc/cache/

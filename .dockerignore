@@ -1,0 +1,7 @@
+.venv
+.idea
+.vscode
+hooks
+README.md
+Dockerfile
+docker-compose.yml

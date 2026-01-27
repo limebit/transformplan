@@ -1,0 +1,63 @@
+name: Initialize the project from template
+
+on: [push]
+
+permissions:
+  contents: write
+
+jobs:
+  rename-project:
+    if: ${{ !contains (github.repository, '/python-template') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
+      - run: echo "REPOSITORY_NAME=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
+        shell: bash
+
+      - run: echo "REPOSITORY_NAME_SNAKE_CASE=$(echo ${{ env.REPOSITORY_NAME }} | sed -e 's,-,_,g')" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Is this still a template
+        id: is_template
+        run: echo "is_template=$(ls .github/template.yml &> /dev/null && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Set up Python
+        if: steps.is_template.outputs.is_template == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        if: steps.is_template.outputs.is_template == 'true'
+        uses: astral-sh/setup-uv@v4
+
+      - name: Initialize the project
+        if: steps.is_template.outputs.is_template == 'true'
+        run: |
+          echo "Renaming the project to ${{ env.REPOSITORY_NAME }}"
+          sed -i -e s/custom_module/${{ env.REPOSITORY_NAME_SNAKE_CASE }}/g docker-compose.yml
+          sed -i -e s/custom_module/${{ env.REPOSITORY_NAME_SNAKE_CASE }}/g Makefile
+          sed -i -e s/custom_module/${{ env.REPOSITORY_NAME_SNAKE_CASE }}/g pyproject.toml
+          sed -i -e s/python-template/${{ env.REPOSITORY_NAME }}/g README.md
+          sed -i -e s/python-template/${{ env.REPOSITORY_NAME }}/g .devcontainer/devcontainer.json
+          sed -i -e s/python-template/${{ env.REPOSITORY_NAME }}/g .devcontainer/docker-compose.devcontainer.yml
+          sed -i -e s/python-template/${{ env.REPOSITORY_NAME }}/g .dvc/config
+          mv custom_module ${{ env.REPOSITORY_NAME_SNAKE_CASE }}
+          rm -f .github/template.yml
+
+      - name: Update pre-commit hooks
+        if: steps.is_template.outputs.is_template == 'true'
+        run: |
+          uv sync --group dev
+          uv run dvc install --use-pre-commit-tool
+          uv run pre-commit autoupdate
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        if: steps.is_template.outputs.is_template == 'true'
+        with:
+          commit_message: "Initialized repository"
+          push_options: --force

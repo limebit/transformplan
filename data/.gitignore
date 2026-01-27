@@ -1,0 +1,9 @@
+# Ignore all data files
+*
+
+# Except
+!.gitignore
+!.gitkeep
+!**/*.dvc
+!raw/
+!processed/
