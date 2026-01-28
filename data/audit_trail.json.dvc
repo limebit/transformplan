@@ -1,0 +1,5 @@
+outs:
+- md5: ab38cd243a3fb2297f7e847668e99d8b
+  size: 629
+  hash: md5
+  path: audit_trail.json
