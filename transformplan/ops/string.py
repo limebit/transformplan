@@ -1,4 +1,30 @@
-"""String operations mixin."""
+"""String operations mixin.
+
+This module provides the StrOps mixin class with text manipulation operations
+on DataFrame string columns.
+
+Classes:
+    StrOps: Mixin providing string operations.
+
+Transformation Operations:
+    str_lower: Convert to lowercase.
+    str_upper: Convert to uppercase.
+    str_strip: Strip whitespace/characters.
+    str_pad: Pad to fixed length.
+
+Substring Operations:
+    str_slice: Extract substring by position.
+    str_truncate: Truncate with suffix.
+    str_replace: Replace pattern.
+    str_extract: Extract with regex.
+
+Splitting/Joining:
+    str_split: Split into columns or rows.
+    str_concat: Concatenate columns.
+
+Example:
+    >>> plan = TransformPlan().str_lower("email").str_strip("name")
+"""
 
 from __future__ import annotations
 
@@ -41,11 +67,21 @@ class StrOps:
         """
         return self._register(
             self._str_replace,
-            {"column": column, "pattern": pattern, "replacement": replacement, "literal": literal},
+            {
+                "column": column,
+                "pattern": pattern,
+                "replacement": replacement,
+                "literal": literal,
+            },
         )
 
     def _str_replace(
-        self, data: pl.DataFrame, column: str, pattern: str, replacement: str, literal: bool
+        self,
+        data: pl.DataFrame,
+        column: str,
+        pattern: str,
+        replacement: str,
+        literal: bool,
     ) -> pl.DataFrame:
         return data.with_columns(
             pl.col(column).str.replace_all(pattern, replacement, literal=literal)
@@ -82,7 +118,8 @@ class StrOps:
             suffix: Suffix to append to truncated strings.
         """
         return self._register(
-            self._str_truncate, {"column": column, "max_length": max_length, "suffix": suffix}
+            self._str_truncate,
+            {"column": column, "max_length": max_length, "suffix": suffix},
         )
 
     def _str_truncate(
@@ -168,7 +205,9 @@ class StrOps:
         """
         return self._register(self._str_strip, {"column": column, "chars": chars})
 
-    def _str_strip(self, data: pl.DataFrame, column: str, chars: str | None) -> pl.DataFrame:
+    def _str_strip(
+        self, data: pl.DataFrame, column: str, chars: str | None
+    ) -> pl.DataFrame:
         if chars is None:
             return data.with_columns(pl.col(column).str.strip_chars())
         return data.with_columns(pl.col(column).str.strip_chars(chars))
@@ -189,7 +228,8 @@ class StrOps:
             side: 'left' or 'right'.
         """
         return self._register(
-            self._str_pad, {"column": column, "length": length, "fill_char": fill_char, "side": side}
+            self._str_pad,
+            {"column": column, "length": length, "fill_char": fill_char, "side": side},
         )
 
     def _str_pad(
@@ -213,14 +253,17 @@ class StrOps:
             separator: Separator between values.
         """
         return self._register(
-            self._str_concat, {"columns": columns, "new_column": new_column, "separator": separator}
+            self._str_concat,
+            {"columns": columns, "new_column": new_column, "separator": separator},
         )
 
     def _str_concat(
         self, data: pl.DataFrame, columns: list[str], new_column: str, separator: str
     ) -> pl.DataFrame:
         return data.with_columns(
-            pl.concat_str([pl.col(c) for c in columns], separator=separator).alias(new_column)
+            pl.concat_str([pl.col(c) for c in columns], separator=separator).alias(
+                new_column
+            )
         )
 
     def str_extract(
@@ -240,12 +283,24 @@ class StrOps:
         """
         return self._register(
             self._str_extract,
-            {"column": column, "pattern": pattern, "group_index": group_index, "new_column": new_column or column},
+            {
+                "column": column,
+                "pattern": pattern,
+                "group_index": group_index,
+                "new_column": new_column or column,
+            },
         )
 
     def _str_extract(
-        self, data: pl.DataFrame, column: str, pattern: str, group_index: int, new_column: str
+        self,
+        data: pl.DataFrame,
+        column: str,
+        pattern: str,
+        group_index: int,
+        new_column: str,
     ) -> pl.DataFrame:
         return data.with_columns(
-            pl.col(column).str.extract(pattern, group_index=group_index).alias(new_column)
+            pl.col(column)
+            .str.extract(pattern, group_index=group_index)
+            .alias(new_column)
         )

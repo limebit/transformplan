@@ -1,4 +1,29 @@
-"""Mapping and transformation operations mixin."""
+"""Mapping and transformation operations mixin.
+
+This module provides the MapOps mixin class with value mapping, discretization,
+and transformation operations.
+
+Classes:
+    MapOps: Mixin providing value mapping operations.
+
+Mapping Operations:
+    map_values: Map values using dictionary.
+    map_case: Apply case-when logic.
+    map_from_column: Lookup values from another column.
+
+Discretization:
+    map_discretize: Bin numeric values into categories.
+
+Type Conversion:
+    map_bool_to_int: Convert boolean to integer.
+
+Null Handling:
+    map_null_to_value: Replace nulls with value.
+    map_value_to_null: Replace value with null.
+
+Example:
+    >>> plan = TransformPlan().map_values("status", {"A": "Active", "I": "Inactive"})
+"""
 
 from __future__ import annotations
 
@@ -41,7 +66,12 @@ class MapOps:
         """
         return self._register(
             self._map_values,
-            {"column": column, "mapping": mapping, "default": default, "keep_unmapped": keep_unmapped},
+            {
+                "column": column,
+                "mapping": mapping,
+                "default": default,
+                "keep_unmapped": keep_unmapped,
+            },
         )
 
     def _map_values(
@@ -116,9 +146,9 @@ class MapOps:
             edges = [-float("inf")] + bins + [float("inf")]
             for i in range(len(edges) - 1):
                 if right:
-                    labels.append(f"({edges[i]}, {edges[i+1]}]")
+                    labels.append(f"({edges[i]}, {edges[i + 1]}]")
                 else:
-                    labels.append(f"[{edges[i]}, {edges[i+1]})")
+                    labels.append(f"[{edges[i]}, {edges[i + 1]})")
 
         # Build when/then chain
         col = pl.col(column)
@@ -152,16 +182,24 @@ class MapOps:
 
     def map_null_to_value(self, column: str, value: Any) -> Self:
         """Replace null values with a specific value."""
-        return self._register(self._map_null_to_value, {"column": column, "value": value})
+        return self._register(
+            self._map_null_to_value, {"column": column, "value": value}
+        )
 
-    def _map_null_to_value(self, data: pl.DataFrame, column: str, value: Any) -> pl.DataFrame:
+    def _map_null_to_value(
+        self, data: pl.DataFrame, column: str, value: Any
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).fill_null(value))
 
     def map_value_to_null(self, column: str, value: Any) -> Self:
         """Replace a specific value with null."""
-        return self._register(self._map_value_to_null, {"column": column, "value": value})
+        return self._register(
+            self._map_value_to_null, {"column": column, "value": value}
+        )
 
-    def _map_value_to_null(self, data: pl.DataFrame, column: str, value: Any) -> pl.DataFrame:
+    def _map_value_to_null(
+        self, data: pl.DataFrame, column: str, value: Any
+    ) -> pl.DataFrame:
         return data.with_columns(
             pl.when(pl.col(column) == value)
             .then(pl.lit(None))
@@ -190,7 +228,12 @@ class MapOps:
         """
         return self._register(
             self._map_case,
-            {"column": column, "cases": cases, "default": default, "new_column": new_column or column},
+            {
+                "column": column,
+                "cases": cases,
+                "default": default,
+                "new_column": new_column or column,
+            },
         )
 
     def _map_case(

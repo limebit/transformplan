@@ -1,4 +1,24 @@
-"""Protocol class for tracking transformation history."""
+"""Protocol class for tracking transformation history.
+
+This module provides the Protocol class for capturing audit trails and the
+frame_hash function for computing deterministic DataFrame hashes.
+
+Classes:
+    Protocol: Captures transformation history with hashes, timing, and metadata.
+
+Functions:
+    frame_hash: Compute a deterministic, order-invariant hash of a DataFrame.
+
+The Protocol enables reproducibility verification by tracking input/output hashes
+and recording each transformation step with timing and shape change information.
+
+Example:
+    >>> from transformplan import TransformPlan
+    >>>
+    >>> result, protocol = TransformPlan().col_drop("temp").process(df)
+    >>> protocol.print()  # View formatted summary
+    >>> protocol.to_json("audit.json")  # Save for compliance
+"""
 
 from __future__ import annotations
 
@@ -74,17 +94,19 @@ class Protocol:
         elapsed: float,
         output_hash: str,
     ) -> None:
-        self._steps.append({
-            "step": len(self._steps) + 1,
-            "operation": operation,
-            "params": params,
-            "old_shape": old_shape,
-            "new_shape": new_shape,
-            "rows_changed": old_shape[0] - new_shape[0],
-            "cols_changed": old_shape[1] - new_shape[1],
-            "elapsed_seconds": round(elapsed, 4),
-            "output_hash": output_hash,
-        })
+        self._steps.append(
+            {
+                "step": len(self._steps) + 1,
+                "operation": operation,
+                "params": params,
+                "old_shape": old_shape,
+                "new_shape": new_shape,
+                "rows_changed": old_shape[0] - new_shape[0],
+                "cols_changed": old_shape[1] - new_shape[1],
+                "elapsed_seconds": round(elapsed, 4),
+                "output_hash": output_hash,
+            }
+        )
 
     @property
     def input_hash(self) -> str | None:
@@ -108,17 +130,19 @@ class Protocol:
 
         # Step 0: input state
         if self._input_hash is not None:
-            rows.append({
-                "step": 0,
-                "operation": "input",
-                "params": None,
-                "old_shape": None,
-                "new_shape": self._input_shape,
-                "rows_changed": 0,
-                "cols_changed": 0,
-                "elapsed_seconds": 0.0,
-                "output_hash": self._input_hash,
-            })
+            rows.append(
+                {
+                    "step": 0,
+                    "operation": "input",
+                    "params": None,
+                    "old_shape": None,
+                    "new_shape": self._input_shape,
+                    "rows_changed": 0,
+                    "cols_changed": 0,
+                    "elapsed_seconds": 0.0,
+                    "output_hash": self._input_hash,
+                }
+            )
 
         rows.extend(self._steps)
         return pl.DataFrame(rows)
@@ -135,30 +159,36 @@ class Protocol:
 
         # Step 0: input state
         if self._input_hash is not None:
-            rows.append({
-                "step": 0,
-                "operation": "input",
-                "params": None,
-                "old_shape": None,
-                "new_shape": str(list(self._input_shape)) if self._input_shape else None,
-                "rows_changed": 0,
-                "cols_changed": 0,
-                "elapsed_seconds": 0.0,
-                "output_hash": self._input_hash,
-            })
+            rows.append(
+                {
+                    "step": 0,
+                    "operation": "input",
+                    "params": None,
+                    "old_shape": None,
+                    "new_shape": str(list(self._input_shape))
+                    if self._input_shape
+                    else None,
+                    "rows_changed": 0,
+                    "cols_changed": 0,
+                    "elapsed_seconds": 0.0,
+                    "output_hash": self._input_hash,
+                }
+            )
 
         for step in self._steps:
-            rows.append({
-                "step": step["step"],
-                "operation": step["operation"],
-                "params": json.dumps(step["params"]) if step["params"] else None,
-                "old_shape": str(list(step["old_shape"])),
-                "new_shape": str(list(step["new_shape"])),
-                "rows_changed": step["rows_changed"],
-                "cols_changed": step["cols_changed"],
-                "elapsed_seconds": step["elapsed_seconds"],
-                "output_hash": step["output_hash"],
-            })
+            rows.append(
+                {
+                    "step": step["step"],
+                    "operation": step["operation"],
+                    "params": json.dumps(step["params"]) if step["params"] else None,
+                    "old_shape": str(list(step["old_shape"])),
+                    "new_shape": str(list(step["new_shape"])),
+                    "rows_changed": step["rows_changed"],
+                    "cols_changed": step["cols_changed"],
+                    "elapsed_seconds": step["elapsed_seconds"],
+                    "output_hash": step["output_hash"],
+                }
+            )
 
         pl.DataFrame(rows).write_csv(path)
 
@@ -201,17 +231,19 @@ class Protocol:
         protocol._input_shape = tuple(shape) if shape else None
 
         for step in data.get("steps", []):
-            protocol._steps.append({
-                "step": step["step"],
-                "operation": step["operation"],
-                "params": step["params"],
-                "old_shape": tuple(step["old_shape"]),
-                "new_shape": tuple(step["new_shape"]),
-                "rows_changed": step["rows_changed"],
-                "cols_changed": step["cols_changed"],
-                "elapsed_seconds": step["elapsed_seconds"],
-                "output_hash": step["output_hash"],
-            })
+            protocol._steps.append(
+                {
+                    "step": step["step"],
+                    "operation": step["operation"],
+                    "params": step["params"],
+                    "old_shape": tuple(step["old_shape"]),
+                    "new_shape": tuple(step["new_shape"]),
+                    "rows_changed": step["rows_changed"],
+                    "cols_changed": step["cols_changed"],
+                    "elapsed_seconds": step["elapsed_seconds"],
+                    "output_hash": step["output_hash"],
+                }
+            )
 
         return protocol
 
@@ -283,7 +315,11 @@ class Protocol:
 
         # Input info
         if self._input_hash:
-            shape_str = f"{self._input_shape[0]} rows × {self._input_shape[1]} cols" if self._input_shape else "unknown"
+            shape_str = (
+                f"{self._input_shape[0]} rows × {self._input_shape[1]} cols"
+                if self._input_shape
+                else "unknown"
+            )
             lines.append(f"Input:  {shape_str}  [{self._input_hash}]")
 
         # Output info
@@ -299,13 +335,17 @@ class Protocol:
 
         # Steps
         lines.append("")
-        lines.append(f"{'#':<4} {'Operation':<20} {'Rows':<12} {'Cols':<12} {'Time':<10} {'Hash':<16}")
+        lines.append(
+            f"{'#':<4} {'Operation':<20} {'Rows':<12} {'Cols':<12} {'Time':<10} {'Hash':<16}"
+        )
         lines.append("-" * 70)
 
         # Input row
         if self._input_hash:
             shape = self._input_shape or (0, 0)
-            lines.append(f"{'0':<4} {'input':<20} {shape[0]:<12} {shape[1]:<12} {'-':<10} {self._input_hash:<16}")
+            lines.append(
+                f"{'0':<4} {'input':<20} {shape[0]:<12} {shape[1]:<12} {'-':<10} {self._input_hash:<16}"
+            )
 
         # Operation rows
         no_effect_steps = []
@@ -316,7 +356,9 @@ class Protocol:
             cols = step["new_shape"][1]
 
             # Row/col change indicators (negative means removed)
-            row_change = -step["rows_changed"]  # flip: positive = added, negative = removed
+            row_change = -step[
+                "rows_changed"
+            ]  # flip: positive = added, negative = removed
             col_change = -step["cols_changed"]
             row_str = str(rows)
             col_str = str(cols)
@@ -329,7 +371,11 @@ class Protocol:
             hash_str = step["output_hash"]
 
             # Check if step had no effect (same hash as previous)
-            prev_hash = self._input_hash if step["step"] == 1 else self._steps[step["step"] - 2]["output_hash"]
+            prev_hash = (
+                self._input_hash
+                if step["step"] == 1
+                else self._steps[step["step"] - 2]["output_hash"]
+            )
             no_effect = hash_str == prev_hash
             if no_effect:
                 no_effect_steps.append(step["step"])
@@ -337,7 +383,9 @@ class Protocol:
             # Add marker for no-effect steps
             marker = " ○" if no_effect else ""
 
-            lines.append(f"{step_num:<4} {op:<20} {row_str:<12} {col_str:<12} {time_str:<10} {hash_str:<16}{marker}")
+            lines.append(
+                f"{step_num:<4} {op:<20} {row_str:<12} {col_str:<12} {time_str:<10} {hash_str:<16}{marker}"
+            )
 
             # Params
             if show_params and step["params"]:
@@ -348,7 +396,9 @@ class Protocol:
 
         # Add note about no-effect steps
         if no_effect_steps:
-            lines.append(f"○ = no effect (steps {', '.join(map(str, no_effect_steps))} did not change data)")
+            lines.append(
+                f"○ = no effect (steps {', '.join(map(str, no_effect_steps))} did not change data)"
+            )
 
         return "\n".join(lines)
 
@@ -370,7 +420,7 @@ class Protocol:
 
         result = ", ".join(parts)
         if len(result) > max_length:
-            result = result[:max_length - 3] + "..."
+            result = result[: max_length - 3] + "..."
         return result
 
     def _format_filter(self, filter_dict: dict) -> str:
@@ -388,7 +438,14 @@ class Protocol:
         elif filter_type in ("eq", "ne", "gt", "ge", "lt", "le"):
             col = filter_dict.get("column", "?")
             val = filter_dict.get("value", "?")
-            op_map = {"eq": "==", "ne": "!=", "gt": ">", "ge": ">=", "lt": "<", "le": "<="}
+            op_map = {
+                "eq": "==",
+                "ne": "!=",
+                "gt": ">",
+                "ge": ">=",
+                "lt": "<",
+                "le": "<=",
+            }
             return f"{col} {op_map[filter_type]} {val!r}"
         elif filter_type == "is_in":
             col = filter_dict.get("column", "?")

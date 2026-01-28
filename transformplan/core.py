@@ -1,4 +1,16 @@
-"""Core processor with registration and execution logic."""
+"""Core processor with registration and execution logic.
+
+This module provides the base class for TransformPlan with operation registration,
+execution, serialization, and validation capabilities.
+
+Classes:
+    HasRegister: Protocol for mixins that need access to the _register method.
+    TransformPlanBase: Base class with execution logic and operation registry.
+
+The TransformPlanBase uses a deferred execution model where operations are
+registered via method chaining, then executed together when process() is called.
+This enables validation and dry-run previews before actual data modification.
+"""
 
 from __future__ import annotations
 
@@ -24,8 +36,7 @@ class HasRegister(TypingProtocol):
         self,
         method: Callable[..., pl.DataFrame],
         params: dict[str, Any],
-    ) -> Self:
-        ...
+    ) -> Self: ...
 
 
 class TransformPlanBase:
@@ -136,10 +147,12 @@ class TransformPlanBase:
         steps = []
         for method, params in self._operations:
             op_name = method.__name__.lstrip("_")
-            steps.append({
-                "operation": op_name,
-                "params": params,
-            })
+            steps.append(
+                {
+                    "operation": op_name,
+                    "params": params,
+                }
+            )
 
         return {
             "version": self.VERSION,

@@ -1,4 +1,36 @@
-"""Schema validation for TransformPlan operations."""
+"""Schema validation for TransformPlan operations.
+
+This module provides schema validation and dry-run preview capabilities for
+TransformPlan pipelines. It validates operations against DataFrame schemas
+before execution, catching errors like missing columns or type mismatches.
+
+Classes:
+    ValidationResult: Container for validation errors.
+    ValidationError: Single validation error with step and message.
+    SchemaValidationError: Exception raised when validation fails.
+    DryRunResult: Preview showing what each operation will do.
+    DryRunStep: Single step in a dry run with schema changes.
+    SchemaTracker: Internal tracker for schema changes through a pipeline.
+
+Functions:
+    validate_schema: Validate operations against a schema.
+    dry_run_schema: Preview operations without executing.
+
+Type Checking Functions:
+    is_numeric: Check if dtype is numeric.
+    is_string: Check if dtype is string.
+    is_datetime: Check if dtype is datetime-related.
+    is_boolean: Check if dtype is boolean.
+
+Example:
+    >>> from transformplan import TransformPlan
+    >>>
+    >>> plan = TransformPlan().col_drop("nonexistent")
+    >>> result = plan.validate(df)
+    >>> if not result.is_valid:
+    ...     for error in result.errors:
+    ...         print(error)
+"""
 
 from __future__ import annotations
 
@@ -242,7 +274,9 @@ class DryRunResult:
             # Error marker
             err_marker = " ✗" if step.error else ""
 
-            lines.append(f"{step_num:<4} {op:<20} {col_count:<15} {changes_str:<30}{err_marker}")
+            lines.append(
+                f"{step_num:<4} {op:<20} {col_count:<15} {changes_str:<30}{err_marker}"
+            )
 
             # Params
             if show_params and step.params:
@@ -333,7 +367,9 @@ class SchemaTracker:
 
     def set_columns(self, columns: list[str]) -> None:
         """Keep only the specified columns in order."""
-        self._schema = {col: self._schema[col] for col in columns if col in self._schema}
+        self._schema = {
+            col: self._schema[col] for col in columns if col in self._schema
+        }
 
 
 # =============================================================================
@@ -400,7 +436,9 @@ def _check_column_datetime(
     dtype = tracker.get_dtype(column)
     if dtype and not is_datetime(dtype):
         result.add_error(
-            step, op_name, f"Column '{column}' is {dtype_name(dtype)}, expected date/datetime"
+            step,
+            op_name,
+            f"Column '{column}' is {dtype_name(dtype)}, expected date/datetime",
         )
         return False
     return True
@@ -609,7 +647,9 @@ def _validate_math_cumsum(
     if group_by:
         missing = [col for col in group_by if not tracker.has_column(col)]
         if missing:
-            result.add_error(step, "math_cumsum", f"Group-by columns do not exist: {missing}")
+            result.add_error(
+                step, "math_cumsum", f"Group-by columns do not exist: {missing}"
+            )
 
     if new_column != column:
         tracker.add_column(new_column, tracker.get_dtype(column))
@@ -627,7 +667,9 @@ def _validate_math_rank(
     if group_by:
         missing = [col for col in group_by if not tracker.has_column(col)]
         if missing:
-            result.add_error(step, "math_rank", f"Group-by columns do not exist: {missing}")
+            result.add_error(
+                step, "math_rank", f"Group-by columns do not exist: {missing}"
+            )
 
     tracker.add_column(new_column, pl.UInt32)
 
@@ -677,7 +719,9 @@ def _validate_str_split(
     if new_columns:
         for new_col in new_columns:
             if tracker.has_column(new_col):
-                result.add_error(step, "str_split", f"Column '{new_col}' already exists")
+                result.add_error(
+                    step, "str_split", f"Column '{new_col}' already exists"
+                )
             else:
                 tracker.add_column(new_col, pl.Utf8)
         if not params.get("keep_original", False):
@@ -787,8 +831,12 @@ def _validate_dt_age_years(
         _check_column_datetime(tracker, birth_column, result, step, "dt_age_years")
 
     if reference_column:
-        if _check_column_exists(tracker, reference_column, result, step, "dt_age_years"):
-            _check_column_datetime(tracker, reference_column, result, step, "dt_age_years")
+        if _check_column_exists(
+            tracker, reference_column, result, step, "dt_age_years"
+        ):
+            _check_column_datetime(
+                tracker, reference_column, result, step, "dt_age_years"
+            )
 
     tracker.add_column(new_column, pl.Int64)
 
@@ -817,7 +865,9 @@ def _validate_rows_drop_nulls(
     if columns:
         missing = [col for col in columns if not tracker.has_column(col)]
         if missing:
-            result.add_error(step, "rows_drop_nulls", f"Columns do not exist: {missing}")
+            result.add_error(
+                step, "rows_drop_nulls", f"Columns do not exist: {missing}"
+            )
 
 
 def _validate_rows_unique(
@@ -831,17 +881,33 @@ def _validate_rows_unique(
 
 
 def _validate_filter_columns(
-    filter_dict: dict[str, Any], tracker: SchemaTracker, result: ValidationResult, step: int, op_name: str
+    filter_dict: dict[str, Any],
+    tracker: SchemaTracker,
+    result: ValidationResult,
+    step: int,
+    op_name: str,
 ) -> list[str]:
     """Recursively validate columns and types from a filter dict."""
     missing = []
     filter_type = filter_dict.get("type")
 
     if filter_type in ("and", "or"):
-        missing.extend(_validate_filter_columns(filter_dict["left"], tracker, result, step, op_name))
-        missing.extend(_validate_filter_columns(filter_dict["right"], tracker, result, step, op_name))
+        missing.extend(
+            _validate_filter_columns(
+                filter_dict["left"], tracker, result, step, op_name
+            )
+        )
+        missing.extend(
+            _validate_filter_columns(
+                filter_dict["right"], tracker, result, step, op_name
+            )
+        )
     elif filter_type == "not":
-        missing.extend(_validate_filter_columns(filter_dict["operand"], tracker, result, step, op_name))
+        missing.extend(
+            _validate_filter_columns(
+                filter_dict["operand"], tracker, result, step, op_name
+            )
+        )
     elif "column" in filter_dict:
         column = filter_dict["column"]
         if not tracker.has_column(column):
@@ -854,16 +920,18 @@ def _validate_filter_columns(
             if filter_type in ("gt", "ge", "lt", "le", "between"):
                 if dtype and not is_numeric(dtype) and not is_datetime(dtype):
                     result.add_error(
-                        step, op_name,
-                        f"Column '{column}' is {dtype_name(dtype)}, cannot use numeric comparison"
+                        step,
+                        op_name,
+                        f"Column '{column}' is {dtype_name(dtype)}, cannot use numeric comparison",
                     )
 
             # String operations
             if filter_type in ("str_contains", "str_starts_with", "str_ends_with"):
                 if dtype and not is_string(dtype):
                     result.add_error(
-                        step, op_name,
-                        f"Column '{column}' is {dtype_name(dtype)}, cannot use string filter"
+                        step,
+                        op_name,
+                        f"Column '{column}' is {dtype_name(dtype)}, cannot use string filter",
                     )
 
     return missing
@@ -873,7 +941,9 @@ def _validate_rows_filter(
     tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
 ) -> None:
     filter_dict = params.get("filter", {})
-    missing = _validate_filter_columns(filter_dict, tracker, result, step, "rows_filter")
+    missing = _validate_filter_columns(
+        filter_dict, tracker, result, step, "rows_filter"
+    )
     if missing:
         unique_missing = list(dict.fromkeys(missing))
         result.add_error(step, "rows_filter", f"Columns do not exist: {unique_missing}")
@@ -926,7 +996,9 @@ def _validate_rows_deduplicate(
         result.add_error(step, "rows_deduplicate", f"Columns do not exist: {missing}")
 
     if not tracker.has_column(sort_by):
-        result.add_error(step, "rows_deduplicate", f"Sort column '{sort_by}' does not exist")
+        result.add_error(
+            step, "rows_deduplicate", f"Sort column '{sort_by}' does not exist"
+        )
 
 
 def _validate_rows_explode(
@@ -936,7 +1008,11 @@ def _validate_rows_explode(
     if _check_column_exists(tracker, column, result, step, "rows_explode"):
         dtype = tracker.get_dtype(column)
         if dtype and not isinstance(dtype, pl.List):
-            result.add_error(step, "rows_explode", f"Column '{column}' is {dtype_name(dtype)}, expected List")
+            result.add_error(
+                step,
+                "rows_explode",
+                f"Column '{column}' is {dtype_name(dtype)}, expected List",
+            )
 
 
 def _validate_rows_melt(
@@ -951,7 +1027,9 @@ def _validate_rows_melt(
     if missing_id:
         result.add_error(step, "rows_melt", f"ID columns do not exist: {missing_id}")
     if missing_val:
-        result.add_error(step, "rows_melt", f"Value columns do not exist: {missing_val}")
+        result.add_error(
+            step, "rows_melt", f"Value columns do not exist: {missing_val}"
+        )
 
 
 def _validate_rows_pivot(
@@ -1036,18 +1114,34 @@ _VALIDATORS: dict[str, Any] = {
     "col_coalesce": _validate_col_coalesce,
     # Math ops
     "math_add": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_add"),
-    "math_subtract": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_subtract"),
-    "math_multiply": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_multiply"),
+    "math_subtract": lambda t, p, r, s: _validate_math_scalar(
+        t, p, r, s, "math_subtract"
+    ),
+    "math_multiply": lambda t, p, r, s: _validate_math_scalar(
+        t, p, r, s, "math_multiply"
+    ),
     "math_divide": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_divide"),
     "math_clamp": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_clamp"),
     "math_abs": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_abs"),
     "math_round": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_round"),
-    "math_set_min": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_set_min"),
-    "math_set_max": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_set_max"),
-    "math_add_columns": lambda t, p, r, s: _validate_math_columns(t, p, r, s, "math_add_columns"),
-    "math_subtract_columns": lambda t, p, r, s: _validate_math_columns(t, p, r, s, "math_subtract_columns"),
-    "math_multiply_columns": lambda t, p, r, s: _validate_math_columns(t, p, r, s, "math_multiply_columns"),
-    "math_divide_columns": lambda t, p, r, s: _validate_math_columns(t, p, r, s, "math_divide_columns"),
+    "math_set_min": lambda t, p, r, s: _validate_math_scalar(
+        t, p, r, s, "math_set_min"
+    ),
+    "math_set_max": lambda t, p, r, s: _validate_math_scalar(
+        t, p, r, s, "math_set_max"
+    ),
+    "math_add_columns": lambda t, p, r, s: _validate_math_columns(
+        t, p, r, s, "math_add_columns"
+    ),
+    "math_subtract_columns": lambda t, p, r, s: _validate_math_columns(
+        t, p, r, s, "math_subtract_columns"
+    ),
+    "math_multiply_columns": lambda t, p, r, s: _validate_math_columns(
+        t, p, r, s, "math_multiply_columns"
+    ),
+    "math_divide_columns": lambda t, p, r, s: _validate_math_columns(
+        t, p, r, s, "math_divide_columns"
+    ),
     "math_cumsum": _validate_math_cumsum,
     "math_rank": _validate_math_rank,
     "math_percent_of": _validate_math_percent_of,
@@ -1068,10 +1162,18 @@ _VALIDATORS: dict[str, Any] = {
     "dt_day": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_day"),
     "dt_week": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_week"),
     "dt_quarter": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_quarter"),
-    "dt_year_month": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_year_month", pl.Utf8),
-    "dt_quarter_year": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_quarter_year", pl.Utf8),
-    "dt_calendar_week": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_calendar_week", pl.Utf8),
-    "dt_truncate": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_truncate", pl.Date),
+    "dt_year_month": lambda t, p, r, s: _validate_dt_op(
+        t, p, r, s, "dt_year_month", pl.Utf8
+    ),
+    "dt_quarter_year": lambda t, p, r, s: _validate_dt_op(
+        t, p, r, s, "dt_quarter_year", pl.Utf8
+    ),
+    "dt_calendar_week": lambda t, p, r, s: _validate_dt_op(
+        t, p, r, s, "dt_calendar_week", pl.Utf8
+    ),
+    "dt_truncate": lambda t, p, r, s: _validate_dt_op(
+        t, p, r, s, "dt_truncate", pl.Date
+    ),
     "dt_parse": _validate_dt_parse,
     "dt_format": _validate_dt_format,
     "dt_diff_days": _validate_dt_diff_days,

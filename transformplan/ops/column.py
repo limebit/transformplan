@@ -1,4 +1,29 @@
-"""Column operations mixin."""
+"""Column operations mixin.
+
+This module provides the ColumnOps mixin class with operations for adding,
+dropping, renaming, casting, and transforming DataFrame columns.
+
+Classes:
+    ColumnOps: Mixin providing column-level operations.
+
+Operations:
+    col_drop: Drop a column.
+    col_rename: Rename a column.
+    col_cast: Cast column to different dtype.
+    col_reorder: Reorder columns (drops unlisted).
+    col_select: Keep only specified columns.
+    col_duplicate: Copy a column.
+    col_fill_null: Fill null values.
+    col_drop_null: Drop rows with nulls.
+    col_drop_zero: Drop rows with zero values.
+    col_add: Add new column with value or expression.
+    col_add_uuid: Add column with unique identifiers.
+    col_hash: Hash columns into new column.
+    col_coalesce: First non-null across columns.
+
+Example:
+    >>> plan = TransformPlan().col_rename("old", "new").col_drop("temp")
+"""
 
 from __future__ import annotations
 
@@ -36,9 +61,13 @@ class ColumnOps:
 
     def col_rename(self, column: str, new_name: str) -> Self:
         """Rename a column."""
-        return self._register(self._col_rename, {"column": column, "new_name": new_name})
+        return self._register(
+            self._col_rename, {"column": column, "new_name": new_name}
+        )
 
-    def _col_rename(self, data: pl.DataFrame, column: str, new_name: str) -> pl.DataFrame:
+    def _col_rename(
+        self, data: pl.DataFrame, column: str, new_name: str
+    ) -> pl.DataFrame:
         return data.rename({column: new_name})
 
     def col_cast(self, column: str, dtype: type) -> Self:
@@ -57,9 +86,13 @@ class ColumnOps:
 
     def col_duplicate(self, column: str, new_name: str) -> Self:
         """Duplicate a column under a new name."""
-        return self._register(self._col_duplicate, {"column": column, "new_name": new_name})
+        return self._register(
+            self._col_duplicate, {"column": column, "new_name": new_name}
+        )
 
-    def _col_duplicate(self, data: pl.DataFrame, column: str, new_name: str) -> pl.DataFrame:
+    def _col_duplicate(
+        self, data: pl.DataFrame, column: str, new_name: str
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).alias(new_name))
 
     def col_fill_null(
@@ -73,7 +106,8 @@ class ColumnOps:
             strategy: Fill strategy - 'forward', 'backward', 'mean', 'min', 'max', 'zero', 'one'.
         """
         return self._register(
-            self._col_fill_null, {"column": column, "value": value, "strategy": strategy}
+            self._col_fill_null,
+            {"column": column, "value": value, "strategy": strategy},
         )
 
     def _col_fill_null(
@@ -138,9 +172,14 @@ class ColumnOps:
         """
         return self._register(self._col_add_uuid, {"column": column, "length": length})
 
-    def _col_add_uuid(self, data: pl.DataFrame, column: str, length: int) -> pl.DataFrame:
+    def _col_add_uuid(
+        self, data: pl.DataFrame, column: str, length: int
+    ) -> pl.DataFrame:
         chars = string.ascii_letters + string.digits
-        ids = ["".join(secrets.choice(chars) for _ in range(length)) for _ in range(len(data))]
+        ids = [
+            "".join(secrets.choice(chars) for _ in range(length))
+            for _ in range(len(data))
+        ]
         return data.with_columns(pl.Series(name=column, values=ids))
 
     def col_hash(
@@ -159,7 +198,8 @@ class ColumnOps:
         if isinstance(columns, str):
             columns = [columns]
         return self._register(
-            self._col_hash, {"columns": list(columns), "new_column": new_column, "salt": salt}
+            self._col_hash,
+            {"columns": list(columns), "new_column": new_column, "salt": salt},
         )
 
     def _col_hash(
@@ -191,7 +231,9 @@ class ColumnOps:
     def _col_coalesce(
         self, data: pl.DataFrame, columns: list[str], new_column: str
     ) -> pl.DataFrame:
-        return data.with_columns(pl.coalesce([pl.col(c) for c in columns]).alias(new_column))
+        return data.with_columns(
+            pl.coalesce([pl.col(c) for c in columns]).alias(new_column)
+        )
 
     def col_select(self, columns: Sequence[str]) -> Self:
         """Keep only the specified columns (order preserved).

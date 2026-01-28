@@ -1,4 +1,38 @@
-"""Datetime operations mixin."""
+"""Datetime operations mixin.
+
+This module provides the DatetimeOps mixin class with date and time
+extraction and manipulation operations.
+
+Classes:
+    DatetimeOps: Mixin providing datetime operations.
+
+Extraction Operations:
+    dt_year: Extract year.
+    dt_month: Extract month.
+    dt_day: Extract day.
+    dt_week: Extract ISO week number.
+    dt_quarter: Extract quarter (1-4).
+
+Formatting Operations:
+    dt_year_month: Create year-month string.
+    dt_quarter_year: Create quarter-year string.
+    dt_calendar_week: Create year-week string.
+    dt_format: Format datetime as string.
+
+Parsing:
+    dt_parse: Parse string to datetime.
+
+Arithmetic:
+    dt_diff_days: Difference in days.
+    dt_age_years: Calculate age in years.
+
+Other:
+    dt_truncate: Truncate to precision.
+    dt_is_between: Check if in date range.
+
+Example:
+    >>> plan = TransformPlan().dt_parse("date_str").dt_year("date", "year")
+"""
 
 from __future__ import annotations
 
@@ -35,7 +69,9 @@ class DatetimeOps:
             self._dt_year, {"column": column, "new_column": new_column or column}
         )
 
-    def _dt_year(self, data: pl.DataFrame, column: str, new_column: str) -> pl.DataFrame:
+    def _dt_year(
+        self, data: pl.DataFrame, column: str, new_column: str
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.year().alias(new_column))
 
     def dt_month(self, column: str, new_column: str | None = None) -> Self:
@@ -49,7 +85,9 @@ class DatetimeOps:
             self._dt_month, {"column": column, "new_column": new_column or column}
         )
 
-    def _dt_month(self, data: pl.DataFrame, column: str, new_column: str) -> pl.DataFrame:
+    def _dt_month(
+        self, data: pl.DataFrame, column: str, new_column: str
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.month().alias(new_column))
 
     def dt_day(self, column: str, new_column: str | None = None) -> Self:
@@ -77,7 +115,9 @@ class DatetimeOps:
             self._dt_week, {"column": column, "new_column": new_column or column}
         )
 
-    def _dt_week(self, data: pl.DataFrame, column: str, new_column: str) -> pl.DataFrame:
+    def _dt_week(
+        self, data: pl.DataFrame, column: str, new_column: str
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.week().alias(new_column))
 
     def dt_quarter(self, column: str, new_column: str | None = None) -> Self:
@@ -91,7 +131,9 @@ class DatetimeOps:
             self._dt_quarter, {"column": column, "new_column": new_column or column}
         )
 
-    def _dt_quarter(self, data: pl.DataFrame, column: str, new_column: str) -> pl.DataFrame:
+    def _dt_quarter(
+        self, data: pl.DataFrame, column: str, new_column: str
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.quarter().alias(new_column))
 
     def dt_year_month(self, column: str, new_column: str, fmt: str = "%Y-%m") -> Self:
@@ -103,7 +145,8 @@ class DatetimeOps:
             fmt: Output format string.
         """
         return self._register(
-            self._dt_year_month, {"column": column, "new_column": new_column, "fmt": fmt}
+            self._dt_year_month,
+            {"column": column, "new_column": new_column, "fmt": fmt},
         )
 
     def _dt_year_month(
@@ -170,7 +213,8 @@ class DatetimeOps:
             new_column: Name for result column (None = modify in place).
         """
         return self._register(
-            self._dt_parse, {"column": column, "fmt": fmt, "new_column": new_column or column}
+            self._dt_parse,
+            {"column": column, "fmt": fmt, "new_column": new_column or column},
         )
 
     def _dt_parse(
@@ -189,7 +233,8 @@ class DatetimeOps:
             new_column: Name for result column (None = modify in place).
         """
         return self._register(
-            self._dt_format, {"column": column, "fmt": fmt, "new_column": new_column or column}
+            self._dt_format,
+            {"column": column, "fmt": fmt, "new_column": new_column or column},
         )
 
     def _dt_format(
@@ -232,7 +277,11 @@ class DatetimeOps:
         """
         return self._register(
             self._dt_age_years,
-            {"birth_column": birth_column, "reference_column": reference_column, "new_column": new_column},
+            {
+                "birth_column": birth_column,
+                "reference_column": reference_column,
+                "new_column": new_column,
+            },
         )
 
     def _dt_age_years(
@@ -246,6 +295,7 @@ class DatetimeOps:
             ref = pl.lit(pl.Series([None]).cast(pl.Date).fill_null(strategy="max"))
             # Use current date
             import datetime
+
             ref = pl.lit(datetime.date.today())
         else:
             ref = pl.col(reference_column)
@@ -268,7 +318,8 @@ class DatetimeOps:
             new_column: Name for result column (None = modify in place).
         """
         return self._register(
-            self._dt_truncate, {"column": column, "every": every, "new_column": new_column or column}
+            self._dt_truncate,
+            {"column": column, "every": every, "new_column": new_column or column},
         )
 
     def _dt_truncate(
@@ -295,7 +346,13 @@ class DatetimeOps:
         """
         return self._register(
             self._dt_is_between,
-            {"column": column, "start": start, "end": end, "new_column": new_column, "closed": closed},
+            {
+                "column": column,
+                "start": start,
+                "end": end,
+                "new_column": new_column,
+                "closed": closed,
+            },
         )
 
     def _dt_is_between(
@@ -308,5 +365,9 @@ class DatetimeOps:
         closed: str,
     ) -> pl.DataFrame:
         return data.with_columns(
-            pl.col(column).is_between(pl.lit(start).str.to_date(), pl.lit(end).str.to_date(), closed=closed).alias(new_column)
+            pl.col(column)
+            .is_between(
+                pl.lit(start).str.to_date(), pl.lit(end).str.to_date(), closed=closed
+            )
+            .alias(new_column)
         )

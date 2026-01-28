@@ -1,4 +1,36 @@
-"""Math operations mixin."""
+"""Math operations mixin.
+
+This module provides the MathOps mixin class with arithmetic and numeric
+operations on DataFrame columns.
+
+Classes:
+    MathOps: Mixin providing mathematical operations.
+
+Scalar Operations:
+    math_add: Add scalar to column.
+    math_subtract: Subtract scalar from column.
+    math_multiply: Multiply column by scalar.
+    math_divide: Divide column by scalar.
+    math_abs: Absolute value.
+    math_round: Round to decimal places.
+    math_clamp: Clamp values to range.
+    math_set_min: Set minimum value.
+    math_set_max: Set maximum value.
+
+Column Operations:
+    math_add_columns: Add two columns.
+    math_subtract_columns: Subtract columns.
+    math_multiply_columns: Multiply columns.
+    math_divide_columns: Divide columns.
+    math_percent_of: Calculate percentage.
+
+Aggregate Operations:
+    math_cumsum: Cumulative sum.
+    math_rank: Rank values.
+
+Example:
+    >>> plan = TransformPlan().math_multiply("price", 1.1).math_round("price", 2)
+"""
 
 from __future__ import annotations
 
@@ -30,28 +62,36 @@ class MathOps:
         """Add a scalar value to a column."""
         return self._register(self._math_add, {"column": column, "value": value})
 
-    def _math_add(self, data: pl.DataFrame, column: str, value: Numeric) -> pl.DataFrame:
+    def _math_add(
+        self, data: pl.DataFrame, column: str, value: Numeric
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column) + value)
 
     def math_subtract(self, column: str, value: Numeric) -> Self:
         """Subtract a scalar value from a column."""
         return self._register(self._math_subtract, {"column": column, "value": value})
 
-    def _math_subtract(self, data: pl.DataFrame, column: str, value: Numeric) -> pl.DataFrame:
+    def _math_subtract(
+        self, data: pl.DataFrame, column: str, value: Numeric
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column) - value)
 
     def math_multiply(self, column: str, value: Numeric) -> Self:
         """Multiply a column by a scalar value."""
         return self._register(self._math_multiply, {"column": column, "value": value})
 
-    def _math_multiply(self, data: pl.DataFrame, column: str, value: Numeric) -> pl.DataFrame:
+    def _math_multiply(
+        self, data: pl.DataFrame, column: str, value: Numeric
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column) * value)
 
     def math_divide(self, column: str, value: Numeric) -> Self:
         """Divide a column by a scalar value."""
         return self._register(self._math_divide, {"column": column, "value": value})
 
-    def _math_divide(self, data: pl.DataFrame, column: str, value: Numeric) -> pl.DataFrame:
+    def _math_divide(
+        self, data: pl.DataFrame, column: str, value: Numeric
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column) / value)
 
     def math_clamp(
@@ -61,7 +101,9 @@ class MathOps:
         upper: Numeric | None = None,
     ) -> Self:
         """Clamp column values to a range."""
-        return self._register(self._math_clamp, {"column": column, "lower": lower, "upper": upper})
+        return self._register(
+            self._math_clamp, {"column": column, "lower": lower, "upper": upper}
+        )
 
     def _math_clamp(
         self,
@@ -82,9 +124,13 @@ class MathOps:
     def _math_add_columns(
         self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
     ) -> pl.DataFrame:
-        return data.with_columns((pl.col(column_a) + pl.col(column_b)).alias(new_column))
+        return data.with_columns(
+            (pl.col(column_a) + pl.col(column_b)).alias(new_column)
+        )
 
-    def math_subtract_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
+    def math_subtract_columns(
+        self, column_a: str, column_b: str, new_column: str
+    ) -> Self:
         """Subtract column_b from column_a into a new column."""
         return self._register(
             self._math_subtract_columns,
@@ -94,9 +140,13 @@ class MathOps:
     def _math_subtract_columns(
         self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
     ) -> pl.DataFrame:
-        return data.with_columns((pl.col(column_a) - pl.col(column_b)).alias(new_column))
+        return data.with_columns(
+            (pl.col(column_a) - pl.col(column_b)).alias(new_column)
+        )
 
-    def math_multiply_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
+    def math_multiply_columns(
+        self, column_a: str, column_b: str, new_column: str
+    ) -> Self:
         """Multiply two columns together into a new column."""
         return self._register(
             self._math_multiply_columns,
@@ -106,9 +156,13 @@ class MathOps:
     def _math_multiply_columns(
         self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
     ) -> pl.DataFrame:
-        return data.with_columns((pl.col(column_a) * pl.col(column_b)).alias(new_column))
+        return data.with_columns(
+            (pl.col(column_a) * pl.col(column_b)).alias(new_column)
+        )
 
-    def math_divide_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
+    def math_divide_columns(
+        self, column_a: str, column_b: str, new_column: str
+    ) -> Self:
         """Divide column_a by column_b into a new column."""
         return self._register(
             self._math_divide_columns,
@@ -118,13 +172,19 @@ class MathOps:
     def _math_divide_columns(
         self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
     ) -> pl.DataFrame:
-        return data.with_columns((pl.col(column_a) / pl.col(column_b)).alias(new_column))
+        return data.with_columns(
+            (pl.col(column_a) / pl.col(column_b)).alias(new_column)
+        )
 
     def math_set_min(self, column: str, min_value: Numeric) -> Self:
         """Set a minimum value for a column (values below are raised to min)."""
-        return self._register(self._math_set_min, {"column": column, "min_value": min_value})
+        return self._register(
+            self._math_set_min, {"column": column, "min_value": min_value}
+        )
 
-    def _math_set_min(self, data: pl.DataFrame, column: str, min_value: Numeric) -> pl.DataFrame:
+    def _math_set_min(
+        self, data: pl.DataFrame, column: str, min_value: Numeric
+    ) -> pl.DataFrame:
         return data.with_columns(
             pl.when(pl.col(column) < min_value)
             .then(min_value)
@@ -134,9 +194,13 @@ class MathOps:
 
     def math_set_max(self, column: str, max_value: Numeric) -> Self:
         """Set a maximum value for a column (values above are lowered to max)."""
-        return self._register(self._math_set_max, {"column": column, "max_value": max_value})
+        return self._register(
+            self._math_set_max, {"column": column, "max_value": max_value}
+        )
 
-    def _math_set_max(self, data: pl.DataFrame, column: str, max_value: Numeric) -> pl.DataFrame:
+    def _math_set_max(
+        self, data: pl.DataFrame, column: str, max_value: Numeric
+    ) -> pl.DataFrame:
         return data.with_columns(
             pl.when(pl.col(column) > max_value)
             .then(max_value)
@@ -153,9 +217,13 @@ class MathOps:
 
     def math_round(self, column: str, decimals: int = 0) -> Self:
         """Round a column to specified decimal places."""
-        return self._register(self._math_round, {"column": column, "decimals": decimals})
+        return self._register(
+            self._math_round, {"column": column, "decimals": decimals}
+        )
 
-    def _math_round(self, data: pl.DataFrame, column: str, decimals: int) -> pl.DataFrame:
+    def _math_round(
+        self, data: pl.DataFrame, column: str, decimals: int
+    ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).round(decimals))
 
     def math_percent_of(
@@ -175,11 +243,21 @@ class MathOps:
         """
         return self._register(
             self._math_percent_of,
-            {"column": column, "total_column": total_column, "new_column": new_column, "multiply_by": multiply_by},
+            {
+                "column": column,
+                "total_column": total_column,
+                "new_column": new_column,
+                "multiply_by": multiply_by,
+            },
         )
 
     def _math_percent_of(
-        self, data: pl.DataFrame, column: str, total_column: str, new_column: str, multiply_by: float
+        self,
+        data: pl.DataFrame,
+        column: str,
+        total_column: str,
+        new_column: str,
+        multiply_by: float,
     ) -> pl.DataFrame:
         return data.with_columns(
             (pl.col(column) / pl.col(total_column) * multiply_by).alias(new_column)
@@ -202,11 +280,19 @@ class MathOps:
             group_by = [group_by]
         return self._register(
             self._math_cumsum,
-            {"column": column, "new_column": new_column or column, "group_by": group_by},
+            {
+                "column": column,
+                "new_column": new_column or column,
+                "group_by": group_by,
+            },
         )
 
     def _math_cumsum(
-        self, data: pl.DataFrame, column: str, new_column: str, group_by: list[str] | None
+        self,
+        data: pl.DataFrame,
+        column: str,
+        new_column: str,
+        group_by: list[str] | None,
     ) -> pl.DataFrame:
         if group_by:
             return data.with_columns(
@@ -235,7 +321,13 @@ class MathOps:
             group_by = [group_by]
         return self._register(
             self._math_rank,
-            {"column": column, "new_column": new_column, "method": method, "descending": descending, "group_by": group_by},
+            {
+                "column": column,
+                "new_column": new_column,
+                "method": method,
+                "descending": descending,
+                "group_by": group_by,
+            },
         )
 
     def _math_rank(

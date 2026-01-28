@@ -1,4 +1,36 @@
-"""Row operations mixin."""
+"""Row operations mixin.
+
+This module provides the RowOps mixin class with operations for filtering,
+sorting, and transforming DataFrame rows.
+
+Classes:
+    RowOps: Mixin providing row-level operations.
+
+Filtering Operations:
+    rows_filter: Keep rows matching filter.
+    rows_drop: Drop rows matching filter.
+    rows_drop_nulls: Drop rows with null values.
+    rows_flag: Add flag column based on condition.
+
+Deduplication:
+    rows_unique: Keep unique rows.
+    rows_deduplicate: Deduplicate with sort order.
+
+Ordering:
+    rows_sort: Sort by columns.
+    rows_head: Keep first n rows.
+    rows_tail: Keep last n rows.
+    rows_sample: Random sample.
+
+Reshaping:
+    rows_explode: Explode list column.
+    rows_melt: Wide to long format.
+    rows_pivot: Long to wide format.
+
+Example:
+    >>> from transformplan import Col
+    >>> plan = TransformPlan().rows_filter(Col("age") >= 18).rows_sort("name")
+"""
 
 from __future__ import annotations
 
@@ -109,7 +141,12 @@ class RowOps:
             columns = [columns]
         return self._register(
             self._rows_deduplicate,
-            {"columns": list(columns), "sort_by": sort_by, "keep": keep, "descending": descending},
+            {
+                "columns": list(columns),
+                "sort_by": sort_by,
+                "keep": keep,
+                "descending": descending,
+            },
         )
 
     def _rows_deduplicate(
@@ -188,7 +225,11 @@ class RowOps:
         )
 
     def _rows_sample(
-        self, data: pl.DataFrame, n: int | None, fraction: float | None, seed: int | None
+        self,
+        data: pl.DataFrame,
+        n: int | None,
+        fraction: float | None,
+        seed: int | None,
     ) -> pl.DataFrame:
         return data.sample(n=n, fraction=fraction, seed=seed)
 
@@ -219,7 +260,9 @@ class RowOps:
         """
         if isinstance(by, str):
             by = [by]
-        return self._register(self._rows_sort, {"by": list(by), "descending": descending})
+        return self._register(
+            self._rows_sort, {"by": list(by), "descending": descending}
+        )
 
     def _rows_sort(
         self, data: pl.DataFrame, by: list[str], descending: bool | Sequence[bool]
@@ -247,7 +290,12 @@ class RowOps:
             filter_dict = filter.to_dict()
         return self._register(
             self._rows_flag,
-            {"filter": filter_dict, "new_column": new_column, "true_value": true_value, "false_value": false_value},
+            {
+                "filter": filter_dict,
+                "new_column": new_column,
+                "true_value": true_value,
+                "false_value": false_value,
+            },
         )
 
     def _rows_flag(
@@ -260,7 +308,10 @@ class RowOps:
     ) -> pl.DataFrame:
         expr = Filter.from_dict(filter).to_expr()
         return data.with_columns(
-            pl.when(expr).then(pl.lit(true_value)).otherwise(pl.lit(false_value)).alias(new_column)
+            pl.when(expr)
+            .then(pl.lit(true_value))
+            .otherwise(pl.lit(false_value))
+            .alias(new_column)
         )
 
     def rows_pivot(
@@ -282,7 +333,12 @@ class RowOps:
             index = [index]
         return self._register(
             self._rows_pivot,
-            {"index": list(index), "columns": columns, "values": values, "aggregate_function": aggregate_function},
+            {
+                "index": list(index),
+                "columns": columns,
+                "values": values,
+                "aggregate_function": aggregate_function,
+            },
         )
 
     def _rows_pivot(

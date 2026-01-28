@@ -585,31 +585,49 @@ class Between(Filter):
 
 @dataclass
 class IsNull(Filter):
+    """Null check filter: column is null.
+
+    Attributes:
+        column: Name of the column to check.
+    """
+
     column: str
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars is_null expression."""
         return pl.col(self.column).is_null()
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "is_null", "column": self.column}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> IsNull:
+        """Create from dictionary."""
         return cls(data["column"])
 
 
 @dataclass
 class IsNotNull(Filter):
+    """Not-null check filter: column is not null.
+
+    Attributes:
+        column: Name of the column to check.
+    """
+
     column: str
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars is_not_null expression."""
         return pl.col(self.column).is_not_null()
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "is_not_null", "column": self.column}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> IsNotNull:
+        """Create from dictionary."""
         return cls(data["column"])
 
 
@@ -620,14 +638,24 @@ class IsNotNull(Filter):
 
 @dataclass
 class StrContains(Filter):
+    """String contains filter: column contains pattern.
+
+    Attributes:
+        column: Name of the string column to search.
+        pattern: Substring or regex pattern to find.
+        literal: If True, treat pattern as literal. If False, as regex.
+    """
+
     column: str
     pattern: str
     literal: bool = True
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars str.contains expression."""
         return pl.col(self.column).str.contains(self.pattern, literal=self.literal)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {
             "type": "str_contains",
             "column": self.column,
@@ -637,38 +665,59 @@ class StrContains(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StrContains:
+        """Create from dictionary."""
         return cls(data["column"], data["pattern"], data.get("literal", True))
 
 
 @dataclass
 class StrStartsWith(Filter):
+    """String starts-with filter: column starts with prefix.
+
+    Attributes:
+        column: Name of the string column to check.
+        prefix: Prefix to match at the start.
+    """
+
     column: str
     prefix: str
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars str.starts_with expression."""
         return pl.col(self.column).str.starts_with(self.prefix)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "str_starts_with", "column": self.column, "prefix": self.prefix}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StrStartsWith:
+        """Create from dictionary."""
         return cls(data["column"], data["prefix"])
 
 
 @dataclass
 class StrEndsWith(Filter):
+    """String ends-with filter: column ends with suffix.
+
+    Attributes:
+        column: Name of the string column to check.
+        suffix: Suffix to match at the end.
+    """
+
     column: str
     suffix: str
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars str.ends_with expression."""
         return pl.col(self.column).str.ends_with(self.suffix)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "str_ends_with", "column": self.column, "suffix": self.suffix}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StrEndsWith:
+        """Create from dictionary."""
         return cls(data["column"], data["suffix"])
 
 
@@ -679,13 +728,27 @@ class StrEndsWith(Filter):
 
 @dataclass
 class And(Filter):
+    """Logical AND filter: both conditions must be true.
+
+    Typically created using the & operator between filters.
+
+    Attributes:
+        left: First filter condition.
+        right: Second filter condition.
+
+    Example:
+        >>> (Col("age") >= 18) & (Col("status") == "active")
+    """
+
     left: Filter
     right: Filter
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars AND expression."""
         return self.left.to_expr() & self.right.to_expr()
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary with nested filter dicts."""
         return {
             "type": "and",
             "left": self.left.to_dict(),
@@ -694,6 +757,7 @@ class And(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> And:
+        """Create from dictionary, recursively deserializing children."""
         return cls(
             Filter.from_dict(data["left"]),
             Filter.from_dict(data["right"]),
@@ -702,13 +766,27 @@ class And(Filter):
 
 @dataclass
 class Or(Filter):
+    """Logical OR filter: at least one condition must be true.
+
+    Typically created using the | operator between filters.
+
+    Attributes:
+        left: First filter condition.
+        right: Second filter condition.
+
+    Example:
+        >>> (Col("role") == "admin") | (Col("role") == "moderator")
+    """
+
     left: Filter
     right: Filter
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars OR expression."""
         return self.left.to_expr() | self.right.to_expr()
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary with nested filter dicts."""
         return {
             "type": "or",
             "left": self.left.to_dict(),
@@ -717,6 +795,7 @@ class Or(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Or:
+        """Create from dictionary, recursively deserializing children."""
         return cls(
             Filter.from_dict(data["left"]),
             Filter.from_dict(data["right"]),
@@ -725,16 +804,30 @@ class Or(Filter):
 
 @dataclass
 class Not(Filter):
+    """Logical NOT filter: inverts the condition.
+
+    Typically created using the ~ operator on a filter.
+
+    Attributes:
+        operand: Filter condition to invert.
+
+    Example:
+        >>> ~(Col("deleted") == True)
+    """
+
     operand: Filter
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars NOT expression."""
         return ~self.operand.to_expr()
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary with nested filter dict."""
         return {"type": "not", "operand": self.operand.to_dict()}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Not:
+        """Create from dictionary, recursively deserializing operand."""
         return cls(Filter.from_dict(data["operand"]))
 
 
