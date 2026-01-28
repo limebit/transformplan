@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/images/logo.png" alt="TransformPlan Logo" width="150">
+</div>
+
 # TransformPlan
 
 A Python library for safe, reproducible data transformations with built-in auditing and validation.
