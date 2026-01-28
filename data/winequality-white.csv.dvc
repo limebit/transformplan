@@ -1,6 +1,0 @@
-outs:
-- md5: 5d9ff0f7f716dace19e3ab4578775fd7
-  size: 264426
-  isexec: true
-  hash: md5
-  path: winequality-white.csv

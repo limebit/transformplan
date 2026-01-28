@@ -1,5 +1,0 @@
-outs:
-- md5: 294188e0b8979ded98d6211ca010fcfd
-  size: 290
-  hash: md5
-  path: audit_trail.csv
