@@ -22,7 +22,14 @@ Homepage = "https://github.com/YOUR_USERNAME/transformplan"
 Repository = "https://github.com/YOUR_USERNAME/transformplan"
 
 [dependency-groups]
-dev = ["pytest>=8.2.2", "ruff>=0.4.9", "pyright>=1.1.370,<1.1.374"]
+dev = [
+    "pytest>=8.2.2",
+    "ruff>=0.4.9",
+    "pyright>=1.1.370,<1.1.374",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+]
 
 [build-system]
 requires = ["setuptools", "wheel"]

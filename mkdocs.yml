@@ -1,0 +1,87 @@
+site_name: TransformPlan
+site_description: Safe, reproducible data transformations with built-in auditing and validation
+site_url: https://github.com/YOUR_USERNAME/transformplan
+repo_url: https://github.com/YOUR_USERNAME/transformplan
+repo_name: transformplan
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            merge_init_into_class: true
+            show_signature_annotations: true
+            separate_signature: true
+            signature_crossrefs: true
+            line_length: 80
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+  - API Reference:
+      - Overview: api/index.md
+      - TransformPlan: api/plan.md
+      - Filters: api/filters.md
+      - Protocol: api/protocol.md
+      - Validation: api/validation.md
+      - Operations:
+          - Column Operations: api/ops/column.md
+          - Math Operations: api/ops/math.md
+          - Row Operations: api/ops/rows.md
+          - String Operations: api/ops/string.md
+          - Datetime Operations: api/ops/datetime.md
+          - Map Operations: api/ops/map.md

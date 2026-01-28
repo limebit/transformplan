@@ -1,4 +1,31 @@
-"""Serializable filter expressions for reproducible row filtering."""
+"""Serializable filter expressions for reproducible row filtering.
+
+This module provides a composable filter system for building complex row filtering
+conditions that can be serialized to JSON and deserialized back. This enables
+reproducible transformation pipelines that can be saved, shared, and replayed.
+
+Main Classes:
+    Col: Column reference for building filter expressions.
+    Filter: Abstract base class for all filter types.
+
+Filter Types:
+    - Comparison: Eq, Ne, Gt, Ge, Lt, Le, IsIn, Between
+    - Null checks: IsNull, IsNotNull
+    - String matching: StrContains, StrStartsWith, StrEndsWith
+    - Logical: And, Or, Not
+
+Example:
+    >>> from transformplan import Col, Filter
+    >>>
+    >>> # Build a filter expression
+    >>> filter_expr = (Col("age") >= 18) & (Col("status") == "active")
+    >>>
+    >>> # Serialize to dict
+    >>> filter_dict = filter_expr.to_dict()
+    >>>
+    >>> # Deserialize back
+    >>> restored = Filter.from_dict(filter_dict)
+"""
 
 from __future__ import annotations
 
@@ -10,21 +37,64 @@ import polars as pl
 
 
 class Filter(ABC):
-    """Base class for all filters."""
+    """Abstract base class for all filter expressions.
+
+    Filters are composable, serializable expressions that define row selection
+    criteria. They can be combined using logical operators (&, |, ~) and
+    serialized to dictionaries for storage and transmission.
+
+    Subclasses must implement:
+        - to_expr(): Convert to a Polars expression
+        - to_dict(): Serialize to a dictionary
+        - _from_dict(): Deserialize from a dictionary (classmethod)
+
+    Example:
+        >>> filter1 = Col("age") >= 18
+        >>> filter2 = Col("status") == "active"
+        >>> combined = filter1 & filter2  # And filter
+        >>> inverted = ~filter1  # Not filter
+    """
 
     @abstractmethod
     def to_expr(self) -> pl.Expr:
-        """Convert to a Polars expression."""
+        """Convert to a Polars expression.
+
+        Returns:
+            A Polars expression that can be used with DataFrame.filter().
+        """
         ...
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to a dictionary."""
+        """Serialize to a dictionary for JSON storage.
+
+        The dictionary includes a 'type' key identifying the filter class,
+        plus any parameters needed to reconstruct the filter.
+
+        Returns:
+            Dictionary representation of the filter.
+        """
         ...
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Filter:
-        """Deserialize from a dictionary."""
+        """Deserialize a filter from a dictionary.
+
+        Uses the 'type' key to determine which filter class to instantiate.
+
+        Args:
+            data: Dictionary with 'type' key and filter parameters.
+
+        Returns:
+            Reconstructed Filter instance.
+
+        Raises:
+            ValueError: If 'type' is missing or unknown.
+
+        Example:
+            >>> data = {"type": "eq", "column": "status", "value": "active"}
+            >>> filter_obj = Filter.from_dict(data)
+        """
         filter_type = data.get("type")
         if filter_type is None:
             raise ValueError("Missing 'type' in filter dict")
@@ -38,16 +108,44 @@ class Filter(ABC):
     @classmethod
     @abstractmethod
     def _from_dict(cls, data: dict[str, Any]) -> Filter:
-        """Internal deserialization (implemented by subclasses)."""
+        """Internal deserialization (implemented by subclasses).
+
+        Args:
+            data: Dictionary containing filter parameters.
+
+        Returns:
+            New instance of the filter class.
+        """
         ...
 
     def __and__(self, other: Filter) -> And:
+        """Combine with another filter using AND logic.
+
+        Args:
+            other: Filter to combine with.
+
+        Returns:
+            New And filter requiring both conditions.
+        """
         return And(self, other)
 
     def __or__(self, other: Filter) -> Or:
+        """Combine with another filter using OR logic.
+
+        Args:
+            other: Filter to combine with.
+
+        Returns:
+            New Or filter requiring either condition.
+        """
         return Or(self, other)
 
     def __invert__(self) -> Not:
+        """Invert this filter using NOT logic.
+
+        Returns:
+            New Not filter inverting this condition.
+        """
         return Not(self)
 
 
@@ -57,48 +155,206 @@ class Filter(ABC):
 
 
 class Col:
-    """Column reference for building filter expressions."""
+    """Column reference for building filter expressions.
+
+    Col provides a fluent interface for creating filter conditions on DataFrame
+    columns. Use comparison operators and methods to build filters that can be
+    combined using & (and), | (or), and ~ (not).
+
+    Args:
+        name: The name of the column to reference.
+
+    Example:
+        >>> # Comparison operators
+        >>> Col("age") >= 18
+        >>> Col("status") == "active"
+        >>> Col("price") < 100
+        >>>
+        >>> # String methods
+        >>> Col("email").str_contains("@company.com")
+        >>> Col("name").str_starts_with("A")
+        >>>
+        >>> # Null checks
+        >>> Col("optional").is_null()
+        >>> Col("required").is_not_null()
+        >>>
+        >>> # Membership
+        >>> Col("country").is_in(["US", "CA", "MX"])
+        >>> Col("age").between(18, 65)
+        >>>
+        >>> # Combining conditions
+        >>> (Col("age") >= 18) & (Col("status") == "active")
+        >>> (Col("role") == "admin") | (Col("role") == "moderator")
+    """
 
     def __init__(self, name: str) -> None:
+        """Initialize a column reference.
+
+        Args:
+            name: The name of the column to reference.
+        """
         self.name = name
 
     def __eq__(self, value: Any) -> Eq:  # type: ignore[override]
+        """Create an equality filter (column == value).
+
+        Args:
+            value: Value to compare against.
+
+        Returns:
+            Eq filter for column equals value.
+        """
         return Eq(self.name, value)
 
     def __ne__(self, value: Any) -> Ne:  # type: ignore[override]
+        """Create an inequality filter (column != value).
+
+        Args:
+            value: Value to compare against.
+
+        Returns:
+            Ne filter for column not equals value.
+        """
         return Ne(self.name, value)
 
     def __gt__(self, value: Any) -> Gt:
+        """Create a greater-than filter (column > value).
+
+        Args:
+            value: Value to compare against.
+
+        Returns:
+            Gt filter for column greater than value.
+        """
         return Gt(self.name, value)
 
     def __ge__(self, value: Any) -> Ge:
+        """Create a greater-or-equal filter (column >= value).
+
+        Args:
+            value: Value to compare against.
+
+        Returns:
+            Ge filter for column greater than or equal to value.
+        """
         return Ge(self.name, value)
 
     def __lt__(self, value: Any) -> Lt:
+        """Create a less-than filter (column < value).
+
+        Args:
+            value: Value to compare against.
+
+        Returns:
+            Lt filter for column less than value.
+        """
         return Lt(self.name, value)
 
     def __le__(self, value: Any) -> Le:
+        """Create a less-or-equal filter (column <= value).
+
+        Args:
+            value: Value to compare against.
+
+        Returns:
+            Le filter for column less than or equal to value.
+        """
         return Le(self.name, value)
 
     def is_in(self, values: Sequence[Any]) -> IsIn:
+        """Create a membership filter (column in values).
+
+        Args:
+            values: Sequence of values to check membership against.
+
+        Returns:
+            IsIn filter for column value in the given sequence.
+
+        Example:
+            >>> Col("status").is_in(["active", "pending"])
+        """
         return IsIn(self.name, values)
 
     def is_null(self) -> IsNull:
+        """Create a null check filter (column is null).
+
+        Returns:
+            IsNull filter for column is null.
+
+        Example:
+            >>> Col("optional_field").is_null()
+        """
         return IsNull(self.name)
 
     def is_not_null(self) -> IsNotNull:
+        """Create a not-null check filter (column is not null).
+
+        Returns:
+            IsNotNull filter for column is not null.
+
+        Example:
+            >>> Col("required_field").is_not_null()
+        """
         return IsNotNull(self.name)
 
     def str_contains(self, pattern: str, literal: bool = True) -> StrContains:
+        """Create a string contains filter.
+
+        Args:
+            pattern: Substring or regex pattern to search for.
+            literal: If True, treat pattern as literal string. If False, as regex.
+
+        Returns:
+            StrContains filter for column containing pattern.
+
+        Example:
+            >>> Col("email").str_contains("@company.com")
+            >>> Col("description").str_contains(r"\\d+", literal=False)
+        """
         return StrContains(self.name, pattern, literal)
 
     def str_starts_with(self, prefix: str) -> StrStartsWith:
+        """Create a string starts-with filter.
+
+        Args:
+            prefix: Prefix to check for.
+
+        Returns:
+            StrStartsWith filter for column starting with prefix.
+
+        Example:
+            >>> Col("code").str_starts_with("PRD-")
+        """
         return StrStartsWith(self.name, prefix)
 
     def str_ends_with(self, suffix: str) -> StrEndsWith:
+        """Create a string ends-with filter.
+
+        Args:
+            suffix: Suffix to check for.
+
+        Returns:
+            StrEndsWith filter for column ending with suffix.
+
+        Example:
+            >>> Col("filename").str_ends_with(".csv")
+        """
         return StrEndsWith(self.name, suffix)
 
     def between(self, lower: Any, upper: Any) -> Between:
+        """Create a range filter (lower <= column <= upper).
+
+        Args:
+            lower: Lower bound (inclusive).
+            upper: Upper bound (inclusive).
+
+        Returns:
+            Between filter for column within range.
+
+        Example:
+            >>> Col("age").between(18, 65)
+            >>> Col("date").between("2024-01-01", "2024-12-31")
+        """
         return Between(self.name, lower, upper)
 
 

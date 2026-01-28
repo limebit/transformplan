@@ -16,7 +16,7 @@ VENV_PYTHON := $(VENV_BIN)/python
 VENV_UV := $(VENV_BIN)/uv
 UV_LOC := $(shell $(USER_PYTHON) -c "import shutil; print(shutil.which('uv') if shutil.which('uv') else '$(VENV_UV)')")
 
-.PHONY: prepare-venv install install-dev test lint format clean
+.PHONY: prepare-venv install install-dev test lint format clean docs docs-serve docs-build
 
 .DEFAULT_GOAL := install-dev
 
@@ -56,11 +56,19 @@ format: install-dev
 clean:
 ifeq ($(OS),Windows_NT)
 	@if exist $(VENV_NAME) $(rmrf) $(VENV_NAME)
-	@for %%d in (.ruff_cache .pytest_cache transformplan.egg-info) do @if exist %%d $(rmrf) %%d
+	@for %%d in (.ruff_cache .pytest_cache transformplan.egg-info site) do @if exist %%d $(rmrf) %%d
 	@if exist .vscode\*.log $(rmf) .vscode\*.log
 	@for /d /r %%i in (__pycache__) do @if exist "%%i" $(rmrf) "%%i"
 else
-	$(rmrf) $(VENV_NAME) .ruff_cache .pytest_cache transformplan.egg-info
+	$(rmrf) $(VENV_NAME) .ruff_cache .pytest_cache transformplan.egg-info site
 	$(rmf) .vscode/*.log
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 endif
+
+docs: docs-serve
+
+docs-serve: install-dev
+	$(UV_LOC) run mkdocs serve
+
+docs-build: install-dev
+	$(UV_LOC) run mkdocs build

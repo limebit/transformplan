@@ -1,0 +1,84 @@
+# TransformPlan
+
+The main class for building and executing transformation pipelines.
+
+## Overview
+
+`TransformPlan` uses a deferred execution model: operations are registered via method chaining, then executed together when you call `process()`, `validate()`, or `dry_run()`.
+
+```python
+from transformplan import TransformPlan, Col
+
+plan = (
+    TransformPlan()
+    .col_drop("temp_column")
+    .math_multiply("price", 1.1)
+    .rows_filter(Col("active") == True)
+)
+
+# Execute
+df_result, protocol = plan.process(df)
+```
+
+## Class Reference
+
+::: transformplan.TransformPlan
+    options:
+      show_root_heading: true
+      members:
+        - process
+        - validate
+        - dry_run
+        - to_dict
+        - from_dict
+        - to_json
+        - from_json
+        - to_python
+
+## Execution Methods
+
+### process
+
+Execute all registered operations and return transformed data with an audit protocol.
+
+```python
+df_result, protocol = plan.process(df)
+```
+
+### validate
+
+Validate operations against the DataFrame schema without executing.
+
+```python
+result = plan.validate(df)
+if not result.is_valid:
+    for error in result.errors:
+        print(error)
+```
+
+### dry_run
+
+Preview what the pipeline will do without executing it.
+
+```python
+preview = plan.dry_run(df)
+preview.print()
+```
+
+## Serialization
+
+Pipelines can be saved and loaded as JSON:
+
+```python
+# Save
+plan.to_json("pipeline.json")
+
+# Load
+loaded = TransformPlan.from_json("pipeline.json")
+```
+
+Or generate executable Python code:
+
+```python
+print(plan.to_python())
+```
