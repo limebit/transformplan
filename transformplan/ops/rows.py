@@ -44,7 +44,7 @@ class RowOps:
     ) -> pl.DataFrame:
         return data.unique(subset=columns, keep=keep)
 
-    def rows_filter(self, filter: Filter) -> Self:
+    def rows_filter(self, filter: Filter | dict) -> Self:
         """Filter rows using a serializable Filter expression.
 
         Example:
@@ -53,7 +53,11 @@ class RowOps:
             .rows_filter(Col("age") > 18)
             .rows_filter((Col("status") == "active") & (Col("score") >= 50))
         """
-        return self._register(self._rows_filter, {"filter": filter.to_dict()})
+        if isinstance(filter, dict):
+            filter_dict = filter
+        else:
+            filter_dict = filter.to_dict()
+        return self._register(self._rows_filter, {"filter": filter_dict})
 
     def _rows_filter(self, data: pl.DataFrame, filter: dict) -> pl.DataFrame:
         expr = Filter.from_dict(filter).to_expr()
