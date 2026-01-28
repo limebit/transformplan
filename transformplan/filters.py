@@ -365,126 +365,206 @@ class Col:
 
 @dataclass
 class Eq(Filter):
+    """Equality filter: column == value.
+
+    Attributes:
+        column: Name of the column to compare.
+        value: Value to compare against.
+    """
+
     column: str
     value: Any
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars equality expression."""
         return pl.col(self.column) == self.value
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "eq", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Eq:
+        """Create from dictionary."""
         return cls(data["column"], data["value"])
 
 
 @dataclass
 class Ne(Filter):
+    """Inequality filter: column != value.
+
+    Attributes:
+        column: Name of the column to compare.
+        value: Value to compare against.
+    """
+
     column: str
     value: Any
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars inequality expression."""
         return pl.col(self.column) != self.value
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "ne", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Ne:
+        """Create from dictionary."""
         return cls(data["column"], data["value"])
 
 
 @dataclass
 class Gt(Filter):
+    """Greater-than filter: column > value.
+
+    Attributes:
+        column: Name of the column to compare.
+        value: Value to compare against.
+    """
+
     column: str
     value: Any
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars greater-than expression."""
         return pl.col(self.column) > self.value
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "gt", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Gt:
+        """Create from dictionary."""
         return cls(data["column"], data["value"])
 
 
 @dataclass
 class Ge(Filter):
+    """Greater-or-equal filter: column >= value.
+
+    Attributes:
+        column: Name of the column to compare.
+        value: Value to compare against.
+    """
+
     column: str
     value: Any
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars greater-or-equal expression."""
         return pl.col(self.column) >= self.value
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "ge", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Ge:
+        """Create from dictionary."""
         return cls(data["column"], data["value"])
 
 
 @dataclass
 class Lt(Filter):
+    """Less-than filter: column < value.
+
+    Attributes:
+        column: Name of the column to compare.
+        value: Value to compare against.
+    """
+
     column: str
     value: Any
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars less-than expression."""
         return pl.col(self.column) < self.value
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "lt", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Lt:
+        """Create from dictionary."""
         return cls(data["column"], data["value"])
 
 
 @dataclass
 class Le(Filter):
+    """Less-or-equal filter: column <= value.
+
+    Attributes:
+        column: Name of the column to compare.
+        value: Value to compare against.
+    """
+
     column: str
     value: Any
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars less-or-equal expression."""
         return pl.col(self.column) <= self.value
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "le", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Le:
+        """Create from dictionary."""
         return cls(data["column"], data["value"])
 
 
 @dataclass
 class IsIn(Filter):
+    """Membership filter: column value in list of values.
+
+    Attributes:
+        column: Name of the column to check.
+        values: Sequence of values to check membership against.
+    """
+
     column: str
     values: Sequence[Any]
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars is_in expression."""
         return pl.col(self.column).is_in(self.values)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {"type": "is_in", "column": self.column, "values": list(self.values)}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> IsIn:
+        """Create from dictionary."""
         return cls(data["column"], data["values"])
 
 
 @dataclass
 class Between(Filter):
+    """Range filter: lower <= column <= upper.
+
+    Attributes:
+        column: Name of the column to check.
+        lower: Lower bound (inclusive).
+        upper: Upper bound (inclusive).
+    """
+
     column: str
     lower: Any
     upper: Any
 
     def to_expr(self) -> pl.Expr:
+        """Convert to Polars is_between expression."""
         return pl.col(self.column).is_between(self.lower, self.upper)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
         return {
             "type": "between",
             "column": self.column,
@@ -494,6 +574,7 @@ class Between(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Between:
+        """Create from dictionary."""
         return cls(data["column"], data["lower"], data["upper"])
 
 
