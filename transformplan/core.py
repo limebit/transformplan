@@ -11,7 +11,7 @@ from typing import Protocol as TypingProtocol
 import polars as pl
 
 from .protocol import Protocol, frame_hash
-from .validation import ValidationResult, validate_schema
+from .validation import DryRunResult, ValidationResult, dry_run_schema, validate_schema
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -45,8 +45,25 @@ class TransformPlanBase:
         self._operations.append((method, params))
         return self
 
-    def process(self, data: pl.DataFrame) -> tuple[pl.DataFrame, Protocol]:
-        """Execute all registered operations and return transformed data with protocol."""
+    def process(
+        self, data: pl.DataFrame, validate: bool = True
+    ) -> tuple[pl.DataFrame, Protocol]:
+        """Execute all registered operations and return transformed data with protocol.
+
+        Args:
+            data: DataFrame to process.
+            validate: If True, validate schema before execution (default).
+                      Set to False for performance in hot loops with pre-validated pipelines.
+
+        Returns:
+            Tuple of (processed DataFrame, Protocol).
+
+        Raises:
+            SchemaValidationError: If validate=True and validation fails.
+        """
+        if validate:
+            validate_schema(self._operations, dict(data.schema)).raise_if_invalid()
+
         protocol = Protocol()
         protocol.set_input(frame_hash(data), data.shape)
 
@@ -88,20 +105,31 @@ class TransformPlanBase:
         """
         return validate_schema(self._operations, dict(data.schema))
 
-    def process_checked(self, data: pl.DataFrame) -> tuple[pl.DataFrame, Protocol]:
-        """Validate and then execute operations. Raises if validation fails.
+    def dry_run(self, data: pl.DataFrame) -> DryRunResult:
+        """Preview what the pipeline will do without executing it.
+
+        Performs validation and shows step-by-step schema changes,
+        including which columns will be added, removed, or modified.
 
         Args:
-            data: DataFrame to process.
+            data: DataFrame to preview against.
 
         Returns:
-            Tuple of (processed DataFrame, Protocol).
+            DryRunResult with step-by-step preview.
 
-        Raises:
-            SchemaValidationError: If validation fails.
+        Example:
+            plan = (
+                TransformPlan()
+                .col_drop("temp")
+                .math_multiply("price", 1.1)
+                .col_add("discount", value=0.0)
+            )
+            preview = plan.dry_run(df)
+            preview.print()  # Show what will happen
+            if preview.is_valid:
+                df, protocol = plan.process(df)
         """
-        self.validate(data).raise_if_invalid()
-        return self.process(data)
+        return dry_run_schema(self._operations, dict(data.schema))
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the pipeline to a dictionary."""

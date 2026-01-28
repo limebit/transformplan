@@ -115,6 +115,188 @@ class SchemaValidationError(Exception):
 
 
 # =============================================================================
+# Dry run result
+# =============================================================================
+
+
+@dataclass
+class DryRunStep:
+    """A single step in a dry run."""
+
+    step: int
+    operation: str
+    params: dict[str, Any]
+    schema_before: dict[str, str]
+    schema_after: dict[str, str]
+    columns_added: list[str]
+    columns_removed: list[str]
+    columns_modified: list[str]
+    error: str | None = None
+
+
+class DryRunResult:
+    """Result of a dry run showing what a pipeline will do."""
+
+    def __init__(
+        self,
+        input_schema: dict[str, pl.DataType],
+        steps: list[DryRunStep],
+        validation: ValidationResult,
+    ) -> None:
+        self._input_schema = input_schema
+        self._steps = steps
+        self._validation = validation
+
+    @property
+    def is_valid(self) -> bool:
+        """Whether the pipeline passed validation."""
+        return self._validation.is_valid
+
+    @property
+    def errors(self) -> list[ValidationError]:
+        """Validation errors."""
+        return self._validation.errors
+
+    @property
+    def steps(self) -> list[DryRunStep]:
+        """List of dry run steps."""
+        return self._steps
+
+    @property
+    def input_schema(self) -> dict[str, pl.DataType]:
+        """Input schema."""
+        return self._input_schema
+
+    @property
+    def output_schema(self) -> dict[str, str]:
+        """Predicted output schema after all operations."""
+        if self._steps:
+            return self._steps[-1].schema_after
+        return {k: dtype_name(v) for k, v in self._input_schema.items()}
+
+    @property
+    def input_columns(self) -> list[str]:
+        """Input column names."""
+        return list(self._input_schema.keys())
+
+    @property
+    def output_columns(self) -> list[str]:
+        """Predicted output column names."""
+        return list(self.output_schema.keys())
+
+    def summary(self, show_params: bool = True, show_schema: bool = False) -> str:
+        """Generate a human-readable summary.
+
+        Args:
+            show_params: Whether to show operation parameters.
+            show_schema: Whether to show full schema at each step.
+
+        Returns:
+            Formatted string.
+        """
+        lines = []
+
+        # Header
+        lines.append("=" * 70)
+        lines.append("DRY RUN PREVIEW")
+        lines.append("=" * 70)
+
+        # Validation status
+        if self.is_valid:
+            lines.append("✓ Validation: PASSED")
+        else:
+            lines.append(f"✗ Validation: FAILED ({len(self.errors)} errors)")
+            for err in self.errors:
+                lines.append(f"  - {err}")
+
+        lines.append("-" * 70)
+
+        # Input schema summary
+        lines.append(f"Input: {len(self._input_schema)} columns")
+        if show_schema:
+            for col, dtype in self._input_schema.items():
+                lines.append(f"  {col}: {dtype_name(dtype)}")
+
+        lines.append("-" * 70)
+
+        # Steps
+        lines.append("")
+        lines.append(f"{'#':<4} {'Operation':<20} {'Columns':<15} {'Changes':<30}")
+        lines.append("-" * 70)
+
+        for step in self._steps:
+            step_num = str(step.step)
+            op = step.operation
+            col_count = len(step.schema_after)
+
+            # Build changes string
+            changes = []
+            if step.columns_added:
+                changes.append(f"+{step.columns_added}")
+            if step.columns_removed:
+                changes.append(f"-{step.columns_removed}")
+            if step.columns_modified:
+                changes.append(f"~{step.columns_modified}")
+            changes_str = " ".join(changes) if changes else "-"
+
+            # Error marker
+            err_marker = " ✗" if step.error else ""
+
+            lines.append(f"{step_num:<4} {op:<20} {col_count:<15} {changes_str:<30}{err_marker}")
+
+            # Params
+            if show_params and step.params:
+                params_str = _format_params_short(step.params)
+                lines.append(f"     └─ {params_str}")
+
+            # Error detail
+            if step.error:
+                lines.append(f"     └─ ERROR: {step.error}")
+
+            # Full schema
+            if show_schema:
+                lines.append(f"     Schema: {step.schema_after}")
+
+        lines.append("=" * 70)
+
+        # Output schema summary
+        lines.append(f"Output: {len(self.output_schema)} columns")
+        if show_schema:
+            for col, dtype in self.output_schema.items():
+                lines.append(f"  {col}: {dtype}")
+
+        return "\n".join(lines)
+
+    def print(self, show_params: bool = True, show_schema: bool = False) -> None:
+        """Print the dry run summary."""
+        print(self.summary(show_params, show_schema))
+
+    def __repr__(self) -> str:
+        status = "valid" if self.is_valid else f"invalid ({len(self.errors)} errors)"
+        return f"DryRunResult({len(self._steps)} steps, {status})"
+
+
+def _format_params_short(params: dict, max_length: int = 55) -> str:
+    """Format params dict as a short string."""
+    parts = []
+    for key, value in params.items():
+        if isinstance(value, dict) and "type" in value:
+            # Filter - just show type
+            parts.append(f"{key}=<filter>")
+        elif isinstance(value, list) and len(value) > 3:
+            parts.append(f"{key}=[...{len(value)} items]")
+        elif isinstance(value, str) and len(value) > 20:
+            parts.append(f"{key}='{value[:17]}...'")
+        else:
+            parts.append(f"{key}={value!r}")
+
+    result = ", ".join(parts)
+    if len(result) > max_length:
+        result = result[: max_length - 3] + "..."
+    return result
+
+
+# =============================================================================
 # Schema tracker
 # =============================================================================
 
@@ -935,3 +1117,72 @@ def validate_schema(
             validator(tracker, params, result, step)
 
     return result
+
+
+def dry_run_schema(
+    operations: list[tuple[Any, dict[str, Any]]], schema: dict[str, pl.DataType]
+) -> DryRunResult:
+    """Perform a dry run showing what each operation will do.
+
+    Args:
+        operations: List of (method, params) tuples from TransformPlan.
+        schema: Initial DataFrame schema.
+
+    Returns:
+        DryRunResult with step-by-step preview and validation.
+    """
+    validation_result = ValidationResult()
+    tracker = SchemaTracker(schema)
+    steps: list[DryRunStep] = []
+
+    for step_num, (method, params) in enumerate(operations, start=1):
+        op_name = method.__name__.lstrip("_")
+
+        # Capture schema before
+        schema_before = {k: dtype_name(v) for k, v in tracker._schema.items()}
+        cols_before = set(tracker._schema.keys())
+
+        # Run validation (which also updates tracker)
+        step_errors_before = len(validation_result.errors)
+        validator = _VALIDATORS.get(op_name)
+        if validator:
+            validator(tracker, params, validation_result, step_num)
+
+        # Capture schema after
+        schema_after = {k: dtype_name(v) for k, v in tracker._schema.items()}
+        cols_after = set(tracker._schema.keys())
+
+        # Calculate changes
+        columns_added = list(cols_after - cols_before)
+        columns_removed = list(cols_before - cols_after)
+
+        # Detect type modifications (columns that exist in both but changed type)
+        columns_modified = []
+        for col in cols_before & cols_after:
+            if schema_before.get(col) != schema_after.get(col):
+                columns_modified.append(col)
+
+        # Check if this step had an error
+        step_error = None
+        if len(validation_result.errors) > step_errors_before:
+            step_error = str(validation_result.errors[-1].message)
+
+        steps.append(
+            DryRunStep(
+                step=step_num,
+                operation=op_name,
+                params=params,
+                schema_before=schema_before,
+                schema_after=schema_after,
+                columns_added=columns_added,
+                columns_removed=columns_removed,
+                columns_modified=columns_modified,
+                error=step_error,
+            )
+        )
+
+    return DryRunResult(
+        input_schema=schema,
+        steps=steps,
+        validation=validation_result,
+    )

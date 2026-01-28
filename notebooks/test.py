@@ -30,13 +30,22 @@ def main():
         .rows_sort(by=['quality'], descending=True)
         .rows_head(n=100)
     )
+    # Check if Pipeline is valid
     print(plan.validate(df))
+
+    # Save and Load pipeline, just for fun
     plan.to_json("data/pipeline.json")
-
     plan = TransformPlan.from_json("data/pipeline.json")
-    result, protocol = plan.process_checked(df)
 
-    protocol.print(show_params=True)
+    # Do a dry-run to see if we can expect this to work, just to be super sure
+    preview = plan.dry_run(df)
+    preview.print(show_params=False)   # Without parameters
+
+    # If this works, lets do the full run
+    if preview.is_valid:
+        df, protocol = plan.process(df)
+
+    protocol.print(show_params=False)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 from .filters import Col, Filter
 from .plan import TransformPlan
 from .protocol import Protocol, frame_hash
-from .validation import SchemaValidationError, ValidationResult
+from .validation import DryRunResult, SchemaValidationError, ValidationResult
 
 __all__ = [
     "TransformPlan",
@@ -13,4 +13,5 @@ __all__ = [
     "Filter",
     "ValidationResult",
     "SchemaValidationError",
+    "DryRunResult",
 ]
