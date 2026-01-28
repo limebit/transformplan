@@ -2,7 +2,7 @@ site_name: TransformPlan
 site_description: Safe, reproducible data transformations with built-in auditing and validation
 site_url: https://github.com/YOUR_USERNAME/transformplan
 repo_url: https://github.com/YOUR_USERNAME/transformplan
-repo_name: transformplan
+repo_name: TransformPlan
 
 theme:
   name: material
@@ -33,6 +33,9 @@ theme:
     - search.highlight
     - content.code.copy
     - content.code.annotate
+
+extra_css:
+  - assets/stylesheets/custom.css
 
 plugins:
   - search

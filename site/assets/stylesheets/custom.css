@@ -1,0 +1,8 @@
+/* Hide the GitHub icon, show only text */
+.md-source__icon {
+  display: none;
+}
+
+.md-source__repository {
+  font-weight: 500;
+}
