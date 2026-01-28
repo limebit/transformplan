@@ -40,7 +40,6 @@ install: prepare-venv
 install-dev: prepare-venv
 	$(UV_LOC) sync --group dev
 	$(UV_LOC) pip install -e .
-	$(UV_LOC) run pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type post-checkout
 
 test: install-dev
 	$(UV_LOC) run pytest -vv -W error

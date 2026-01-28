@@ -1,77 +1,113 @@
-# transformplan
+# TransformPlan
+
+A Python library for safe, reproducible data transformations with built-in auditing and validation. TransformPlan tracks transformation history, validates operations against DataFrame schemas, and generates audit trails for data processing workflows.
+
+## Features
+
+- **Declarative transformations**: Build transformation pipelines using method chaining
+- **Schema validation**: Validate operations before execution with dry-run capability
+- **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
+- **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
+- **Serializable pipelines**: Save and load transformation plans as JSON
+
+## Installation
+
+```bash
+pip install transformplan
+```
+
+Or with uv:
+
+```bash
+uv add transformplan
+```
+
+## Quick Start
+
+```python
+import polars as pl
+from transformplan import TransformPlan, Col
+
+# Create sample data
+df = pl.DataFrame({
+    "name": ["Alice", "Bob", "Charlie"],
+    "age": [25, 30, 35],
+    "salary": [50000, 60000, 70000]
+})
+
+# Build a transformation plan
+plan = (
+    TransformPlan()
+    .col_rename(column="name", new_name="employee_name")
+    .math_multiply(column="salary", value=1.1, new_column="new_salary")
+    .math_round(column="new_salary", decimals=0)
+    .rows_filter(Col("age") >= 30)
+)
+
+# Validate the plan
+print(plan.validate(df))
+
+# Execute and get audit trail
+df_result, protocol = plan.process(df)
+protocol.print()
+```
 
 ## Setup
 
 ### Installation
 
-This command will create a virtualenv and install all dependencies
+Create a virtualenv and install all dependencies:
 
-`make install`
+```bash
+make install
+```
+
+### Development Installation
+
+Install with dev dependencies and pre-commit hooks:
+
+```bash
+make install-dev
+```
 
 ### Lint
 
-This command will ensure all dependencies are installed and run ruff
+Run ruff linting and pyright type checking:
 
-`make lint`
+```bash
+make lint
+```
 
 ### Format
 
-This command will ensure all dependencies are installed and run ruff format
+Fix import sorting and format code with ruff:
 
-`make format`
+```bash
+make format
+```
+
+### Test
+
+Run the test suite:
+
+```bash
+make test
+```
 
 ### Cleanup
 
-This command will delete the virtualenv
+Delete the virtualenv and cache directories:
 
-`make clean`
+```bash
+make clean
+```
 
 ## Development
 
-- Run python script: `uv run python <filename.py>`, e.g. `uv run python train.py`
-- Add new dependency: `uv add <package>`, e.g. `uv add scikit-learn`
+- Run python script: `uv run python <filename.py>`
+- Add new dependency: `uv add <package>`
 - Add dev dependency: `uv add --group dev <package>`
 
-## Docker
+## License
 
-- build the docker container using `docker-compose build` (You need to make sure that docker has enough memory to build the image)
-- start the jupyter lab docker container using `docker-compose up`
-- Copy the link (incl. token) from the console and paste it into the browser
-
-## Data Management (DVC)
-
-This project uses [DVC](https://dvc.org) for data versioning with Hetzner Storage Box as the remote storage.
-
-### Prerequisites
-
-Ensure you have the Hetzner SSH key at `~/.ssh/hetzner_storagebox`
-(This is set up automatically via JumpCloud on company devices)
-
-### Daily Workflow
-
-```bash
-# Add new or modified data file
-dvc add data/raw/dataset.csv
-git add data/raw/dataset.csv.dvc
-git commit -m "Update dataset"
-
-# Push code and data (dvc push runs automatically via pre-push hook)
-git push
-```
-
-### After Cloning
-
-```bash
-git clone <repo-url>
-cd <repo>
-make install-dev
-dvc pull  # Required to download data files from remote storage
-```
-
-### Pre-commit Hooks
-
-This template includes DVC pre-commit hooks (installed automatically via `make install-dev`):
-
-- **dvc-pre-commit**: Runs `dvc status` before commits to show the state of DVC-tracked files. If it shows changed files, you should run `dvc add <file>` and amend your commit (or create a follow-up commit) to include the updated `.dvc` pointer.
-- **dvc-pre-push**: Runs `dvc push` before `git push` to ensure data is uploaded to remote storage.
-- **dvc-post-checkout**: Runs `dvc checkout` after `git checkout` to sync local data files with the checked-out branch.
+MIT License - see [LICENSE](LICENSE) for details.
