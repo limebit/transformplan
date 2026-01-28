@@ -7,13 +7,24 @@ from typing import TYPE_CHECKING, Union
 import polars as pl
 
 if TYPE_CHECKING:
-    from typing import Self
+    from typing import Any, Callable
+
+    import polars as pl
+    from typing_extensions import Self
 
 Numeric = Union[int, float]
 
 
 class MathOps:
     """Mixin providing mathematical operations on columns."""
+
+    if TYPE_CHECKING:
+
+        def _register(
+            self,
+            method: Callable[..., pl.DataFrame],
+            params: dict[str, Any],
+        ) -> Self: ...
 
     def math_add(self, column: str, value: Numeric) -> Self:
         """Add a scalar value to a column."""
@@ -60,3 +71,183 @@ class MathOps:
         upper: Numeric | None,
     ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).clip(lower, upper))
+
+    def math_add_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
+        """Add two columns together into a new column."""
+        return self._register(
+            self._math_add_columns,
+            {"column_a": column_a, "column_b": column_b, "new_column": new_column},
+        )
+
+    def _math_add_columns(
+        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
+    ) -> pl.DataFrame:
+        return data.with_columns((pl.col(column_a) + pl.col(column_b)).alias(new_column))
+
+    def math_subtract_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
+        """Subtract column_b from column_a into a new column."""
+        return self._register(
+            self._math_subtract_columns,
+            {"column_a": column_a, "column_b": column_b, "new_column": new_column},
+        )
+
+    def _math_subtract_columns(
+        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
+    ) -> pl.DataFrame:
+        return data.with_columns((pl.col(column_a) - pl.col(column_b)).alias(new_column))
+
+    def math_multiply_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
+        """Multiply two columns together into a new column."""
+        return self._register(
+            self._math_multiply_columns,
+            {"column_a": column_a, "column_b": column_b, "new_column": new_column},
+        )
+
+    def _math_multiply_columns(
+        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
+    ) -> pl.DataFrame:
+        return data.with_columns((pl.col(column_a) * pl.col(column_b)).alias(new_column))
+
+    def math_divide_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
+        """Divide column_a by column_b into a new column."""
+        return self._register(
+            self._math_divide_columns,
+            {"column_a": column_a, "column_b": column_b, "new_column": new_column},
+        )
+
+    def _math_divide_columns(
+        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
+    ) -> pl.DataFrame:
+        return data.with_columns((pl.col(column_a) / pl.col(column_b)).alias(new_column))
+
+    def math_set_min(self, column: str, min_value: Numeric) -> Self:
+        """Set a minimum value for a column (values below are raised to min)."""
+        return self._register(self._math_set_min, {"column": column, "min_value": min_value})
+
+    def _math_set_min(self, data: pl.DataFrame, column: str, min_value: Numeric) -> pl.DataFrame:
+        return data.with_columns(
+            pl.when(pl.col(column) < min_value)
+            .then(min_value)
+            .otherwise(pl.col(column))
+            .alias(column)
+        )
+
+    def math_set_max(self, column: str, max_value: Numeric) -> Self:
+        """Set a maximum value for a column (values above are lowered to max)."""
+        return self._register(self._math_set_max, {"column": column, "max_value": max_value})
+
+    def _math_set_max(self, data: pl.DataFrame, column: str, max_value: Numeric) -> pl.DataFrame:
+        return data.with_columns(
+            pl.when(pl.col(column) > max_value)
+            .then(max_value)
+            .otherwise(pl.col(column))
+            .alias(column)
+        )
+
+    def math_abs(self, column: str) -> Self:
+        """Take absolute value of a column."""
+        return self._register(self._math_abs, {"column": column})
+
+    def _math_abs(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
+        return data.with_columns(pl.col(column).abs())
+
+    def math_round(self, column: str, decimals: int = 0) -> Self:
+        """Round a column to specified decimal places."""
+        return self._register(self._math_round, {"column": column, "decimals": decimals})
+
+    def _math_round(self, data: pl.DataFrame, column: str, decimals: int) -> pl.DataFrame:
+        return data.with_columns(pl.col(column).round(decimals))
+
+    def math_percent_of(
+        self,
+        column: str,
+        total_column: str,
+        new_column: str,
+        multiply_by: float = 100.0,
+    ) -> Self:
+        """Calculate percentage of one column relative to another.
+
+        Args:
+            column: Numerator column.
+            total_column: Denominator column.
+            new_column: Name for result column.
+            multiply_by: Multiplier (default 100 for percentage).
+        """
+        return self._register(
+            self._math_percent_of,
+            {"column": column, "total_column": total_column, "new_column": new_column, "multiply_by": multiply_by},
+        )
+
+    def _math_percent_of(
+        self, data: pl.DataFrame, column: str, total_column: str, new_column: str, multiply_by: float
+    ) -> pl.DataFrame:
+        return data.with_columns(
+            (pl.col(column) / pl.col(total_column) * multiply_by).alias(new_column)
+        )
+
+    def math_cumsum(
+        self,
+        column: str,
+        new_column: str | None = None,
+        group_by: str | list[str] | None = None,
+    ) -> Self:
+        """Calculate cumulative sum.
+
+        Args:
+            column: Column to sum.
+            new_column: Name for result column (None = modify in place).
+            group_by: Optional column(s) to group by.
+        """
+        if isinstance(group_by, str):
+            group_by = [group_by]
+        return self._register(
+            self._math_cumsum,
+            {"column": column, "new_column": new_column or column, "group_by": group_by},
+        )
+
+    def _math_cumsum(
+        self, data: pl.DataFrame, column: str, new_column: str, group_by: list[str] | None
+    ) -> pl.DataFrame:
+        if group_by:
+            return data.with_columns(
+                pl.col(column).cum_sum().over(group_by).alias(new_column)
+            )
+        return data.with_columns(pl.col(column).cum_sum().alias(new_column))
+
+    def math_rank(
+        self,
+        column: str,
+        new_column: str,
+        method: str = "ordinal",
+        descending: bool = False,
+        group_by: str | list[str] | None = None,
+    ) -> Self:
+        """Calculate rank of values.
+
+        Args:
+            column: Column to rank.
+            new_column: Name for result column.
+            method: Ranking method ('ordinal', 'dense', 'min', 'max', 'average').
+            descending: Rank in descending order.
+            group_by: Optional column(s) to group by.
+        """
+        if isinstance(group_by, str):
+            group_by = [group_by]
+        return self._register(
+            self._math_rank,
+            {"column": column, "new_column": new_column, "method": method, "descending": descending, "group_by": group_by},
+        )
+
+    def _math_rank(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        new_column: str,
+        method: str,
+        descending: bool,
+        group_by: list[str] | None,
+    ) -> pl.DataFrame:
+        expr = pl.col(column).rank(method=method, descending=descending)
+        if group_by:
+            expr = expr.over(group_by)
+        return data.with_columns(expr.alias(new_column))

@@ -6,6 +6,7 @@ import json
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
+from typing import Protocol as TypingProtocol
 
 import polars as pl
 
@@ -13,7 +14,18 @@ from .protocol import Protocol, frame_hash
 from .validation import ValidationResult, validate_schema
 
 if TYPE_CHECKING:
-    from typing import Self
+    from typing_extensions import Self
+
+
+class HasRegister(TypingProtocol):
+    """Protocol for mixins that need access to _register."""
+
+    def _register(
+        self,
+        method: Callable[..., pl.DataFrame],
+        params: dict[str, Any],
+    ) -> Self:
+        ...
 
 
 class TransformPlanBase:
@@ -174,3 +186,109 @@ class TransformPlanBase:
 
     def __repr__(self) -> str:
         return f"TransformPlan({len(self._operations)} operations)"
+
+    def to_python(self, variable_name: str = "plan") -> str:
+        """Generate executable Python code for this pipeline.
+
+        Args:
+            variable_name: Name for the pipeline variable.
+
+        Returns:
+            Python code string.
+        """
+        lines = ["from transformplan import TransformPlan, Col", ""]
+        lines.append(f"{variable_name} = (")
+        lines.append("    TransformPlan()")
+
+        for method, params in self._operations:
+            op_name = method.__name__.lstrip("_")
+            param_str = self._format_params_as_python(params)
+            lines.append(f"    .{op_name}({param_str})")
+
+        lines.append(")")
+        return "\n".join(lines)
+
+    def _format_params_as_python(self, params: dict[str, Any]) -> str:
+        """Format parameters as Python code."""
+        parts = []
+
+        for key, value in params.items():
+            if value is None:
+                continue
+
+            # Handle filter dicts specially
+            if key == "filter" and isinstance(value, dict):
+                filter_str = self._format_filter_as_python(value)
+                parts.append(filter_str)
+            elif isinstance(value, str):
+                parts.append(f'{key}="{value}"')
+            elif isinstance(value, bool):
+                parts.append(f"{key}={value}")
+            elif isinstance(value, (int, float)):
+                parts.append(f"{key}={value}")
+            elif isinstance(value, list):
+                parts.append(f"{key}={value!r}")
+            elif isinstance(value, dict):
+                parts.append(f"{key}={value!r}")
+            else:
+                parts.append(f"{key}={value!r}")
+
+        return ", ".join(parts)
+
+    def _format_filter_as_python(self, filter_dict: dict[str, Any]) -> str:
+        """Convert a filter dict back to Col() expression string."""
+        filter_type = filter_dict.get("type", "")
+
+        # Logical operators
+        if filter_type == "and":
+            left = self._format_filter_as_python(filter_dict["left"])
+            right = self._format_filter_as_python(filter_dict["right"])
+            return f"({left}) & ({right})"
+        elif filter_type == "or":
+            left = self._format_filter_as_python(filter_dict["left"])
+            right = self._format_filter_as_python(filter_dict["right"])
+            return f"({left}) | ({right})"
+        elif filter_type == "not":
+            operand = self._format_filter_as_python(filter_dict["operand"])
+            return f"~({operand})"
+
+        # Comparison operators
+        col = filter_dict.get("column", "")
+        val = filter_dict.get("value")
+
+        op_map = {
+            "eq": "==",
+            "ne": "!=",
+            "gt": ">",
+            "ge": ">=",
+            "lt": "<",
+            "le": "<=",
+        }
+
+        if filter_type in op_map:
+            op = op_map[filter_type]
+            return f'Col("{col}") {op} {val!r}'
+        elif filter_type == "is_in":
+            values = filter_dict.get("values", [])
+            return f'Col("{col}").is_in({values!r})'
+        elif filter_type == "is_null":
+            return f'Col("{col}").is_null()'
+        elif filter_type == "is_not_null":
+            return f'Col("{col}").is_not_null()'
+        elif filter_type == "between":
+            lower = filter_dict.get("lower")
+            upper = filter_dict.get("upper")
+            return f'Col("{col}").between({lower!r}, {upper!r})'
+        elif filter_type == "str_contains":
+            pattern = filter_dict.get("pattern", "")
+            literal = filter_dict.get("literal", True)
+            return f'Col("{col}").str_contains({pattern!r}, literal={literal})'
+        elif filter_type == "str_starts_with":
+            prefix = filter_dict.get("prefix", "")
+            return f'Col("{col}").str_starts_with({prefix!r})'
+        elif filter_type == "str_ends_with":
+            suffix = filter_dict.get("suffix", "")
+            return f'Col("{col}").str_ends_with({suffix!r})'
+
+        # Fallback
+        return f"Filter.from_dict({filter_dict!r})"

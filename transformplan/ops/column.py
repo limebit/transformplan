@@ -2,16 +2,30 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+import hashlib
+import secrets
+import string
+from typing import TYPE_CHECKING, Any, Sequence
 
 import polars as pl
 
 if TYPE_CHECKING:
-    from typing import Self
+    from typing import Any, Callable
+
+    import polars as pl
+    from typing_extensions import Self
 
 
 class ColumnOps:
     """Mixin providing column-level operations."""
+
+    if TYPE_CHECKING:
+
+        def _register(
+            self,
+            method: Callable[..., pl.DataFrame],
+            params: dict[str, Any],
+        ) -> Self: ...
 
     def col_drop(self, column: str) -> Self:
         """Drop a column from the DataFrame."""
@@ -47,3 +61,145 @@ class ColumnOps:
 
     def _col_duplicate(self, data: pl.DataFrame, column: str, new_name: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).alias(new_name))
+
+    def col_fill_null(
+        self, column: str, value: Any = None, strategy: str | None = None
+    ) -> Self:
+        """Fill null values in a column.
+
+        Args:
+            column: Column to fill.
+            value: Value to fill nulls with (if strategy is None).
+            strategy: Fill strategy - 'forward', 'backward', 'mean', 'min', 'max', 'zero', 'one'.
+        """
+        return self._register(
+            self._col_fill_null, {"column": column, "value": value, "strategy": strategy}
+        )
+
+    def _col_fill_null(
+        self, data: pl.DataFrame, column: str, value: Any, strategy: str | None
+    ) -> pl.DataFrame:
+        if strategy is not None:
+            return data.with_columns(pl.col(column).fill_null(strategy=strategy))
+        return data.with_columns(pl.col(column).fill_null(value))
+
+    def col_drop_null(self, columns: str | Sequence[str] | None = None) -> Self:
+        """Drop rows with null values in specified columns.
+
+        Args:
+            columns: Column(s) to check for nulls. If None, checks all columns.
+        """
+        if isinstance(columns, str):
+            columns = [columns]
+        return self._register(self._col_drop_null, {"columns": columns})
+
+    def _col_drop_null(
+        self, data: pl.DataFrame, columns: list[str] | None
+    ) -> pl.DataFrame:
+        return data.drop_nulls(subset=columns)
+
+    def col_drop_zero(self, column: str) -> Self:
+        """Drop rows where the specified column is zero."""
+        return self._register(self._col_drop_zero, {"column": column})
+
+    def _col_drop_zero(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
+        return data.filter(pl.col(column) != 0)
+
+    def col_add(
+        self,
+        new_column: str,
+        expr: str | int | float | None = None,
+        value: Any = None,
+    ) -> Self:
+        """Add a new column with a constant value or expression.
+
+        Args:
+            new_column: Name of the new column.
+            expr: Column name to copy from, or None for constant value.
+            value: Constant value to fill the column with.
+        """
+        return self._register(
+            self._col_add, {"new_column": new_column, "expr": expr, "value": value}
+        )
+
+    def _col_add(
+        self, data: pl.DataFrame, new_column: str, expr: str | None, value: Any
+    ) -> pl.DataFrame:
+        if expr is not None:
+            return data.with_columns(pl.col(expr).alias(new_column))
+        return data.with_columns(pl.lit(value).alias(new_column))
+
+    def col_add_uuid(self, column: str, length: int = 16) -> Self:
+        """Add a column with unique random identifiers.
+
+        Args:
+            column: Name of the new column.
+            length: Length of the identifier string.
+        """
+        return self._register(self._col_add_uuid, {"column": column, "length": length})
+
+    def _col_add_uuid(self, data: pl.DataFrame, column: str, length: int) -> pl.DataFrame:
+        chars = string.ascii_letters + string.digits
+        ids = ["".join(secrets.choice(chars) for _ in range(length)) for _ in range(len(data))]
+        return data.with_columns(pl.Series(name=column, values=ids))
+
+    def col_hash(
+        self,
+        columns: str | Sequence[str],
+        new_column: str,
+        salt: str = "",
+    ) -> Self:
+        """Hash one or more columns into a new column.
+
+        Args:
+            columns: Column(s) to hash.
+            new_column: Name for the hash column.
+            salt: Optional salt to add to the hash.
+        """
+        if isinstance(columns, str):
+            columns = [columns]
+        return self._register(
+            self._col_hash, {"columns": list(columns), "new_column": new_column, "salt": salt}
+        )
+
+    def _col_hash(
+        self, data: pl.DataFrame, columns: list[str], new_column: str, salt: str
+    ) -> pl.DataFrame:
+        def hash_row(values: tuple) -> str:
+            content = "|".join(str(v) for v in values) + salt
+            return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+        combined = data.select(columns).to_numpy()
+        hashes = [hash_row(tuple(row)) for row in combined]
+        return data.with_columns(pl.Series(name=new_column, values=hashes))
+
+    def col_coalesce(
+        self,
+        columns: Sequence[str],
+        new_column: str,
+    ) -> Self:
+        """Take the first non-null value across multiple columns.
+
+        Args:
+            columns: Columns to coalesce (in priority order).
+            new_column: Name for the result column.
+        """
+        return self._register(
+            self._col_coalesce, {"columns": list(columns), "new_column": new_column}
+        )
+
+    def _col_coalesce(
+        self, data: pl.DataFrame, columns: list[str], new_column: str
+    ) -> pl.DataFrame:
+        return data.with_columns(pl.coalesce([pl.col(c) for c in columns]).alias(new_column))
+
+    def col_select(self, columns: Sequence[str]) -> Self:
+        """Keep only the specified columns (order preserved).
+
+        Args:
+            columns: Columns to keep.
+        """
+        return self._register(self._col_select, {"columns": list(columns)})
+
+    def _col_select(self, data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
+        return data.select(columns)
