@@ -69,7 +69,9 @@ class Protocol:
         self._steps: list[dict[str, Any]] = []
         self._input_hash: str | None = None
         self._input_shape: tuple[int, int] | None = None
-        self._created_at: str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        self._created_at: str = (
+            datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        )
         self._metadata: dict[str, Any] = {}
 
     def set_input(self, hash_value: str, shape: tuple[int, int]) -> None:
