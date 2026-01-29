@@ -2,22 +2,16 @@
 
 <img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="160" style="margin-right: 30px;">
 
-**Python Data Transformation Library for:**
-- Safe, reproducible data transformations
-- Built-in auditing and validation
-- Tracks transformation history
-- Validates operations against DataFrame schemas
-- Generates audit trails for data processing workflows
-
-<br clear="left"/>
-
-## Features
-
 - **Declarative transformations**: Build transformation pipelines using method chaining
 - **Schema validation**: Validate operations before execution with dry-run capability
 - **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
 - **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
 - **Serializable pipelines**: Save and load transformation plans as JSON
+
+<br clear="left"/>
+
+
+
 
 ## Installation
 
