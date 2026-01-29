@@ -1,6 +1,6 @@
 # TransformPlan
 
-<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="160" style="margin-right: 30px;">
+<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="18" style="margin-right: 30px;">
 
 **Python Data Transformation Pipeline.**
 
