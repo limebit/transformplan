@@ -24,7 +24,7 @@
 ```python
 from transformplan import TransformPlan, Col
 
-# Define a data transformation plan
+# Build readable pipelines with 70+ chainable operations
 plan = (
     TransformPlan()
     # Standardize column names
@@ -45,13 +45,13 @@ plan = (
     .col_drop(column="date_of_birth")
 )
 
-# Run it on your data with automated pre-validation
-df_result, protocol = plan.process(df,validate=True)
+# Execute with schema validation — catch errors before they hit production
+df_result, protocol = plan.process(df, validate=True)
 
-# Save pipeline to JSON
+# Serialize pipelines to JSON — version control your transformations
 plan.to_json("patient_transform.json")
 
-# Load and reuse
+# Reload and reapply — reproducible results across environments
 plan = TransformPlan.from_json("patient_transform.json")
 df_result, protocol = plan.process(new_data)
 ```
