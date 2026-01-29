@@ -1,17 +1,23 @@
 # TransformPlan
 
-<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="18" style="margin-right: 30px;">
+<table>
+<tr>
+<td width="30%" valign="top">
+<img src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="100%">
+</td>
+<td width="70%" valign="top">
 
 **Python Data Transformation Pipeline.**
 
-- **Features:**
-    - **Declarative transformations**: Build transformation pipelines using method chaining
-    - **Schema validation**: Validate operations before execution with dry-run capability
-    - **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
-    - **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
-    - **Serializable pipelines**: Save and load transformation plans as JSON
+- **Declarative transformations**: Build transformation pipelines using method chaining
+- **Schema validation**: Validate operations before execution with dry-run capability
+- **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
+- **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
+- **Serializable pipelines**: Save and load transformation plans as JSON
 
-<br clear="left"/>
+</td>
+</tr>
+</table>
 
 
 
