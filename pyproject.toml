@@ -18,8 +18,8 @@ classifiers = [
 dependencies = ["polars","pandas","pyarrow"]
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/transformplan"
-Repository = "https://github.com/YOUR_USERNAME/transformplan"
+Homepage = "https://github.com/limebit/transformplan"
+Repository = "https://github.com/limebit/transformplan"
 
 [dependency-groups]
 dev = [

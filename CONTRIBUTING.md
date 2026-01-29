@@ -6,7 +6,7 @@ Thank you for your interest in contributing to TransformPlan! This document prov
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/transformplan.git
+   git clone https://github.com/limebit/transformplan.git
    cd transformplan
    ```
 

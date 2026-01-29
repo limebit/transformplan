@@ -1,7 +1,7 @@
 site_name: TransformPlan
 site_description: Safe, reproducible data transformations with built-in auditing and validation
-site_url: https://github.com/YOUR_USERNAME/transformplan
-repo_url: https://github.com/YOUR_USERNAME/transformplan
+site_url: https://github.com/limebit/transformplan
+repo_url: https://github.com/limebit/transformplan
 repo_name: TransformPlan
 
 theme:

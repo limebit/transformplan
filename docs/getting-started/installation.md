@@ -23,7 +23,7 @@ uv add transformplan
 Clone the repository and install with development dependencies:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/transformplan.git
+git clone https://github.com/limebit/transformplan.git
 cd transformplan
 make install-dev
 ```
