@@ -41,7 +41,6 @@ import polars as pl
 if TYPE_CHECKING:
     from typing import Any, Callable
 
-    import polars as pl
     from typing_extensions import Self
 
 Numeric = Union[int, float]
@@ -59,7 +58,11 @@ class MathOps:
         ) -> Self: ...
 
     def math_add(self, column: str, value: Numeric) -> Self:
-        """Add a scalar value to a column."""
+        """Add a scalar value to a column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._math_add, {"column": column, "value": value})
 
     def _math_add(
@@ -68,7 +71,11 @@ class MathOps:
         return data.with_columns(pl.col(column) + value)
 
     def math_subtract(self, column: str, value: Numeric) -> Self:
-        """Subtract a scalar value from a column."""
+        """Subtract a scalar value from a column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._math_subtract, {"column": column, "value": value})
 
     def _math_subtract(
@@ -77,7 +84,11 @@ class MathOps:
         return data.with_columns(pl.col(column) - value)
 
     def math_multiply(self, column: str, value: Numeric) -> Self:
-        """Multiply a column by a scalar value."""
+        """Multiply a column by a scalar value.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._math_multiply, {"column": column, "value": value})
 
     def _math_multiply(
@@ -86,7 +97,11 @@ class MathOps:
         return data.with_columns(pl.col(column) * value)
 
     def math_divide(self, column: str, value: Numeric) -> Self:
-        """Divide a column by a scalar value."""
+        """Divide a column by a scalar value.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._math_divide, {"column": column, "value": value})
 
     def _math_divide(
@@ -100,7 +115,11 @@ class MathOps:
         lower: Numeric | None = None,
         upper: Numeric | None = None,
     ) -> Self:
-        """Clamp column values to a range."""
+        """Clamp column values to a range.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_clamp, {"column": column, "lower": lower, "upper": upper}
         )
@@ -115,7 +134,11 @@ class MathOps:
         return data.with_columns(pl.col(column).clip(lower, upper))
 
     def math_add_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
-        """Add two columns together into a new column."""
+        """Add two columns together into a new column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_add_columns,
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
@@ -131,7 +154,11 @@ class MathOps:
     def math_subtract_columns(
         self, column_a: str, column_b: str, new_column: str
     ) -> Self:
-        """Subtract column_b from column_a into a new column."""
+        """Subtract column_b from column_a into a new column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_subtract_columns,
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
@@ -147,7 +174,11 @@ class MathOps:
     def math_multiply_columns(
         self, column_a: str, column_b: str, new_column: str
     ) -> Self:
-        """Multiply two columns together into a new column."""
+        """Multiply two columns together into a new column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_multiply_columns,
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
@@ -163,7 +194,11 @@ class MathOps:
     def math_divide_columns(
         self, column_a: str, column_b: str, new_column: str
     ) -> Self:
-        """Divide column_a by column_b into a new column."""
+        """Divide column_a by column_b into a new column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_divide_columns,
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
@@ -177,7 +212,11 @@ class MathOps:
         )
 
     def math_set_min(self, column: str, min_value: Numeric) -> Self:
-        """Set a minimum value for a column (values below are raised to min)."""
+        """Set a minimum value for a column (values below are raised to min).
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_set_min, {"column": column, "min_value": min_value}
         )
@@ -193,7 +232,11 @@ class MathOps:
         )
 
     def math_set_max(self, column: str, max_value: Numeric) -> Self:
-        """Set a maximum value for a column (values above are lowered to max)."""
+        """Set a maximum value for a column (values above are lowered to max).
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_set_max, {"column": column, "max_value": max_value}
         )
@@ -209,14 +252,22 @@ class MathOps:
         )
 
     def math_abs(self, column: str) -> Self:
-        """Take absolute value of a column."""
+        """Take absolute value of a column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._math_abs, {"column": column})
 
     def _math_abs(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).abs())
 
     def math_round(self, column: str, decimals: int = 0) -> Self:
-        """Round a column to specified decimal places."""
+        """Round a column to specified decimal places.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._math_round, {"column": column, "decimals": decimals}
         )
@@ -240,6 +291,9 @@ class MathOps:
             total_column: Denominator column.
             new_column: Name for result column.
             multiply_by: Multiplier (default 100 for percentage).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._math_percent_of,
@@ -275,6 +329,9 @@ class MathOps:
             column: Column to sum.
             new_column: Name for result column (None = modify in place).
             group_by: Optional column(s) to group by.
+
+        Returns:
+            Self for method chaining.
         """
         if isinstance(group_by, str):
             group_by = [group_by]
@@ -305,6 +362,7 @@ class MathOps:
         column: str,
         new_column: str,
         method: str = "ordinal",
+        *,
         descending: bool = False,
         group_by: str | list[str] | None = None,
     ) -> Self:
@@ -316,6 +374,9 @@ class MathOps:
             method: Ranking method ('ordinal', 'dense', 'min', 'max', 'average').
             descending: Rank in descending order.
             group_by: Optional column(s) to group by.
+
+        Returns:
+            Self for method chaining.
         """
         if isinstance(group_by, str):
             group_by = [group_by]
@@ -336,7 +397,7 @@ class MathOps:
         column: str,
         new_column: str,
         method: str,
-        descending: bool,
+        descending: bool,  # noqa: FBT001
         group_by: list[str] | None,
     ) -> pl.DataFrame:
         expr = pl.col(column).rank(method=method, descending=descending)

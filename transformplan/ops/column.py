@@ -37,7 +37,6 @@ import polars as pl
 if TYPE_CHECKING:
     from typing import Any, Callable
 
-    import polars as pl
     from typing_extensions import Self
 
 
@@ -53,14 +52,22 @@ class ColumnOps:
         ) -> Self: ...
 
     def col_drop(self, column: str) -> Self:
-        """Drop a column from the DataFrame."""
+        """Drop a column from the DataFrame.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._col_drop, {"column": column})
 
     def _col_drop(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
         return data.drop(column)
 
     def col_rename(self, column: str, new_name: str) -> Self:
-        """Rename a column."""
+        """Rename a column.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._col_rename, {"column": column, "new_name": new_name}
         )
@@ -71,21 +78,33 @@ class ColumnOps:
         return data.rename({column: new_name})
 
     def col_cast(self, column: str, dtype: type) -> Self:
-        """Cast a column to a different dtype."""
+        """Cast a column to a different dtype.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._col_cast, {"column": column, "dtype": dtype})
 
     def _col_cast(self, data: pl.DataFrame, column: str, dtype: type) -> pl.DataFrame:
         return data.with_columns(pl.col(column).cast(dtype))
 
     def col_reorder(self, columns: Sequence[str]) -> Self:
-        """Reorder columns. Unlisted columns are dropped."""
+        """Reorder columns. Unlisted columns are dropped.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._col_reorder, {"columns": list(columns)})
 
     def _col_reorder(self, data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         return data.select(columns)
 
     def col_duplicate(self, column: str, new_name: str) -> Self:
-        """Duplicate a column under a new name."""
+        """Duplicate a column under a new name.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._col_duplicate, {"column": column, "new_name": new_name}
         )
@@ -96,14 +115,21 @@ class ColumnOps:
         return data.with_columns(pl.col(column).alias(new_name))
 
     def col_fill_null(
-        self, column: str, value: Any = None, strategy: str | None = None
+        self,
+        column: str,
+        value: Any = None,  # noqa: ANN401
+        strategy: str | None = None,
     ) -> Self:
         """Fill null values in a column.
 
         Args:
             column: Column to fill.
             value: Value to fill nulls with (if strategy is None).
-            strategy: Fill strategy - 'forward', 'backward', 'mean', 'min', 'max', 'zero', 'one'.
+            strategy: Fill strategy - 'forward', 'backward', 'mean', 'min', 'max',
+                'zero', 'one'.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._col_fill_null,
@@ -111,7 +137,11 @@ class ColumnOps:
         )
 
     def _col_fill_null(
-        self, data: pl.DataFrame, column: str, value: Any, strategy: str | None
+        self,
+        data: pl.DataFrame,
+        column: str,
+        value: Any,  # noqa: ANN401
+        strategy: str | None,
     ) -> pl.DataFrame:
         if strategy is not None:
             return data.with_columns(pl.col(column).fill_null(strategy=strategy))
@@ -122,6 +152,9 @@ class ColumnOps:
 
         Args:
             columns: Column(s) to check for nulls. If None, checks all columns.
+
+        Returns:
+            Self for method chaining.
         """
         if isinstance(columns, str):
             columns = [columns]
@@ -133,7 +166,11 @@ class ColumnOps:
         return data.drop_nulls(subset=columns)
 
     def col_drop_zero(self, column: str) -> Self:
-        """Drop rows where the specified column is zero."""
+        """Drop rows where the specified column is zero.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._col_drop_zero, {"column": column})
 
     def _col_drop_zero(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
@@ -142,8 +179,8 @@ class ColumnOps:
     def col_add(
         self,
         new_column: str,
-        expr: str | int | float | None = None,
-        value: Any = None,
+        expr: str | float | None = None,
+        value: Any = None,  # noqa: ANN401
     ) -> Self:
         """Add a new column with a constant value or expression.
 
@@ -151,13 +188,20 @@ class ColumnOps:
             new_column: Name of the new column.
             expr: Column name to copy from, or None for constant value.
             value: Constant value to fill the column with.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._col_add, {"new_column": new_column, "expr": expr, "value": value}
         )
 
     def _col_add(
-        self, data: pl.DataFrame, new_column: str, expr: str | None, value: Any
+        self,
+        data: pl.DataFrame,
+        new_column: str,
+        expr: str | None,
+        value: Any,  # noqa: ANN401
     ) -> pl.DataFrame:
         if expr is not None:
             return data.with_columns(pl.col(expr).alias(new_column))
@@ -169,6 +213,9 @@ class ColumnOps:
         Args:
             column: Name of the new column.
             length: Length of the identifier string.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(self._col_add_uuid, {"column": column, "length": length})
 
@@ -194,6 +241,9 @@ class ColumnOps:
             columns: Column(s) to hash.
             new_column: Name for the hash column.
             salt: Optional salt to add to the hash.
+
+        Returns:
+            Self for method chaining.
         """
         if isinstance(columns, str):
             columns = [columns]
@@ -223,6 +273,9 @@ class ColumnOps:
         Args:
             columns: Columns to coalesce (in priority order).
             new_column: Name for the result column.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._col_coalesce, {"columns": list(columns), "new_column": new_column}
@@ -240,6 +293,9 @@ class ColumnOps:
 
         Args:
             columns: Columns to keep.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(self._col_select, {"columns": list(columns)})
 

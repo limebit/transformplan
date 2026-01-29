@@ -66,6 +66,7 @@ class Protocol:
     VERSION = "1.0"
 
     def __init__(self) -> None:
+        """Initialize an empty Protocol."""
         self._steps: list[dict[str, Any]] = []
         self._input_hash: str | None = None
         self._input_shape: tuple[int, int] | None = None
@@ -79,7 +80,7 @@ class Protocol:
         self._input_hash = hash_value
         self._input_shape = shape
 
-    def set_metadata(self, **kwargs: Any) -> None:
+    def set_metadata(self, **kwargs: Any) -> None:  # noqa: ANN401
         """Set arbitrary metadata on the protocol.
 
         Example:
@@ -96,6 +97,16 @@ class Protocol:
         elapsed: float,
         output_hash: str,
     ) -> None:
+        """Record a transformation step in the protocol.
+
+        Args:
+            operation: Name of the operation.
+            params: Operation parameters.
+            old_shape: Shape before operation (rows, cols).
+            new_shape: Shape after operation (rows, cols).
+            elapsed: Time taken in seconds.
+            output_hash: Hash of the output DataFrame.
+        """
         self._steps.append(
             {
                 "step": len(self._steps) + 1,
@@ -112,22 +123,39 @@ class Protocol:
 
     @property
     def input_hash(self) -> str | None:
-        """Hash of the input DataFrame."""
+        """Hash of the input DataFrame.
+
+        Returns:
+            Hash string or None if not set.
+        """
         return self._input_hash
 
     @property
     def output_hash(self) -> str | None:
-        """Hash of the final output DataFrame."""
+        """Hash of the final output DataFrame.
+
+        Returns:
+            Hash string or None if no steps.
+        """
         if not self._steps:
             return self._input_hash
         return self._steps[-1]["output_hash"]
 
     @property
     def metadata(self) -> dict[str, Any]:
-        """Protocol metadata."""
+        """Protocol metadata.
+
+        Returns:
+            Dictionary of metadata.
+        """
         return self._metadata
 
     def to_dataframe(self) -> pl.DataFrame:
+        """Convert protocol to a Polars DataFrame.
+
+        Returns:
+            DataFrame with step information.
+        """
         rows = []
 
         # Step 0: input state
@@ -177,25 +205,29 @@ class Protocol:
                 }
             )
 
-        for step in self._steps:
-            rows.append(
-                {
-                    "step": step["step"],
-                    "operation": step["operation"],
-                    "params": json.dumps(step["params"]) if step["params"] else None,
-                    "old_shape": str(list(step["old_shape"])),
-                    "new_shape": str(list(step["new_shape"])),
-                    "rows_changed": step["rows_changed"],
-                    "cols_changed": step["cols_changed"],
-                    "elapsed_seconds": step["elapsed_seconds"],
-                    "output_hash": step["output_hash"],
-                }
-            )
+        rows.extend(
+            {
+                "step": step["step"],
+                "operation": step["operation"],
+                "params": json.dumps(step["params"]) if step["params"] else None,
+                "old_shape": str(list(step["old_shape"])),
+                "new_shape": str(list(step["new_shape"])),
+                "rows_changed": step["rows_changed"],
+                "cols_changed": step["cols_changed"],
+                "elapsed_seconds": step["elapsed_seconds"],
+                "output_hash": step["output_hash"],
+            }
+            for step in self._steps
+        )
 
         pl.DataFrame(rows).write_csv(path)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize protocol to a dictionary."""
+        """Serialize protocol to a dictionary.
+
+        Returns:
+            Dictionary representation of the protocol.
+        """
         return {
             "version": self.VERSION,
             "created_at": self._created_at,
@@ -222,7 +254,11 @@ class Protocol:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Protocol:
-        """Deserialize protocol from a dictionary."""
+        """Deserialize protocol from a dictionary.
+
+        Returns:
+            Protocol instance.
+        """
         protocol = cls()
         protocol._created_at = data.get("created_at", protocol._created_at)
         protocol._metadata = data.get("metadata", {})
@@ -288,12 +324,22 @@ class Protocol:
         return cls.from_dict(json.loads(content))
 
     def __repr__(self) -> str:
+        """Return string representation.
+
+        Returns:
+            Human-readable representation.
+        """
         return f"Protocol({len(self._steps)} steps)"
 
     def __len__(self) -> int:
+        """Return number of steps.
+
+        Returns:
+            Number of transformation steps.
+        """
         return len(self._steps)
 
-    def summary(self, show_params: bool = True) -> str:
+    def summary(self, *, show_params: bool = True) -> str:  # noqa: C901
         """Generate a clean, human-readable summary of the protocol.
 
         Args:
@@ -305,9 +351,7 @@ class Protocol:
         lines = []
 
         # Header
-        lines.append("=" * 70)
-        lines.append("TRANSFORM PROTOCOL")
-        lines.append("=" * 70)
+        lines.extend(("=" * 70, "TRANSFORM PROTOCOL", "=" * 70))
 
         # Metadata
         if self._metadata:
@@ -318,7 +362,7 @@ class Protocol:
         # Input info
         if self._input_hash:
             shape_str = (
-                f"{self._input_shape[0]} rows × {self._input_shape[1]} cols"
+                f"{self._input_shape[0]} rows x {self._input_shape[1]} cols"
                 if self._input_shape
                 else "unknown"
             )
@@ -327,20 +371,20 @@ class Protocol:
         # Output info
         if self._steps:
             final = self._steps[-1]
-            shape_str = f"{final['new_shape'][0]} rows × {final['new_shape'][1]} cols"
+            shape_str = f"{final['new_shape'][0]} rows x {final['new_shape'][1]} cols"
             lines.append(f"Output: {shape_str}  [{final['output_hash']}]")
 
         # Total time
         total_time = sum(s["elapsed_seconds"] for s in self._steps)
-        lines.append(f"Total time: {total_time:.4f}s")
-        lines.append("-" * 70)
-
-        # Steps
-        lines.append("")
-        lines.append(
-            f"{'#':<4} {'Operation':<20} {'Rows':<12} {'Cols':<12} {'Time':<10} {'Hash':<16}"
+        lines.extend(
+            [
+                f"Total time: {total_time:.4f}s",
+                "-" * 70,
+                "",
+                f"{'#':<4} {'Operation':<20} {'Rows':<12} {'Cols':<12} {'Time':<10} {'Hash':<16}",
+                "-" * 70,
+            ]
         )
-        lines.append("-" * 70)
 
         # Input row
         if self._input_hash:
@@ -404,16 +448,17 @@ class Protocol:
 
         return "\n".join(lines)
 
-    def _format_params(self, params: dict, max_length: int = 60) -> str:
-        """Format params dict as a readable string."""
+    def _format_params(self, params: dict[str, Any], max_length: int = 60) -> str:
+        """Format params dict as a readable string.
+
+        Returns:
+            Formatted string representation.
+        """
         parts = []
         for key, value in params.items():
             if isinstance(value, dict):
                 # Nested dict (like filter) - show type or summarize
-                if "type" in value:
-                    value_str = self._format_filter(value)
-                else:
-                    value_str = "{...}"
+                value_str = self._format_filter(value) if "type" in value else "{...}"
             elif isinstance(value, list) and len(value) > 3:
                 value_str = f"[{value[0]}, {value[1]}, ... ({len(value)} items)]"
             else:
@@ -425,8 +470,12 @@ class Protocol:
             result = result[: max_length - 3] + "..."
         return result
 
-    def _format_filter(self, filter_dict: dict) -> str:
-        """Format a filter dict as a readable expression."""
+    def _format_filter(self, filter_dict: dict[str, Any]) -> str:  # noqa: C901
+        """Format a filter dict as a readable expression.
+
+        Returns:
+            Human-readable filter expression.
+        """
         filter_type = filter_dict.get("type", "")
 
         if filter_type in ("and", "or"):
@@ -434,10 +483,10 @@ class Protocol:
             right = self._format_filter(filter_dict["right"])
             op = "&" if filter_type == "and" else "|"
             return f"({left} {op} {right})"
-        elif filter_type == "not":
+        if filter_type == "not":
             operand = self._format_filter(filter_dict["operand"])
             return f"~{operand}"
-        elif filter_type in ("eq", "ne", "gt", "ge", "lt", "le"):
+        if filter_type in ("eq", "ne", "gt", "ge", "lt", "le"):
             col = filter_dict.get("column", "?")
             val = filter_dict.get("value", "?")
             op_map = {
@@ -449,7 +498,7 @@ class Protocol:
                 "le": "<=",
             }
             return f"{col} {op_map[filter_type]} {val!r}"
-        elif filter_type == "is_in":
+        if filter_type == "is_in":
             col = filter_dict.get("column", "?")
             values = filter_dict.get("values", [])
             if len(values) > 3:
@@ -457,29 +506,29 @@ class Protocol:
             else:
                 val_str = repr(values)
             return f"{col} in {val_str}"
-        elif filter_type == "is_null":
+        if filter_type == "is_null":
             return f"{filter_dict.get('column', '?')} is null"
-        elif filter_type == "is_not_null":
+        if filter_type == "is_not_null":
             return f"{filter_dict.get('column', '?')} is not null"
-        elif filter_type == "between":
+        if filter_type == "between":
             col = filter_dict.get("column", "?")
             lower = filter_dict.get("lower", "?")
             upper = filter_dict.get("upper", "?")
             return f"{col} between {lower!r} and {upper!r}"
-        elif filter_type.startswith("str_"):
+        if filter_type.startswith("str_"):
             col = filter_dict.get("column", "?")
             if filter_type == "str_contains":
                 return f"{col}.contains({filter_dict.get('pattern', '?')!r})"
-            elif filter_type == "str_starts_with":
+            if filter_type == "str_starts_with":
                 return f"{col}.starts_with({filter_dict.get('prefix', '?')!r})"
-            elif filter_type == "str_ends_with":
+            if filter_type == "str_ends_with":
                 return f"{col}.ends_with({filter_dict.get('suffix', '?')!r})"
         return f"<{filter_type}>"
 
-    def print(self, show_params: bool = True) -> None:
+    def print(self, *, show_params: bool = True) -> None:
         """Print the protocol summary to stdout.
 
         Args:
             show_params: Whether to include operation parameters.
         """
-        print(self.summary(show_params))
+        print(self.summary(show_params=show_params))  # noqa: T201

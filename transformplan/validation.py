@@ -35,13 +35,9 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import polars as pl
-
-if TYPE_CHECKING:
-    from .filters import Filter
-
 
 # =============================================================================
 # Type categories for validation
@@ -68,27 +64,47 @@ BOOLEAN_TYPES = {pl.Boolean}
 
 
 def is_numeric(dtype: pl.DataType) -> bool:
-    """Check if dtype is numeric."""
+    """Check if dtype is numeric.
+
+    Returns:
+        True if dtype is numeric, False otherwise.
+    """
     return dtype in NUMERIC_TYPES or dtype.base_type() in NUMERIC_TYPES
 
 
 def is_string(dtype: pl.DataType) -> bool:
-    """Check if dtype is string."""
+    """Check if dtype is string.
+
+    Returns:
+        True if dtype is string, False otherwise.
+    """
     return dtype in STRING_TYPES or dtype.base_type() in STRING_TYPES
 
 
 def is_datetime(dtype: pl.DataType) -> bool:
-    """Check if dtype is datetime-related."""
+    """Check if dtype is datetime-related.
+
+    Returns:
+        True if dtype is datetime-related, False otherwise.
+    """
     return dtype in DATETIME_TYPES or dtype.base_type() in DATETIME_TYPES
 
 
 def is_boolean(dtype: pl.DataType) -> bool:
-    """Check if dtype is boolean."""
+    """Check if dtype is boolean.
+
+    Returns:
+        True if dtype is boolean, False otherwise.
+    """
     return dtype in BOOLEAN_TYPES or dtype.base_type() in BOOLEAN_TYPES
 
 
 def dtype_name(dtype: pl.DataType) -> str:
-    """Get a readable name for a dtype."""
+    """Get a readable name for a dtype.
+
+    Returns:
+        String representation of the dtype.
+    """
     return str(dtype).split("(")[0]
 
 
@@ -106,6 +122,11 @@ class ValidationError:
     message: str
 
     def __str__(self) -> str:
+        """Return error message string.
+
+        Returns:
+            Formatted error message.
+        """
         return f"Step {self.step} ({self.operation}): {self.message}"
 
 
@@ -113,28 +134,48 @@ class ValidationResult:
     """Result of schema validation."""
 
     def __init__(self) -> None:
+        """Initialize an empty validation result."""
         self._errors: list[ValidationError] = []
 
     def add_error(self, step: int, operation: str, message: str) -> None:
+        """Add a validation error."""
         self._errors.append(ValidationError(step, operation, message))
 
     @property
     def is_valid(self) -> bool:
+        """Check if validation passed.
+
+        Returns:
+            True if no errors, False otherwise.
+        """
         return len(self._errors) == 0
 
     @property
     def errors(self) -> list[ValidationError]:
+        """Get list of validation errors.
+
+        Returns:
+            List of ValidationError instances.
+        """
         return self._errors
 
     def raise_if_invalid(self) -> None:
-        """Raise ValidationError if validation failed."""
+        """Raise SchemaValidationError if validation failed.
+
+        Raises:
+            SchemaValidationError: If validation failed with errors.
+        """
         if not self.is_valid:
             error_messages = "\n".join(f"  - {e}" for e in self._errors)
-            raise SchemaValidationError(
-                f"Schema validation failed with {len(self._errors)} error(s):\n{error_messages}"
-            )
+            msg = f"Schema validation failed with {len(self._errors)} error(s):\n{error_messages}"
+            raise SchemaValidationError(msg)
 
     def __repr__(self) -> str:
+        """Return string representation of validation result.
+
+        Returns:
+            Human-readable representation.
+        """
         if self.is_valid:
             return "ValidationResult(valid=True)"
         return f"ValidationResult(valid=False, errors={len(self._errors)})"
@@ -175,48 +216,83 @@ class DryRunResult:
         steps: list[DryRunStep],
         validation: ValidationResult,
     ) -> None:
+        """Initialize DryRunResult.
+
+        Args:
+            input_schema: Initial schema as column name to dtype mapping.
+            steps: List of dry run steps.
+            validation: Validation result with any errors.
+        """
         self._input_schema = input_schema
         self._steps = steps
         self._validation = validation
 
     @property
     def is_valid(self) -> bool:
-        """Whether the pipeline passed validation."""
+        """Whether the pipeline passed validation.
+
+        Returns:
+            True if validation passed, False otherwise.
+        """
         return self._validation.is_valid
 
     @property
     def errors(self) -> list[ValidationError]:
-        """Validation errors."""
+        """Validation errors.
+
+        Returns:
+            List of validation errors.
+        """
         return self._validation.errors
 
     @property
     def steps(self) -> list[DryRunStep]:
-        """List of dry run steps."""
+        """List of dry run steps.
+
+        Returns:
+            List of DryRunStep instances.
+        """
         return self._steps
 
     @property
     def input_schema(self) -> dict[str, pl.DataType]:
-        """Input schema."""
+        """Input schema.
+
+        Returns:
+            Dictionary mapping column names to dtypes.
+        """
         return self._input_schema
 
     @property
     def output_schema(self) -> dict[str, str]:
-        """Predicted output schema after all operations."""
+        """Predicted output schema after all operations.
+
+        Returns:
+            Dictionary mapping column names to dtype names.
+        """
         if self._steps:
             return self._steps[-1].schema_after
         return {k: dtype_name(v) for k, v in self._input_schema.items()}
 
     @property
     def input_columns(self) -> list[str]:
-        """Input column names."""
+        """Input column names.
+
+        Returns:
+            List of input column names.
+        """
         return list(self._input_schema.keys())
 
     @property
     def output_columns(self) -> list[str]:
-        """Predicted output column names."""
+        """Predicted output column names.
+
+        Returns:
+            List of predicted output column names.
+        """
         return list(self.output_schema.keys())
 
-    def summary(self, show_params: bool = True, show_schema: bool = False) -> str:
+    def summary(self, *, show_params: bool = True, show_schema: bool = False) -> str:  # noqa: C901
         """Generate a human-readable summary.
 
         Args:
@@ -229,32 +305,28 @@ class DryRunResult:
         lines = []
 
         # Header
-        lines.append("=" * 70)
-        lines.append("DRY RUN PREVIEW")
-        lines.append("=" * 70)
+        lines.extend(("=" * 70, "DRY RUN PREVIEW", "=" * 70))
 
         # Validation status
         if self.is_valid:
             lines.append("✓ Validation: PASSED")
         else:
             lines.append(f"✗ Validation: FAILED ({len(self.errors)} errors)")
-            for err in self.errors:
-                lines.append(f"  - {err}")
+            lines.extend(f"  - {err}" for err in self.errors)
 
-        lines.append("-" * 70)
-
-        # Input schema summary
-        lines.append(f"Input: {len(self._input_schema)} columns")
+        lines.extend(["-" * 70, f"Input: {len(self._input_schema)} columns"])
         if show_schema:
             for col, dtype in self._input_schema.items():
                 lines.append(f"  {col}: {dtype_name(dtype)}")
 
-        lines.append("-" * 70)
-
-        # Steps
-        lines.append("")
-        lines.append(f"{'#':<4} {'Operation':<20} {'Columns':<15} {'Changes':<30}")
-        lines.append("-" * 70)
+        lines.extend(
+            [
+                "-" * 70,
+                "",
+                f"{'#':<4} {'Operation':<20} {'Columns':<15} {'Changes':<30}",
+                "-" * 70,
+            ]
+        )
 
         for step in self._steps:
             step_num = str(step.step)
@@ -291,27 +363,33 @@ class DryRunResult:
             if show_schema:
                 lines.append(f"     Schema: {step.schema_after}")
 
-        lines.append("=" * 70)
-
-        # Output schema summary
-        lines.append(f"Output: {len(self.output_schema)} columns")
+        lines.extend(["=" * 70, f"Output: {len(self.output_schema)} columns"])
         if show_schema:
             for col, dtype in self.output_schema.items():
                 lines.append(f"  {col}: {dtype}")
 
         return "\n".join(lines)
 
-    def print(self, show_params: bool = True, show_schema: bool = False) -> None:
+    def print(self, *, show_params: bool = True, show_schema: bool = False) -> None:
         """Print the dry run summary."""
-        print(self.summary(show_params, show_schema))
+        print(self.summary(show_params=show_params, show_schema=show_schema))  # noqa: T201
 
     def __repr__(self) -> str:
+        """Return string representation of dry run result.
+
+        Returns:
+            Human-readable representation.
+        """
         status = "valid" if self.is_valid else f"invalid ({len(self.errors)} errors)"
         return f"DryRunResult({len(self._steps)} steps, {status})"
 
 
-def _format_params_short(params: dict, max_length: int = 55) -> str:
-    """Format params dict as a short string."""
+def _format_params_short(params: dict[str, Any], max_length: int = 55) -> str:
+    """Format params dict as a short string.
+
+    Returns:
+        Formatted string representation of params.
+    """
     parts = []
     for key, value in params.items():
         if isinstance(value, dict) and "type" in value:
@@ -339,29 +417,54 @@ class SchemaTracker:
     """Tracks schema changes through a pipeline for validation."""
 
     def __init__(self, schema: dict[str, pl.DataType]) -> None:
+        """Initialize tracker with a schema.
+
+        Args:
+            schema: Initial schema as column name to dtype mapping.
+        """
         self._schema = dict(schema)
 
     @property
     def columns(self) -> set[str]:
+        """Get set of column names.
+
+        Returns:
+            Set of column names.
+        """
         return set(self._schema.keys())
 
     def has_column(self, name: str) -> bool:
+        """Check if column exists.
+
+        Returns:
+            True if column exists, False otherwise.
+        """
         return name in self._schema
 
     def get_dtype(self, name: str) -> pl.DataType | None:
+        """Get dtype for a column.
+
+        Returns:
+            DataType or None if column doesn't exist.
+        """
         return self._schema.get(name)
 
     def drop_column(self, name: str) -> None:
+        """Remove a column from the schema."""
         self._schema.pop(name, None)
 
-    def add_column(self, name: str, dtype: pl.DataType) -> None:
-        self._schema[name] = dtype
+    def add_column(self, name: str, dtype: pl.DataType | None) -> None:
+        """Add a column to the schema."""
+        if dtype is not None:
+            self._schema[name] = dtype
 
     def rename_column(self, old_name: str, new_name: str) -> None:
+        """Rename a column in the schema."""
         if old_name in self._schema:
             self._schema[new_name] = self._schema.pop(old_name)
 
     def set_dtype(self, name: str, dtype: pl.DataType) -> None:
+        """Change the dtype of an existing column."""
         if name in self._schema:
             self._schema[name] = dtype
 
@@ -384,7 +487,11 @@ def _check_column_exists(
     step: int,
     op_name: str,
 ) -> bool:
-    """Check if column exists, add error if not. Returns True if exists."""
+    """Check if column exists, add error if not.
+
+    Returns:
+        True if column exists, False otherwise.
+    """
     if not tracker.has_column(column):
         result.add_error(step, op_name, f"Column '{column}' does not exist")
         return False
@@ -398,7 +505,11 @@ def _check_column_numeric(
     step: int,
     op_name: str,
 ) -> bool:
-    """Check if column is numeric, add error if not. Returns True if numeric."""
+    """Check if column is numeric, add error if not.
+
+    Returns:
+        True if column is numeric, False otherwise.
+    """
     dtype = tracker.get_dtype(column)
     if dtype and not is_numeric(dtype):
         result.add_error(
@@ -415,7 +526,11 @@ def _check_column_string(
     step: int,
     op_name: str,
 ) -> bool:
-    """Check if column is string, add error if not. Returns True if string."""
+    """Check if column is string, add error if not.
+
+    Returns:
+        True if column is string, False otherwise.
+    """
     dtype = tracker.get_dtype(column)
     if dtype and not is_string(dtype):
         result.add_error(
@@ -432,7 +547,11 @@ def _check_column_datetime(
     step: int,
     op_name: str,
 ) -> bool:
-    """Check if column is datetime, add error if not. Returns True if datetime."""
+    """Check if column is datetime, add error if not.
+
+    Returns:
+        True if column is datetime, False otherwise.
+    """
     dtype = tracker.get_dtype(column)
     if dtype and not is_datetime(dtype):
         result.add_error(
@@ -724,7 +843,7 @@ def _validate_str_split(
                 )
             else:
                 tracker.add_column(new_col, pl.Utf8)
-        if not params.get("keep_original", False):
+        if not params.get("keep_original"):
             tracker.drop_column(column)
 
 
@@ -830,13 +949,10 @@ def _validate_dt_age_years(
     if _check_column_exists(tracker, birth_column, result, step, "dt_age_years"):
         _check_column_datetime(tracker, birth_column, result, step, "dt_age_years")
 
-    if reference_column:
-        if _check_column_exists(
-            tracker, reference_column, result, step, "dt_age_years"
-        ):
-            _check_column_datetime(
-                tracker, reference_column, result, step, "dt_age_years"
-            )
+    if reference_column and _check_column_exists(
+        tracker, reference_column, result, step, "dt_age_years"
+    ):
+        _check_column_datetime(tracker, reference_column, result, step, "dt_age_years")
 
     tracker.add_column(new_column, pl.Int64)
 
@@ -887,7 +1003,11 @@ def _validate_filter_columns(
     step: int,
     op_name: str,
 ) -> list[str]:
-    """Recursively validate columns and types from a filter dict."""
+    """Recursively validate columns and types from a filter dict.
+
+    Returns:
+        List of missing column names.
+    """
     missing = []
     filter_type = filter_dict.get("type")
 
@@ -917,22 +1037,29 @@ def _validate_filter_columns(
             dtype = tracker.get_dtype(column)
 
             # Numeric comparisons
-            if filter_type in ("gt", "ge", "lt", "le", "between"):
-                if dtype and not is_numeric(dtype) and not is_datetime(dtype):
-                    result.add_error(
-                        step,
-                        op_name,
-                        f"Column '{column}' is {dtype_name(dtype)}, cannot use numeric comparison",
-                    )
+            if (
+                filter_type in ("gt", "ge", "lt", "le", "between")
+                and dtype
+                and not is_numeric(dtype)
+                and not is_datetime(dtype)
+            ):
+                result.add_error(
+                    step,
+                    op_name,
+                    f"Column '{column}' is {dtype_name(dtype)}, cannot use numeric comparison",
+                )
 
             # String operations
-            if filter_type in ("str_contains", "str_starts_with", "str_ends_with"):
-                if dtype and not is_string(dtype):
-                    result.add_error(
-                        step,
-                        op_name,
-                        f"Column '{column}' is {dtype_name(dtype)}, cannot use string filter",
-                    )
+            if (
+                filter_type in ("str_contains", "str_starts_with", "str_ends_with")
+                and dtype
+                and not is_string(dtype)
+            ):
+                result.add_error(
+                    step,
+                    op_name,
+                    f"Column '{column}' is {dtype_name(dtype)}, cannot use string filter",
+                )
 
     return missing
 
@@ -1259,10 +1386,11 @@ def dry_run_schema(
         columns_removed = list(cols_before - cols_after)
 
         # Detect type modifications (columns that exist in both but changed type)
-        columns_modified = []
-        for col in cols_before & cols_after:
-            if schema_before.get(col) != schema_after.get(col):
-                columns_modified.append(col)
+        columns_modified = [
+            col
+            for col in cols_before & cols_after
+            if schema_before.get(col) != schema_after.get(col)
+        ]
 
         # Check if this step had an error
         step_error = None
