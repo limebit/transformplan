@@ -1,7 +1,7 @@
 <table>
 <tr>
-<td><img src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="120"></td>
-<td>
+<td width="30%"><img src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="100%"></td>
+<td width="70%">
 
 # TransformPlan
 
