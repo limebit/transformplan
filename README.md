@@ -24,6 +24,7 @@
 ```python
 from transformplan import TransformPlan, Col
 
+# Define a data transformation plan
 plan = (
     TransformPlan()
     # Standardize column names
@@ -43,7 +44,15 @@ plan = (
     .col_drop(column="date_of_birth")
 )
 
-df_result, protocol = plan.process(df)
+# Run it on your data with automated pre-validation
+df_result, protocol = plan.process(df,validate=True)
+
+# Save pipeline to JSON
+plan.to_json("patient_transform.json")
+
+# Load and reuse
+plan = TransformPlan.from_json("patient_transform.json")
+df_result, protocol = plan.process(new_data)
 ```
 
 ### Generated Audit Protocol
@@ -69,17 +78,6 @@ Total time: 0.0234s
 7    rows_drop_nulls      847 (-11)    7            0.0019s    b5c1d8e3
 8    col_drop             847          6 (-1)       0.0006s    e7d3f9a2
 ======================================================================
-```
-
-### Save and Load Pipelines
-
-```python
-# Save pipeline to JSON
-plan.to_json("patient_transform.json")
-
-# Load and reuse
-plan = TransformPlan.from_json("patient_transform.json")
-df_result, protocol = plan.process(new_data)
 ```
 
 ## Installation
