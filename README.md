@@ -30,6 +30,7 @@ plan = (
     # Standardize column names
     .col_rename(column="PatientID", new_name="patient_id")
     .col_rename(column="DOB", new_name="date_of_birth")
+    .str_strip(column="patient_id")
 
     # Calculate derived values
     .dt_age_years(column="date_of_birth", new_column="age")
@@ -55,7 +56,7 @@ plan = TransformPlan.from_json("patient_transform.json")
 df_result, protocol = plan.process(new_data)
 ```
 
-### Generated Audit Protocol
+### Every run will generate a auditable protocol
 
 ```
 ======================================================================
@@ -63,7 +64,7 @@ TRANSFORM PROTOCOL
 ======================================================================
 Input:  1000 rows × 5 cols  [a4f8b2c1]
 Output: 847 rows × 5 cols   [e7d3f9a2]
-Total time: 0.0234s
+Total time: 0.0247s
 ----------------------------------------------------------------------
 
 #    Operation            Rows         Cols         Time       Hash
@@ -71,13 +72,15 @@ Total time: 0.0234s
 0    input                1000         5            -          a4f8b2c1
 1    col_rename           1000         5            0.0012s    b2e4a7f3
 2    col_rename           1000         5            0.0008s    c9d1e5b8
-3    dt_age_years         1000         6 (+1)       0.0041s    d4f2c8a1
-4    math_clamp           1000         6            0.0015s    e1b7d3f9
-5    map_discretize       1000         7 (+1)       0.0028s    f8a4c2e6
-6    rows_filter          858 (-142)   7            0.0037s    a2e9f4b7
-7    rows_drop_nulls      847 (-11)    7            0.0019s    b5c1d8e3
-8    col_drop             847          6 (-1)       0.0006s    e7d3f9a2
+3    str_strip            1000         5            0.0013s    c9d1e5b8        ○
+4    dt_age_years         1000         6 (+1)       0.0041s    d4f2c8a1
+5    math_clamp           1000         6            0.0015s    e1b7d3f9
+6    map_discretize       1000         7 (+1)       0.0028s    f8a4c2e6
+7    rows_filter          858 (-142)   7            0.0037s    a2e9f4b7
+8    rows_drop_nulls      847 (-11)    7            0.0019s    b5c1d8e3
+9    col_drop             847          6 (-1)       0.0006s    e7d3f9a2
 ======================================================================
+○ = no effect (steps 3 did not change data)
 ```
 
 ## Installation
