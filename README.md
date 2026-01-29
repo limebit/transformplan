@@ -7,13 +7,14 @@
 </td>
 <td width="70%" valign="top">
 
-**Python Data Transformation Pipeline.**
+# Data Transformation Pipeline
 
-- **Declarative transformations**: Build transformation pipelines using method chaining
-- **Schema validation**: Validate operations before execution with dry-run capability
-- **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
-- **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
-- **Serializable pipelines**: Save and load transformation plans as JSON
+- **Features:**
+    - **Declarative transformations**: Build transformation pipelines using method chaining
+    - **Schema validation**: Validate operations before execution with dry-run capability
+    - **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
+    - **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
+    - **Serializable pipelines**: Save and load transformation plans as JSON
 
 </td>
 </tr>
