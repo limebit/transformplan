@@ -22,10 +22,19 @@ from typing import Protocol as TypingProtocol
 
 import polars as pl
 
+from .chunking import (
+    ChunkedProtocol,
+    ChunkInfo,
+    ChunkingError,
+    ChunkValidationResult,
+    validate_chunked_pipeline,
+)
 from .protocol import Protocol, frame_hash
 from .validation import DryRunResult, ValidationResult, dry_run_schema, validate_schema
 
 if TYPE_CHECKING:
+    from collections.abc import Generator, Mapping
+
     from typing_extensions import Self
 
 
@@ -333,3 +342,298 @@ class TransformPlanBase:
 
         # Fallback
         return f"Filter.from_dict({filter_dict!r})"
+
+    def validate_chunked(
+        self,
+        schema: Mapping[str, Any] | None = None,
+        partition_key: str | list[str] | None = None,
+        data: pl.DataFrame | None = None,
+    ) -> ChunkValidationResult:
+        """Validate that pipeline is compatible with chunked processing.
+
+        Args:
+            schema: Schema to validate against (column names to dtypes).
+                If not provided, data must be supplied.
+            partition_key: Column(s) used for partitioning to keep related rows
+                together.
+            data: DataFrame to extract schema from (alternative to schema parameter).
+
+        Returns:
+            ChunkValidationResult with validation details.
+
+        Raises:
+            ValueError: If neither schema nor data is provided.
+
+        Example:
+            validation = plan.validate_chunked(
+                schema={"patient_id": pl.Utf8, "age": pl.Int64},
+                partition_key="patient_id"
+            )
+            if not validation.is_valid:
+                print(validation)
+        """
+        if schema is None and data is None:
+            msg = "Either schema or data must be provided"
+            raise ValueError(msg)
+
+        return validate_chunked_pipeline(self._operations, partition_key)
+
+    def process_chunked(
+        self,
+        source: str | Path,
+        *,
+        partition_key: str | list[str] | None = None,
+        chunk_size: int = 100_000,
+        validate: bool = True,
+    ) -> tuple[pl.DataFrame, ChunkedProtocol]:
+        """Process a large Parquet file in chunks.
+
+        This method enables processing of files that exceed available RAM by
+        reading and transforming data in chunks. When a partition_key is specified,
+        rows with the same partition key values are guaranteed to be processed
+        together in the same chunk.
+
+        Args:
+            source: Path to Parquet file.
+            partition_key: Column(s) ensuring related rows stay together.
+                When set, rows with the same values in these columns will
+                be processed in the same chunk.
+            chunk_size: Target number of rows per chunk (approximate when
+                partition_key is set, as chunks are sized to respect group
+                boundaries).
+            validate: Whether to validate operations before processing.
+
+        Returns:
+            Tuple of (result DataFrame, ChunkedProtocol with processing details).
+
+        Raises:
+            ChunkingError: If pipeline contains operations incompatible with
+                chunked processing.
+            FileNotFoundError: If source file does not exist.
+
+        Example:
+            plan = (
+                TransformPlan()
+                .col_rename("PatientID", "patient_id")
+                .rows_filter(Col("age") >= 18)
+                .rows_unique(columns=["patient_id", "visit_date"])
+            )
+
+            result, protocol = plan.process_chunked(
+                source="patients_10gb.parquet",
+                partition_key="patient_id",
+                chunk_size=100_000,
+            )
+            protocol.print()
+        """
+        source_path = Path(source)
+        if not source_path.exists():
+            msg = f"Source file not found: {source_path}"
+            raise FileNotFoundError(msg)
+
+        # Normalize partition key
+        partition_key_list: list[str] | None = None
+        if partition_key is not None:
+            if isinstance(partition_key, str):
+                partition_key_list = [partition_key]
+            else:
+                partition_key_list = list(partition_key)
+
+        # Validate operations for chunked processing
+        if validate:
+            validation = validate_chunked_pipeline(self._operations, partition_key_list)
+            if not validation.is_valid:
+                error_msg = "Pipeline is incompatible with chunked processing:\n"
+                error_msg += "\n".join(f"  - {e}" for e in validation.errors)
+                raise ChunkingError(error_msg, validation)
+
+        # Also validate schema against first batch
+        lazy_frame = pl.scan_parquet(source_path)
+        schema = dict(lazy_frame.collect_schema())
+
+        if validate:
+            from .validation import validate_schema
+
+            schema_validation = validate_schema(self._operations, schema)
+            schema_validation.raise_if_invalid()
+
+        # Initialize protocol
+        protocol = ChunkedProtocol()
+        protocol.set_source(
+            path=str(source_path),
+            partition_key=partition_key_list,
+            chunk_size=chunk_size,
+        )
+
+        # Record operations
+        operations_list = [
+            {"operation": method.__name__.lstrip("_"), "params": params}
+            for method, params in self._operations
+        ]
+        protocol.set_operations(operations_list)
+
+        # Process chunks
+        results: list[pl.DataFrame] = []
+        chunk_iter = self._create_chunk_iterator(
+            lazy_frame, partition_key_list, chunk_size
+        )
+
+        for chunk_index, chunk_df in enumerate(chunk_iter):
+            start = time.perf_counter()
+            input_hash = frame_hash(chunk_df)
+            input_rows = len(chunk_df)
+
+            # Apply all operations to this chunk
+            for method, params in self._operations:
+                chunk_df = method(chunk_df, **params)
+
+            output_hash = frame_hash(chunk_df)
+            elapsed = time.perf_counter() - start
+
+            protocol.add_chunk(
+                ChunkInfo(
+                    chunk_index=chunk_index,
+                    input_rows=input_rows,
+                    output_rows=len(chunk_df),
+                    input_hash=input_hash,
+                    output_hash=output_hash,
+                    elapsed_seconds=elapsed,
+                )
+            )
+            results.append(chunk_df)
+
+        # Combine all results
+        if results:
+            final = pl.concat(results, how="vertical")
+        else:
+            # Empty result - collect schema from lazy frame
+            final = lazy_frame.head(0).collect()
+
+        return final, protocol
+
+    def _create_chunk_iterator(
+        self,
+        lazy_frame: pl.LazyFrame,
+        partition_key: list[str] | None,
+        chunk_size: int,
+    ) -> Generator[pl.DataFrame, None, None]:
+        """Create an iterator that yields DataFrames of approximately chunk_size rows.
+
+        If partition_key is specified, ensures rows with the same partition key
+        values are never split across chunks.
+
+        Yields:
+            DataFrames of approximately chunk_size rows.
+        """
+        if partition_key is None:
+            # Simple chunking without partition awareness
+            yield from self._simple_chunk_iterator(lazy_frame, chunk_size)
+        else:
+            # Partition-aware chunking
+            yield from self._partition_chunk_iterator(
+                lazy_frame, partition_key, chunk_size
+            )
+
+    def _simple_chunk_iterator(
+        self,
+        lazy_frame: pl.LazyFrame,
+        chunk_size: int,
+    ) -> Generator[pl.DataFrame, None, None]:
+        """Iterate through data in fixed-size chunks.
+
+        Yields:
+            DataFrames of chunk_size rows (last chunk may be smaller).
+        """
+        offset = 0
+        while True:
+            chunk = lazy_frame.slice(offset, chunk_size).collect()
+            if len(chunk) == 0:
+                break
+            yield chunk
+            offset += chunk_size
+
+    def _partition_chunk_iterator(
+        self,
+        lazy_frame: pl.LazyFrame,
+        partition_key: list[str],
+        chunk_size: int,
+    ) -> Generator[pl.DataFrame, None, None]:
+        """Iterate through data ensuring partition integrity.
+
+        Groups rows by partition_key and yields chunks that don't split groups.
+
+        Yields:
+            DataFrames with complete partition groups (never split across chunks).
+        """
+        sorted_frame = lazy_frame.sort(partition_key)
+        total_rows = lazy_frame.select(pl.len()).collect().item()
+
+        if total_rows == 0:
+            return
+
+        offset = 0
+        pending_rows: pl.DataFrame | None = None
+
+        while offset < total_rows or pending_rows is not None:
+            batch, offset, pending_rows = self._read_next_batch(
+                sorted_frame, offset, chunk_size, total_rows, pending_rows
+            )
+
+            if batch is None or len(batch) == 0:
+                break
+
+            if offset < total_rows:
+                complete, pending_rows = self._split_at_group_boundary(
+                    batch, partition_key
+                )
+                if len(complete) > 0:
+                    yield complete
+                else:
+                    pending_rows = batch
+            else:
+                yield batch
+
+    def _read_next_batch(
+        self,
+        sorted_frame: pl.LazyFrame,
+        offset: int,
+        chunk_size: int,
+        total_rows: int,
+        pending_rows: pl.DataFrame | None,
+    ) -> tuple[pl.DataFrame | None, int, pl.DataFrame | None]:
+        """Read the next batch of data, combining with any pending rows.
+
+        Returns:
+            Tuple of (batch DataFrame, new offset, None).
+        """
+        if offset < total_rows:
+            batch = sorted_frame.slice(offset, chunk_size).collect()
+            offset += len(batch)
+            if pending_rows is not None:
+                batch = pl.concat([pending_rows, batch], how="vertical")
+            return batch, offset, None
+        return pending_rows, offset, None
+
+    def _split_at_group_boundary(
+        self,
+        batch: pl.DataFrame,
+        partition_key: list[str],
+    ) -> tuple[pl.DataFrame, pl.DataFrame | None]:
+        """Split batch at the last complete group boundary.
+
+        Returns:
+            Tuple of (complete rows, incomplete rows for next batch).
+        """
+        last_row_keys = batch.tail(1).select(partition_key)
+
+        # Build mask for rows NOT in the last group
+        not_last_group = pl.lit(value=False)
+        for col in partition_key:
+            last_val = last_row_keys[col][0]
+            not_last_group = not_last_group | (pl.col(col) != last_val)
+
+        complete_rows = batch.filter(not_last_group)
+        incomplete_rows = batch.filter(~not_last_group)
+
+        pending = incomplete_rows if len(incomplete_rows) > 0 else None
+        return complete_rows, pending

@@ -24,7 +24,9 @@ class TestRowsDropNulls:
         # Other columns may still have nulls
         assert len(result) == 3  # Original has 2 null names
 
-    def test_rows_drop_nulls_multiple_columns(self, df_with_nulls: pl.DataFrame) -> None:
+    def test_rows_drop_nulls_multiple_columns(
+        self, df_with_nulls: pl.DataFrame
+    ) -> None:
         """Test dropping rows with nulls in multiple columns."""
         plan = TransformPlan().rows_drop_nulls(["name", "age"])
         result, _ = plan.process(df_with_nulls)
@@ -120,7 +122,9 @@ class TestRowsFilter:
         result, _ = plan.process(basic_df)
         assert len(result) == 2
 
-    def test_rows_filter_nonexistent_column_raises(self, basic_df: pl.DataFrame) -> None:
+    def test_rows_filter_nonexistent_column_raises(
+        self, basic_df: pl.DataFrame
+    ) -> None:
         """Test that filtering on nonexistent column fails."""
         plan = TransformPlan().rows_filter(Col("nonexistent") == "value")
         result = plan.validate(basic_df)
@@ -294,7 +298,9 @@ class TestRowsSort:
         """Test sorting in descending order."""
         plan = TransformPlan().rows_sort("age", descending=True)
         result, _ = plan.process(basic_df)
-        assert result["age"].to_list() == sorted(basic_df["age"].to_list(), reverse=True)
+        assert result["age"].to_list() == sorted(
+            basic_df["age"].to_list(), reverse=True
+        )
 
     def test_rows_sort_multiple_columns(self) -> None:
         """Test sorting by multiple columns."""
@@ -341,9 +347,7 @@ class TestRowsPivot:
 
     def test_rows_pivot_basic(self, long_df: pl.DataFrame) -> None:
         """Test basic pivot operation."""
-        plan = TransformPlan().rows_pivot(
-            index="id", columns="quarter", values="value"
-        )
+        plan = TransformPlan().rows_pivot(index="id", columns="quarter", values="value")
         result, _ = plan.process(long_df)
         assert "Q1" in result.columns
         assert "Q2" in result.columns

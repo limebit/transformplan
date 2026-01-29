@@ -297,7 +297,9 @@ class TestDryRunResult:
         summary = result.summary()
         assert "DRY RUN PREVIEW" in summary
 
-    def test_print(self, basic_df: pl.DataFrame, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_print(
+        self, basic_df: pl.DataFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test print method."""
         plan = TransformPlan().col_drop("age")
         result = plan.dry_run(basic_df)

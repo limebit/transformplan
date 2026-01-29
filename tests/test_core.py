@@ -101,11 +101,7 @@ class TestValidate:
 
     def test_validate_multiple_errors(self, basic_df: pl.DataFrame) -> None:
         """Test validation catches multiple errors."""
-        plan = (
-            TransformPlan()
-            .col_drop("nonexistent1")
-            .col_drop("nonexistent2")
-        )
+        plan = TransformPlan().col_drop("nonexistent1").col_drop("nonexistent2")
         result = plan.validate(basic_df)
         assert not result.is_valid
         assert len(result.errors) == 2
@@ -153,7 +149,10 @@ class TestSerialization:
             "version": "1.0",
             "steps": [
                 {"operation": "col_drop", "params": {"column": "age"}},
-                {"operation": "col_rename", "params": {"column": "name", "new_name": "full_name"}},
+                {
+                    "operation": "col_rename",
+                    "params": {"column": "name", "new_name": "full_name"},
+                },
             ],
         }
         plan = TransformPlan.from_dict(d)

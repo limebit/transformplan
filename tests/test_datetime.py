@@ -90,13 +90,25 @@ class TestDtYearMonth:
         plan = TransformPlan().dt_year_month("date_col", "ym")
         result, _ = plan.process(datetime_df)
         assert "ym" in result.columns
-        assert result["ym"].to_list() == ["2024-01", "2024-03", "2024-06", "2024-09", "2024-12"]
+        assert result["ym"].to_list() == [
+            "2024-01",
+            "2024-03",
+            "2024-06",
+            "2024-09",
+            "2024-12",
+        ]
 
     def test_dt_year_month_custom_format(self, datetime_df: pl.DataFrame) -> None:
         """Test year-month formatting with custom format."""
         plan = TransformPlan().dt_year_month("date_col", "ym", fmt="%Y/%m")
         result, _ = plan.process(datetime_df)
-        assert result["ym"].to_list() == ["2024/01", "2024/03", "2024/06", "2024/09", "2024/12"]
+        assert result["ym"].to_list() == [
+            "2024/01",
+            "2024/03",
+            "2024/06",
+            "2024/09",
+            "2024/12",
+        ]
 
 
 class TestDtQuarterYear:
@@ -107,7 +119,13 @@ class TestDtQuarterYear:
         plan = TransformPlan().dt_quarter_year("date_col", "qy")
         result, _ = plan.process(datetime_df)
         assert "qy" in result.columns
-        assert result["qy"].to_list() == ["Q1-2024", "Q1-2024", "Q2-2024", "Q3-2024", "Q4-2024"]
+        assert result["qy"].to_list() == [
+            "Q1-2024",
+            "Q1-2024",
+            "Q2-2024",
+            "Q3-2024",
+            "Q4-2024",
+        ]
 
 
 class TestDtCalendarWeek:
@@ -171,7 +189,9 @@ class TestDtDiffDays:
 
     def test_dt_diff_days_basic(self, datetime_df: pl.DataFrame) -> None:
         """Test calculating difference in days."""
-        plan = TransformPlan().dt_diff_days("date_col", "birth_date", "days_since_birth")
+        plan = TransformPlan().dt_diff_days(
+            "date_col", "birth_date", "days_since_birth"
+        )
         result, _ = plan.process(datetime_df)
         assert "days_since_birth" in result.columns
         # All differences should be positive (dates are after birth dates)

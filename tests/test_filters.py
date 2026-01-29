@@ -473,7 +473,12 @@ class TestFilterDeserialization:
 
     def test_str_contains_from_dict(self) -> None:
         """Test StrContains deserialization."""
-        d = {"type": "str_contains", "column": "text", "pattern": "foo", "literal": True}
+        d = {
+            "type": "str_contains",
+            "column": "text",
+            "pattern": "foo",
+            "literal": True,
+        }
         f = Filter.from_dict(d)
         assert isinstance(f, StrContains)
         assert f.pattern == "foo"
@@ -503,7 +508,10 @@ class TestFilterDeserialization:
 
     def test_not_from_dict(self) -> None:
         """Test Not deserialization."""
-        d = {"type": "not", "operand": {"type": "eq", "column": "active", "value": True}}
+        d = {
+            "type": "not",
+            "operand": {"type": "eq", "column": "active", "value": True},
+        }
         f = Filter.from_dict(d)
         assert isinstance(f, Not)
         assert isinstance(f.operand, Eq)

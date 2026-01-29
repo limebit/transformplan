@@ -20,9 +20,7 @@ class TestMapValues:
 
     def test_map_values_keep_unmapped(self, map_df: pl.DataFrame) -> None:
         """Test keeping unmapped values."""
-        plan = TransformPlan().map_values(
-            "status", {"A": "Active"}, keep_unmapped=True
-        )
+        plan = TransformPlan().map_values("status", {"A": "Active"}, keep_unmapped=True)
         result, _ = plan.process(map_df)
         # B and C should stay as is
         assert "B" in result["status"].to_list()
@@ -187,7 +185,9 @@ class TestMapCase:
 class TestMapFromColumn:
     """Tests for map_from_column operation."""
 
-    @pytest.mark.filterwarnings("ignore:.*`default` parameter for `replace` is deprecated.*:DeprecationWarning")
+    @pytest.mark.filterwarnings(
+        "ignore:.*`default` parameter for `replace` is deprecated.*:DeprecationWarning"
+    )
     def test_map_from_column_basic(self, map_df: pl.DataFrame) -> None:
         """Test mapping values using another column as lookup."""
         plan = TransformPlan().map_from_column(
@@ -196,7 +196,9 @@ class TestMapFromColumn:
         result, _ = plan.process(map_df)
         assert "mapped_value" in result.columns
 
-    @pytest.mark.filterwarnings("ignore:.*`default` parameter for `replace` is deprecated.*:DeprecationWarning")
+    @pytest.mark.filterwarnings(
+        "ignore:.*`default` parameter for `replace` is deprecated.*:DeprecationWarning"
+    )
     def test_map_from_column_with_default(self) -> None:
         """Test mapping with default for missing lookups."""
         df = pl.DataFrame(
@@ -222,7 +224,12 @@ class TestMapChaining:
         plan = (
             TransformPlan()
             .map_values("status", {"A": "Active", "B": "Blocked", "C": "Closed"})
-            .map_discretize("score", bins=[70, 85], labels=["Low", "Medium", "High"], new_column="score_band")
+            .map_discretize(
+                "score",
+                bins=[70, 85],
+                labels=["Low", "Medium", "High"],
+                new_column="score_band",
+            )
         )
         result, _ = plan.process(map_df)
         assert "Active" in result["status"].to_list()
@@ -266,6 +273,8 @@ class TestMapEdgeCases:
     def test_map_values_type_coercion(self) -> None:
         """Test that mapping can change value types."""
         df = pl.DataFrame({"code": ["1", "2", "3"]})
-        plan = TransformPlan().map_values("code", {"1": "One", "2": "Two", "3": "Three"})
+        plan = TransformPlan().map_values(
+            "code", {"1": "One", "2": "Two", "3": "Three"}
+        )
         result, _ = plan.process(df)
         assert result["code"].dtype == pl.Utf8

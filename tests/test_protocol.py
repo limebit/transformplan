@@ -257,7 +257,9 @@ class TestProtocolSummary:
         # (though column name might appear in step row)
         assert "TRANSFORM PROTOCOL" in summary
 
-    def test_print(self, basic_df: pl.DataFrame, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_print(
+        self, basic_df: pl.DataFrame, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test print method."""
         plan = TransformPlan().col_drop("age")
         _, protocol = plan.process(basic_df)

@@ -51,7 +51,13 @@ def string_df() -> pl.DataFrame:
     """DataFrame for string operations."""
     return pl.DataFrame(
         {
-            "text": ["  Hello World  ", "foo bar baz", "ABC123xyz", "test@email.com", ""],
+            "text": [
+                "  Hello World  ",
+                "foo bar baz",
+                "ABC123xyz",
+                "test@email.com",
+                "",
+            ],
             "code": ["PRD-001", "PRD-002", "TST-001", "DEV-001", "PRD-003"],
             "first_name": ["John", "Jane", "Bob", "Alice", "Charlie"],
             "last_name": ["Doe", "Smith", "Brown", "Johnson", "Williams"],

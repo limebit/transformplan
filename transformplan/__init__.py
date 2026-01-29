@@ -27,12 +27,16 @@ Example:
     >>> protocol.print()
 """
 
+from .chunking import ChunkedProtocol, ChunkingError, ChunkValidationResult
 from .filters import Col, Filter
 from .plan import TransformPlan
 from .protocol import Protocol, frame_hash
 from .validation import DryRunResult, SchemaValidationError, ValidationResult
 
 __all__ = [
+    "ChunkValidationResult",
+    "ChunkedProtocol",
+    "ChunkingError",
     "Col",
     "DryRunResult",
     "Filter",

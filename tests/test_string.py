@@ -30,7 +30,9 @@ class TestStrReplace:
         assert "NUM" in result["text"][2]
         assert "123" not in result["text"][2]
 
-    def test_str_replace_nonexistent_column_raises(self, string_df: pl.DataFrame) -> None:
+    def test_str_replace_nonexistent_column_raises(
+        self, string_df: pl.DataFrame
+    ) -> None:
         """Test that replacing in nonexistent column fails."""
         plan = TransformPlan().str_replace("nonexistent", "a", "b")
         result = plan.validate(string_df)
@@ -103,7 +105,13 @@ class TestStrLower:
         """Test converting to lowercase."""
         plan = TransformPlan().str_lower("first_name")
         result, _ = plan.process(string_df)
-        assert result["first_name"].to_list() == ["john", "jane", "bob", "alice", "charlie"]
+        assert result["first_name"].to_list() == [
+            "john",
+            "jane",
+            "bob",
+            "alice",
+            "charlie",
+        ]
 
     def test_str_lower_mixed_case(self) -> None:
         """Test with mixed case input."""
@@ -120,7 +128,13 @@ class TestStrUpper:
         """Test converting to uppercase."""
         plan = TransformPlan().str_upper("first_name")
         result, _ = plan.process(string_df)
-        assert result["first_name"].to_list() == ["JOHN", "JANE", "BOB", "ALICE", "CHARLIE"]
+        assert result["first_name"].to_list() == [
+            "JOHN",
+            "JANE",
+            "BOB",
+            "ALICE",
+            "CHARLIE",
+        ]
 
 
 class TestStrStrip:

@@ -19,7 +19,9 @@ class TestMathAdd:
         """Test adding a float."""
         plan = TransformPlan().math_add("a", 0.5)
         result, _ = plan.process(numeric_df)
-        assert all(abs(r - (o + 0.5)) < 0.001 for r, o in zip(result["a"], numeric_df["a"]))
+        assert all(
+            abs(r - (o + 0.5)) < 0.001 for r, o in zip(result["a"], numeric_df["a"])
+        )
 
     def test_math_add_negative(self, numeric_df: pl.DataFrame) -> None:
         """Test adding a negative number."""
@@ -73,7 +75,9 @@ class TestMathMultiply:
         """Test multiplying by a float."""
         plan = TransformPlan().math_multiply("a", 1.5)
         result, _ = plan.process(numeric_df)
-        assert all(abs(r - (o * 1.5)) < 0.001 for r, o in zip(result["a"], numeric_df["a"]))
+        assert all(
+            abs(r - (o * 1.5)) < 0.001 for r, o in zip(result["a"], numeric_df["a"])
+        )
 
     def test_math_multiply_by_zero(self, numeric_df: pl.DataFrame) -> None:
         """Test multiplying by zero."""
@@ -96,7 +100,9 @@ class TestMathDivide:
         """Test dividing by a float."""
         plan = TransformPlan().math_divide("b", 2.5)
         result, _ = plan.process(numeric_df)
-        assert all(abs(r - (o / 2.5)) < 0.001 for r, o in zip(result["b"], numeric_df["b"]))
+        assert all(
+            abs(r - (o / 2.5)) < 0.001 for r, o in zip(result["b"], numeric_df["b"])
+        )
 
 
 class TestMathClamp:
@@ -195,7 +201,9 @@ class TestMathAddColumns:
         expected = [a + b for a, b in zip(numeric_df["a"], numeric_df["b"])]
         assert result["sum"].to_list() == expected
 
-    def test_math_add_columns_preserves_originals(self, numeric_df: pl.DataFrame) -> None:
+    def test_math_add_columns_preserves_originals(
+        self, numeric_df: pl.DataFrame
+    ) -> None:
         """Test that original columns are preserved."""
         plan = TransformPlan().math_add_columns("a", "b", "sum")
         result, _ = plan.process(numeric_df)
@@ -332,12 +340,7 @@ class TestMathChaining:
 
     def test_multiple_math_operations(self, numeric_df: pl.DataFrame) -> None:
         """Test chaining multiple math operations."""
-        plan = (
-            TransformPlan()
-            .math_multiply("a", 2)
-            .math_add("a", 10)
-            .math_round("a")
-        )
+        plan = TransformPlan().math_multiply("a", 2).math_add("a", 10).math_round("a")
         result, _ = plan.process(numeric_df)
         # Each value: (x * 2) + 10
         expected = [(x * 2) + 10 for x in numeric_df["a"].to_list()]
@@ -346,9 +349,7 @@ class TestMathChaining:
     def test_math_with_column_operations(self, numeric_df: pl.DataFrame) -> None:
         """Test math operations combined with column operations."""
         plan = (
-            TransformPlan()
-            .math_add_columns("a", "b", "sum")
-            .math_multiply("sum", 0.1)
+            TransformPlan().math_add_columns("a", "b", "sum").math_multiply("sum", 0.1)
         )
         result, _ = plan.process(numeric_df)
         expected = [(a + b) * 0.1 for a, b in zip(numeric_df["a"], numeric_df["b"])]
