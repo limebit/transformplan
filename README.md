@@ -29,11 +29,14 @@ plan = (
     # Standardize column names
     .col_rename(column="PatientID", new_name="patient_id")
     .col_rename(column="DOB", new_name="date_of_birth")
+
     # Calculate derived values
     .dt_age_years(column="date_of_birth", new_column="age")
     .math_clamp(column="age", min_value=0, max_value=120)
+
     # Categorize patients
     .map_discretize(column="age", bins=[18, 40, 65], labels=["young", "adult", "senior"], new_column="age_group")
+
     # Filter and clean
     .rows_filter(Col("age") >= 18)
     .rows_drop_nulls(columns=["patient_id", "age"])
@@ -46,22 +49,37 @@ df_result, protocol = plan.process(df)
 ### Generated Audit Protocol
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ TRANSFORMATION PROTOCOL                                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ Input:  4a7b2c1d  (1000 rows × 8 cols)                                      │
-│ Output: 8f3e9a2b  (847 rows × 8 cols)                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ Operations:                                                                 │
-│   1. col_rename: PatientID → patient_id                                     │
-│   2. col_rename: DOB → date_of_birth                                        │
-│   3. dt_age_years: date_of_birth → age                                      │
-│   4. math_clamp: age [0, 120]                                               │
-│   5. map_discretize: age → age_group                                        │
-│   6. rows_filter: Col("age") >= 18  (-142 rows)                             │
-│   7. rows_drop_nulls: ["patient_id", "age"]  (-11 rows)                     │
-│   8. col_drop: date_of_birth                                                │
-└─────────────────────────────────────────────────────────────────────────────┘
+======================================================================
+TRANSFORM PROTOCOL
+======================================================================
+Input:  1000 rows × 5 cols  [a4f8b2c1]
+Output: 847 rows × 5 cols   [e7d3f9a2]
+Total time: 0.0234s
+----------------------------------------------------------------------
+
+#    Operation            Rows         Cols         Time       Hash
+----------------------------------------------------------------------
+0    input                1000         5            -          a4f8b2c1
+1    col_rename           1000         5            0.0012s    b2e4a7f3
+2    col_rename           1000         5            0.0008s    c9d1e5b8
+3    dt_age_years         1000         6 (+1)       0.0041s    d4f2c8a1
+4    math_clamp           1000         6            0.0015s    e1b7d3f9
+5    map_discretize       1000         7 (+1)       0.0028s    f8a4c2e6
+6    rows_filter          858 (-142)   7            0.0037s    a2e9f4b7
+7    rows_drop_nulls      847 (-11)    7            0.0019s    b5c1d8e3
+8    col_drop             847          6 (-1)       0.0006s    e7d3f9a2
+======================================================================
+```
+
+### Save and Load Pipelines
+
+```python
+# Save pipeline to JSON
+plan.to_json("patient_transform.json")
+
+# Load and reuse
+plan = TransformPlan.from_json("patient_transform.json")
+df_result, protocol = plan.process(new_data)
 ```
 
 ## Installation
