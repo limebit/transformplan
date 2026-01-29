@@ -1,15 +1,10 @@
-<table border="0" cellspacing="0" cellpadding="0">
-<tr>
-<td width="30%" style="border: none;"><img src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="100%"></td>
-<td width="70%" style="border: none;">
+<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="180">
 
 # TransformPlan
 
 A Python library for safe, reproducible data transformations with built-in auditing and validation. TransformPlan tracks transformation history, validates operations against DataFrame schemas, and generates audit trails for data processing workflows.
 
-</td>
-</tr>
-</table>
+<br clear="left"/>
 
 ## Features
 
