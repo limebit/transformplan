@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="site/assets/images/logo_wordmark_black.png" alt="TransformPlan">
+  <img src="site/assets/images/logo_wordmark_black.png" alt="TransformPlan" width="400">
 </div>
 
 <h1 align="center">TransformPlan: Auditable Data Transformation Pipelines</h1>
