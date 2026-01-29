@@ -1,3 +1,5 @@
+![Coverage](./coverage.svg)
+
 # TransformPlan: Auditable Data Transformation Pipelines
 
 <table>
