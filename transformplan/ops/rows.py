@@ -43,6 +43,7 @@ from ..filters import Filter
 if TYPE_CHECKING:
     from typing import Any, Callable
 
+    from polars._typing import PivotAgg
     from typing_extensions import Self
 
 
@@ -356,7 +357,7 @@ class RowOps:
         index: str | Sequence[str],
         columns: str,
         values: str,
-        aggregate_function: str = "first",
+        aggregate_function: PivotAgg = "first",
     ) -> Self:
         """Pivot from long to wide format.
 
@@ -388,7 +389,7 @@ class RowOps:
         index: list[str],
         columns: str,
         values: str,
-        aggregate_function: str,
+        aggregate_function: PivotAgg,
     ) -> pl.DataFrame:
         return data.pivot(
             index=index,

@@ -266,7 +266,7 @@ class Protocol:
         input_data = data.get("input", {})
         protocol._input_hash = input_data.get("hash")
         shape = input_data.get("shape")
-        protocol._input_shape = tuple(shape) if shape else None
+        protocol._input_shape = (int(shape[0]), int(shape[1])) if shape else None
 
         for step in data.get("steps", []):
             protocol._steps.append(
@@ -312,9 +312,7 @@ class Protocol:
         Returns:
             Protocol instance.
         """
-        if isinstance(source, Path) or (
-            isinstance(source, str) and not source.strip().startswith("{")
-        ):
+        if isinstance(source, Path) or not source.strip().startswith("{"):
             # Treat as file path
             content = Path(source).read_text()
         else:

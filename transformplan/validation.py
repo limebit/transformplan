@@ -35,7 +35,8 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from functools import partial
+from typing import Any, Callable
 
 import polars as pl
 
@@ -44,23 +45,23 @@ import polars as pl
 # =============================================================================
 
 NUMERIC_TYPES = {
-    pl.Int8,
-    pl.Int16,
-    pl.Int32,
-    pl.Int64,
-    pl.UInt8,
-    pl.UInt16,
-    pl.UInt32,
-    pl.UInt64,
-    pl.Float32,
-    pl.Float64,
+    pl.Int8(),
+    pl.Int16(),
+    pl.Int32(),
+    pl.Int64(),
+    pl.UInt8(),
+    pl.UInt16(),
+    pl.UInt32(),
+    pl.UInt64(),
+    pl.Float32(),
+    pl.Float64(),
 }
 
-STRING_TYPES = {pl.Utf8, pl.String}
+STRING_TYPES = {pl.Utf8(), pl.String()}
 
-DATETIME_TYPES = {pl.Date, pl.Datetime, pl.Time, pl.Duration}
+DATETIME_TYPES = {pl.Date(), pl.Datetime(), pl.Time(), pl.Duration()}
 
-BOOLEAN_TYPES = {pl.Boolean}
+BOOLEAN_TYPES = {pl.Boolean()}
 
 
 def is_numeric(dtype: pl.DataType) -> bool:
@@ -69,7 +70,7 @@ def is_numeric(dtype: pl.DataType) -> bool:
     Returns:
         True if dtype is numeric, False otherwise.
     """
-    return dtype in NUMERIC_TYPES or dtype.base_type() in NUMERIC_TYPES
+    return dtype in NUMERIC_TYPES or dtype.base_type()() in NUMERIC_TYPES
 
 
 def is_string(dtype: pl.DataType) -> bool:
@@ -78,7 +79,7 @@ def is_string(dtype: pl.DataType) -> bool:
     Returns:
         True if dtype is string, False otherwise.
     """
-    return dtype in STRING_TYPES or dtype.base_type() in STRING_TYPES
+    return dtype in STRING_TYPES or dtype.base_type()() in STRING_TYPES
 
 
 def is_datetime(dtype: pl.DataType) -> bool:
@@ -87,7 +88,7 @@ def is_datetime(dtype: pl.DataType) -> bool:
     Returns:
         True if dtype is datetime-related, False otherwise.
     """
-    return dtype in DATETIME_TYPES or dtype.base_type() in DATETIME_TYPES
+    return dtype in DATETIME_TYPES or dtype.base_type()() in DATETIME_TYPES
 
 
 def is_boolean(dtype: pl.DataType) -> bool:
@@ -96,7 +97,7 @@ def is_boolean(dtype: pl.DataType) -> bool:
     Returns:
         True if dtype is boolean, False otherwise.
     """
-    return dtype in BOOLEAN_TYPES or dtype.base_type() in BOOLEAN_TYPES
+    return dtype in BOOLEAN_TYPES or dtype.base_type()() in BOOLEAN_TYPES
 
 
 def dtype_name(dtype: pl.DataType) -> str:
@@ -475,6 +476,12 @@ class SchemaTracker:
         }
 
 
+# Type alias for validator functions
+ValidatorFunc = Callable[
+    [SchemaTracker, dict[str, Any], ValidationResult, int], None
+]
+
+
 # =============================================================================
 # Helper functions
 # =============================================================================
@@ -672,7 +679,7 @@ def _validate_col_add(
         if expr:
             tracker.add_column(new_column, tracker.get_dtype(expr))
         else:
-            tracker.add_column(new_column, pl.Utf8)  # default to string for literals
+            tracker.add_column(new_column, pl.Utf8())  # default to string for literals
 
 
 def _validate_col_add_uuid(
@@ -682,7 +689,7 @@ def _validate_col_add_uuid(
     if tracker.has_column(column):
         result.add_error(step, "col_add_uuid", f"Column '{column}' already exists")
     else:
-        tracker.add_column(column, pl.Utf8)
+        tracker.add_column(column, pl.Utf8())
 
 
 def _validate_col_hash(
@@ -696,7 +703,7 @@ def _validate_col_hash(
     if tracker.has_column(new_column):
         result.add_error(step, "col_hash", f"Column '{new_column}' already exists")
     else:
-        tracker.add_column(new_column, pl.Utf8)
+        tracker.add_column(new_column, pl.Utf8())
 
 
 def _validate_col_coalesce(
@@ -750,7 +757,7 @@ def _validate_math_columns(
     if b_exists:
         _check_column_numeric(tracker, column_b, result, step, op_name)
 
-    tracker.add_column(new_column, pl.Float64)
+    tracker.add_column(new_column, pl.Float64())
 
 
 def _validate_math_cumsum(
@@ -790,7 +797,7 @@ def _validate_math_rank(
                 step, "math_rank", f"Group-by columns do not exist: {missing}"
             )
 
-    tracker.add_column(new_column, pl.UInt32)
+    tracker.add_column(new_column, pl.UInt32())
 
 
 def _validate_math_percent_of(
@@ -805,7 +812,7 @@ def _validate_math_percent_of(
     if _check_column_exists(tracker, total_column, result, step, "math_percent_of"):
         _check_column_numeric(tracker, total_column, result, step, "math_percent_of")
 
-    tracker.add_column(new_column, pl.Float64)
+    tracker.add_column(new_column, pl.Float64())
 
 
 # =============================================================================
@@ -842,7 +849,7 @@ def _validate_str_split(
                     step, "str_split", f"Column '{new_col}' already exists"
                 )
             else:
-                tracker.add_column(new_col, pl.Utf8)
+                tracker.add_column(new_col, pl.Utf8())
         if not params.get("keep_original"):
             tracker.drop_column(column)
 
@@ -857,7 +864,7 @@ def _validate_str_concat(
         if _check_column_exists(tracker, col, result, step, "str_concat"):
             _check_column_string(tracker, col, result, step, "str_concat")
 
-    tracker.add_column(new_column, pl.Utf8)
+    tracker.add_column(new_column, pl.Utf8())
 
 
 def _validate_str_extract(
@@ -870,7 +877,7 @@ def _validate_str_extract(
         _check_column_string(tracker, column, result, step, "str_extract")
 
     if new_column != column:
-        tracker.add_column(new_column, pl.Utf8)
+        tracker.add_column(new_column, pl.Utf8())
 
 
 # =============================================================================
@@ -884,9 +891,11 @@ def _validate_dt_op(
     result: ValidationResult,
     step: int,
     op_name: str,
-    output_dtype: pl.DataType = pl.Int32,
+    output_dtype: pl.DataType | None = None,
 ) -> None:
     """Validate datetime operation: column must exist and be datetime."""
+    if output_dtype is None:
+        output_dtype = pl.Int32()
     column = params["column"]
     new_column = params.get("new_column", column)
 
@@ -906,7 +915,7 @@ def _validate_dt_parse(
     if _check_column_exists(tracker, column, result, step, "dt_parse"):
         _check_column_string(tracker, column, result, step, "dt_parse")
 
-    tracker.set_dtype(new_column, pl.Date)
+    tracker.set_dtype(new_column, pl.Date())
 
 
 def _validate_dt_format(
@@ -919,9 +928,9 @@ def _validate_dt_format(
         _check_column_datetime(tracker, column, result, step, "dt_format")
 
     if new_column != column:
-        tracker.add_column(new_column, pl.Utf8)
+        tracker.add_column(new_column, pl.Utf8())
     else:
-        tracker.set_dtype(column, pl.Utf8)
+        tracker.set_dtype(column, pl.Utf8())
 
 
 def _validate_dt_diff_days(
@@ -936,7 +945,7 @@ def _validate_dt_diff_days(
     if _check_column_exists(tracker, column_b, result, step, "dt_diff_days"):
         _check_column_datetime(tracker, column_b, result, step, "dt_diff_days")
 
-    tracker.add_column(new_column, pl.Int64)
+    tracker.add_column(new_column, pl.Int64())
 
 
 def _validate_dt_age_years(
@@ -954,7 +963,7 @@ def _validate_dt_age_years(
     ):
         _check_column_datetime(tracker, reference_column, result, step, "dt_age_years")
 
-    tracker.add_column(new_column, pl.Int64)
+    tracker.add_column(new_column, pl.Int64())
 
 
 def _validate_dt_is_between(
@@ -966,7 +975,7 @@ def _validate_dt_is_between(
     if _check_column_exists(tracker, column, result, step, "dt_is_between"):
         _check_column_datetime(tracker, column, result, step, "dt_is_between")
 
-    tracker.add_column(new_column, pl.Boolean)
+    tracker.add_column(new_column, pl.Boolean())
 
 
 # =============================================================================
@@ -1100,7 +1109,7 @@ def _validate_rows_flag(
     if tracker.has_column(new_column):
         result.add_error(step, "rows_flag", f"Column '{new_column}' already exists")
     else:
-        tracker.add_column(new_column, pl.Boolean)
+        tracker.add_column(new_column, pl.Boolean())
 
 
 def _validate_rows_sort(
@@ -1199,9 +1208,9 @@ def _validate_map_discretize(
         _check_column_numeric(tracker, column, result, step, "map_discretize")
 
     if new_column != column:
-        tracker.add_column(new_column, pl.Utf8)
+        tracker.add_column(new_column, pl.Utf8())
     else:
-        tracker.set_dtype(column, pl.Utf8)
+        tracker.set_dtype(column, pl.Utf8())
 
 
 def _validate_map_from_column(
@@ -1224,7 +1233,7 @@ def _validate_map_from_column(
 # Validator registry
 # =============================================================================
 
-_VALIDATORS: dict[str, Any] = {
+_VALIDATORS: dict[str, ValidatorFunc] = {
     # Column ops
     "col_drop": _validate_col_drop,
     "col_rename": _validate_col_rename,
@@ -1240,67 +1249,53 @@ _VALIDATORS: dict[str, Any] = {
     "col_hash": _validate_col_hash,
     "col_coalesce": _validate_col_coalesce,
     # Math ops
-    "math_add": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_add"),
-    "math_subtract": lambda t, p, r, s: _validate_math_scalar(
-        t, p, r, s, "math_subtract"
+    "math_add": partial(_validate_math_scalar, op_name="math_add"),
+    "math_subtract": partial(_validate_math_scalar, op_name="math_subtract"),
+    "math_multiply": partial(_validate_math_scalar, op_name="math_multiply"),
+    "math_divide": partial(_validate_math_scalar, op_name="math_divide"),
+    "math_clamp": partial(_validate_math_scalar, op_name="math_clamp"),
+    "math_abs": partial(_validate_math_scalar, op_name="math_abs"),
+    "math_round": partial(_validate_math_scalar, op_name="math_round"),
+    "math_set_min": partial(_validate_math_scalar, op_name="math_set_min"),
+    "math_set_max": partial(_validate_math_scalar, op_name="math_set_max"),
+    "math_add_columns": partial(_validate_math_columns, op_name="math_add_columns"),
+    "math_subtract_columns": partial(
+        _validate_math_columns, op_name="math_subtract_columns"
     ),
-    "math_multiply": lambda t, p, r, s: _validate_math_scalar(
-        t, p, r, s, "math_multiply"
+    "math_multiply_columns": partial(
+        _validate_math_columns, op_name="math_multiply_columns"
     ),
-    "math_divide": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_divide"),
-    "math_clamp": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_clamp"),
-    "math_abs": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_abs"),
-    "math_round": lambda t, p, r, s: _validate_math_scalar(t, p, r, s, "math_round"),
-    "math_set_min": lambda t, p, r, s: _validate_math_scalar(
-        t, p, r, s, "math_set_min"
-    ),
-    "math_set_max": lambda t, p, r, s: _validate_math_scalar(
-        t, p, r, s, "math_set_max"
-    ),
-    "math_add_columns": lambda t, p, r, s: _validate_math_columns(
-        t, p, r, s, "math_add_columns"
-    ),
-    "math_subtract_columns": lambda t, p, r, s: _validate_math_columns(
-        t, p, r, s, "math_subtract_columns"
-    ),
-    "math_multiply_columns": lambda t, p, r, s: _validate_math_columns(
-        t, p, r, s, "math_multiply_columns"
-    ),
-    "math_divide_columns": lambda t, p, r, s: _validate_math_columns(
-        t, p, r, s, "math_divide_columns"
+    "math_divide_columns": partial(
+        _validate_math_columns, op_name="math_divide_columns"
     ),
     "math_cumsum": _validate_math_cumsum,
     "math_rank": _validate_math_rank,
     "math_percent_of": _validate_math_percent_of,
     # String ops
-    "str_replace": lambda t, p, r, s: _validate_str_op(t, p, r, s, "str_replace"),
-    "str_slice": lambda t, p, r, s: _validate_str_op(t, p, r, s, "str_slice"),
-    "str_truncate": lambda t, p, r, s: _validate_str_op(t, p, r, s, "str_truncate"),
-    "str_lower": lambda t, p, r, s: _validate_str_op(t, p, r, s, "str_lower"),
-    "str_upper": lambda t, p, r, s: _validate_str_op(t, p, r, s, "str_upper"),
-    "str_strip": lambda t, p, r, s: _validate_str_op(t, p, r, s, "str_strip"),
-    "str_pad": lambda t, p, r, s: _validate_str_op(t, p, r, s, "str_pad"),
+    "str_replace": partial(_validate_str_op, op_name="str_replace"),
+    "str_slice": partial(_validate_str_op, op_name="str_slice"),
+    "str_truncate": partial(_validate_str_op, op_name="str_truncate"),
+    "str_lower": partial(_validate_str_op, op_name="str_lower"),
+    "str_upper": partial(_validate_str_op, op_name="str_upper"),
+    "str_strip": partial(_validate_str_op, op_name="str_strip"),
+    "str_pad": partial(_validate_str_op, op_name="str_pad"),
     "str_split": _validate_str_split,
     "str_concat": _validate_str_concat,
     "str_extract": _validate_str_extract,
     # Datetime ops
-    "dt_year": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_year"),
-    "dt_month": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_month"),
-    "dt_day": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_day"),
-    "dt_week": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_week"),
-    "dt_quarter": lambda t, p, r, s: _validate_dt_op(t, p, r, s, "dt_quarter"),
-    "dt_year_month": lambda t, p, r, s: _validate_dt_op(
-        t, p, r, s, "dt_year_month", pl.Utf8
+    "dt_year": partial(_validate_dt_op, op_name="dt_year"),
+    "dt_month": partial(_validate_dt_op, op_name="dt_month"),
+    "dt_day": partial(_validate_dt_op, op_name="dt_day"),
+    "dt_week": partial(_validate_dt_op, op_name="dt_week"),
+    "dt_quarter": partial(_validate_dt_op, op_name="dt_quarter"),
+    "dt_year_month": partial(_validate_dt_op, op_name="dt_year_month", output_dtype=pl.Utf8()),
+    "dt_quarter_year": partial(
+        _validate_dt_op, op_name="dt_quarter_year", output_dtype=pl.Utf8()
     ),
-    "dt_quarter_year": lambda t, p, r, s: _validate_dt_op(
-        t, p, r, s, "dt_quarter_year", pl.Utf8
+    "dt_calendar_week": partial(
+        _validate_dt_op, op_name="dt_calendar_week", output_dtype=pl.Utf8()
     ),
-    "dt_calendar_week": lambda t, p, r, s: _validate_dt_op(
-        t, p, r, s, "dt_calendar_week", pl.Utf8
-    ),
-    "dt_truncate": lambda t, p, r, s: _validate_dt_op(
-        t, p, r, s, "dt_truncate", pl.Date
-    ),
+    "dt_truncate": partial(_validate_dt_op, op_name="dt_truncate", output_dtype=pl.Date()),
     "dt_parse": _validate_dt_parse,
     "dt_format": _validate_dt_format,
     "dt_diff_days": _validate_dt_diff_days,

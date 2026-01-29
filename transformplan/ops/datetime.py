@@ -36,7 +36,7 @@ Example:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
@@ -44,6 +44,8 @@ if TYPE_CHECKING:
     from typing import Any, Callable
 
     from typing_extensions import Self
+
+ClosedInterval = Literal["left", "right", "both", "none"]
 
 
 class DatetimeOps:
@@ -371,7 +373,7 @@ class DatetimeOps:
         start: str,
         end: str,
         new_column: str,
-        closed: str = "both",
+        closed: ClosedInterval = "both",
     ) -> Self:
         """Check if date falls within a range.
 
@@ -403,7 +405,7 @@ class DatetimeOps:
         start: str,
         end: str,
         new_column: str,
-        closed: str,
+        closed: ClosedInterval,
     ) -> pl.DataFrame:
         return data.with_columns(
             pl.col(column)

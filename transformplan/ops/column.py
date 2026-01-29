@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import string
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Sequence
 
 import polars as pl
 
@@ -38,6 +38,8 @@ if TYPE_CHECKING:
     from typing import Any, Callable
 
     from typing_extensions import Self
+
+FillNullStrategy = Literal["forward", "backward", "min", "max", "mean", "zero"]
 
 
 class ColumnOps:
@@ -118,7 +120,7 @@ class ColumnOps:
         self,
         column: str,
         value: Any = None,  # noqa: ANN401
-        strategy: str | None = None,
+        strategy: FillNullStrategy | None = None,
     ) -> Self:
         """Fill null values in a column.
 
@@ -141,7 +143,7 @@ class ColumnOps:
         data: pl.DataFrame,
         column: str,
         value: Any,  # noqa: ANN401
-        strategy: str | None,
+        strategy: FillNullStrategy | None,
     ) -> pl.DataFrame:
         if strategy is not None:
             return data.with_columns(pl.col(column).fill_null(strategy=strategy))
@@ -255,7 +257,7 @@ class ColumnOps:
     def _col_hash(
         self, data: pl.DataFrame, columns: list[str], new_column: str, salt: str
     ) -> pl.DataFrame:
-        def hash_row(values: tuple) -> str:
+        def hash_row(values: tuple[Any, ...]) -> str:
             content = "|".join(str(v) for v in values) + salt
             return hashlib.sha256(content.encode()).hexdigest()[:16]
 

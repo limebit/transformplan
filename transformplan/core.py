@@ -232,9 +232,7 @@ class TransformPlanBase:
         Returns:
             New TransformPlan instance.
         """
-        if isinstance(source, Path) or (
-            isinstance(source, str) and not source.strip().startswith("{")
-        ):
+        if isinstance(source, Path) or not source.strip().startswith("{"):
             content = Path(source).read_text()
         else:
             content = source

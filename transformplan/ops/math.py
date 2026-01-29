@@ -34,7 +34,7 @@ Example:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 import polars as pl
 
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 Numeric = Union[int, float]
+RankMethod = Literal["average", "min", "max", "dense", "ordinal", "random"]
 
 
 class MathOps:
@@ -361,7 +362,7 @@ class MathOps:
         self,
         column: str,
         new_column: str,
-        method: str = "ordinal",
+        method: RankMethod = "ordinal",
         *,
         descending: bool = False,
         group_by: str | list[str] | None = None,
@@ -396,7 +397,7 @@ class MathOps:
         data: pl.DataFrame,
         column: str,
         new_column: str,
-        method: str,
+        method: RankMethod,
         descending: bool,  # noqa: FBT001
         group_by: list[str] | None,
     ) -> pl.DataFrame:
