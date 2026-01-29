@@ -477,9 +477,7 @@ class SchemaTracker:
 
 
 # Type alias for validator functions
-ValidatorFunc = Callable[
-    [SchemaTracker, dict[str, Any], ValidationResult, int], None
-]
+ValidatorFunc = Callable[[SchemaTracker, dict[str, Any], ValidationResult, int], None]
 
 
 # =============================================================================
@@ -1288,14 +1286,18 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
     "dt_day": partial(_validate_dt_op, op_name="dt_day"),
     "dt_week": partial(_validate_dt_op, op_name="dt_week"),
     "dt_quarter": partial(_validate_dt_op, op_name="dt_quarter"),
-    "dt_year_month": partial(_validate_dt_op, op_name="dt_year_month", output_dtype=pl.Utf8()),
+    "dt_year_month": partial(
+        _validate_dt_op, op_name="dt_year_month", output_dtype=pl.Utf8()
+    ),
     "dt_quarter_year": partial(
         _validate_dt_op, op_name="dt_quarter_year", output_dtype=pl.Utf8()
     ),
     "dt_calendar_week": partial(
         _validate_dt_op, op_name="dt_calendar_week", output_dtype=pl.Utf8()
     ),
-    "dt_truncate": partial(_validate_dt_op, op_name="dt_truncate", output_dtype=pl.Date()),
+    "dt_truncate": partial(
+        _validate_dt_op, op_name="dt_truncate", output_dtype=pl.Date()
+    ),
     "dt_parse": _validate_dt_parse,
     "dt_format": _validate_dt_format,
     "dt_diff_days": _validate_dt_diff_days,
