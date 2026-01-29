@@ -1,4 +1,4 @@
-# TransformPlan: Auditable Data Transformation Pipeline
+# TransformPlan: Auditable Data Transformation Pipelines
 
 <table>
 <tr>
