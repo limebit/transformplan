@@ -56,7 +56,7 @@ plan = TransformPlan.from_json("patient_transform.json")
 df_result, protocol = plan.process(new_data)
 ```
 
-### Every run will generate a auditable protocol
+### Full Audit Trail — Every Step Tracked and Hashed
 
 ```
 ======================================================================
