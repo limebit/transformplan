@@ -1,26 +1,21 @@
-# TransformPlan: Auditable Data Transformation Pipelines
+<div align="center">
+  <img src="site/assets/images/logo_wordmark_black.png" alt="TransformPlan">
+</div>
 
-<table>
-<tr>
-<td width="30%" valign="top">
-<img src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="100%">
-</td>
-<td width="70%" valign="top">
+<h1 align="center">TransformPlan: Auditable Data Transformation Pipelines</h1>
 
-# Features
+<div align="center">
+  <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue" alt="Python 3.10+">
+  <img src="./coverage.svg" alt="Coverage">
+</div>
+
+## Features
 
 - **Declarative transformations**: Build transformation pipelines using method chaining
 - **Schema validation**: Validate operations before execution with dry-run capability
 - **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
 - **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
 - **Serializable pipelines**: Save and load transformation plans as JSON
-
-</td>
-</tr>
-</table>
-
-![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
-![Coverage](./coverage.svg)
 
 ## Quick Example
 
