@@ -36,15 +36,16 @@ Example:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
 if TYPE_CHECKING:
     from typing import Any, Callable
 
-    import polars as pl
     from typing_extensions import Self
+
+ClosedInterval = Literal["left", "right", "both", "none"]
 
 
 class DatetimeOps:
@@ -64,6 +65,9 @@ class DatetimeOps:
         Args:
             column: Source datetime column.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_year, {"column": column, "new_column": new_column or column}
@@ -80,6 +84,9 @@ class DatetimeOps:
         Args:
             column: Source datetime column.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_month, {"column": column, "new_column": new_column or column}
@@ -96,6 +103,9 @@ class DatetimeOps:
         Args:
             column: Source datetime column.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_day, {"column": column, "new_column": new_column or column}
@@ -110,6 +120,9 @@ class DatetimeOps:
         Args:
             column: Source datetime column.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_week, {"column": column, "new_column": new_column or column}
@@ -126,6 +139,9 @@ class DatetimeOps:
         Args:
             column: Source datetime column.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_quarter, {"column": column, "new_column": new_column or column}
@@ -143,6 +159,9 @@ class DatetimeOps:
             column: Source datetime column.
             new_column: Name for result column.
             fmt: Output format string.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_year_month,
@@ -160,6 +179,9 @@ class DatetimeOps:
         Args:
             column: Source datetime column.
             new_column: Name for result column.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_quarter_year, {"column": column, "new_column": new_column}
@@ -183,6 +205,9 @@ class DatetimeOps:
         Args:
             column: Source datetime column.
             new_column: Name for result column.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_calendar_week, {"column": column, "new_column": new_column}
@@ -211,6 +236,9 @@ class DatetimeOps:
             column: Source string column.
             fmt: Date format string.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_parse,
@@ -231,6 +259,9 @@ class DatetimeOps:
             column: Source datetime column.
             fmt: Output format string.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_format,
@@ -249,6 +280,9 @@ class DatetimeOps:
             column_a: First date column.
             column_b: Second date column.
             new_column: Name for result column.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_diff_days,
@@ -274,6 +308,9 @@ class DatetimeOps:
             birth_column: Column containing birth dates.
             reference_column: Column containing reference dates (None = today).
             new_column: Name for result column.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_age_years,
@@ -316,6 +353,9 @@ class DatetimeOps:
             column: Source datetime column.
             every: Truncation interval ('1d', '1mo', '1y', '1h', etc.).
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_truncate,
@@ -333,7 +373,7 @@ class DatetimeOps:
         start: str,
         end: str,
         new_column: str,
-        closed: str = "both",
+        closed: ClosedInterval = "both",
     ) -> Self:
         """Check if date falls within a range.
 
@@ -343,6 +383,9 @@ class DatetimeOps:
             end: End date (string, will be parsed).
             new_column: Name for boolean result column.
             closed: Which endpoints to include ('both', 'left', 'right', 'none').
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._dt_is_between,
@@ -362,7 +405,7 @@ class DatetimeOps:
         start: str,
         end: str,
         new_column: str,
-        closed: str,
+        closed: ClosedInterval,
     ) -> pl.DataFrame:
         return data.with_columns(
             pl.col(column)

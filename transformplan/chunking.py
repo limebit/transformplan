@@ -265,7 +265,7 @@ class ChunkedProtocol:
         """Record the operations that were applied."""
         self._operations = operations
 
-    def set_metadata(self, **kwargs: Any) -> None:
+    def set_metadata(self, **kwargs: Any) -> None:  # noqa: ANN401
         """Set arbitrary metadata on the protocol."""
         self._metadata.update(kwargs)
 
@@ -275,32 +275,56 @@ class ChunkedProtocol:
 
     @property
     def chunks(self) -> list[ChunkInfo]:
-        """List of chunk information."""
+        """List of chunk information.
+
+        Returns:
+            List of ChunkInfo instances.
+        """
         return self._chunks
 
     @property
     def total_input_rows(self) -> int:
-        """Total rows across all input chunks."""
+        """Total rows across all input chunks.
+
+        Returns:
+            Sum of input rows.
+        """
         return sum(c.input_rows for c in self._chunks)
 
     @property
     def total_output_rows(self) -> int:
-        """Total rows across all output chunks."""
+        """Total rows across all output chunks.
+
+        Returns:
+            Sum of output rows.
+        """
         return sum(c.output_rows for c in self._chunks)
 
     @property
     def total_elapsed_seconds(self) -> float:
-        """Total processing time across all chunks."""
+        """Total processing time across all chunks.
+
+        Returns:
+            Sum of elapsed seconds.
+        """
         return sum(c.elapsed_seconds for c in self._chunks)
 
     @property
     def num_chunks(self) -> int:
-        """Number of chunks processed."""
+        """Number of chunks processed.
+
+        Returns:
+            Count of chunks.
+        """
         return len(self._chunks)
 
     @property
     def metadata(self) -> dict[str, Any]:
-        """Protocol metadata."""
+        """Protocol metadata.
+
+        Returns:
+            Dictionary of metadata.
+        """
         return self._metadata
 
     def output_hash(self) -> str:
@@ -409,9 +433,7 @@ class ChunkedProtocol:
         Returns:
             ChunkedProtocol instance.
         """
-        if isinstance(source, Path) or (
-            isinstance(source, str) and not source.strip().startswith("{")
-        ):
+        if isinstance(source, Path) or not source.strip().startswith("{"):
             content = Path(source).read_text()
         else:
             content = source
@@ -419,13 +441,21 @@ class ChunkedProtocol:
         return cls.from_dict(json.loads(content))
 
     def __repr__(self) -> str:
-        """Return string representation of the protocol."""
+        """Return string representation of the protocol.
+
+        Returns:
+            Human-readable representation.
+        """
         return (
             f"ChunkedProtocol({self.num_chunks} chunks, {self.total_input_rows} rows)"
         )
 
     def __len__(self) -> int:
-        """Return number of chunks processed."""
+        """Return number of chunks processed.
+
+        Returns:
+            Count of chunks.
+        """
         return self.num_chunks
 
     def summary(self) -> str:
@@ -452,12 +482,14 @@ class ChunkedProtocol:
             lines.append(f"Partition key: {self._partition_key}")
         if self._chunk_size:
             lines.append(f"Target chunk size: {self._chunk_size:,}")
-        lines.append("-" * 70)
-
-        # Summary stats
-        lines.append(f"Chunks processed: {self.num_chunks}")
-        lines.append(f"Total input rows: {self.total_input_rows:,}")
-        lines.append(f"Total output rows: {self.total_output_rows:,}")
+        lines.extend(
+            [
+                "-" * 70,
+                f"Chunks processed: {self.num_chunks}",
+                f"Total input rows: {self.total_input_rows:,}",
+                f"Total output rows: {self.total_output_rows:,}",
+            ]
+        )
         rows_diff = self.total_output_rows - self.total_input_rows
         if rows_diff != 0:
             lines.append(f"Row change: {rows_diff:+,}")
@@ -465,16 +497,17 @@ class ChunkedProtocol:
         if self.num_chunks > 0:
             avg_time = self.total_elapsed_seconds / self.num_chunks
             lines.append(f"Avg time per chunk: {avg_time:.4f}s")
-        lines.append(f"Output hash: {self.output_hash()}")
-        lines.append("-" * 70)
+        lines.extend((f"Output hash: {self.output_hash()}", "-" * 70))
 
         # Per-chunk details
         if self._chunks:
-            lines.append("")
-            lines.append(
-                f"{'#':<6} {'Input':<12} {'Output':<12} {'Change':<10} {'Time':<10} {'Hash':<16}"
+            lines.extend(
+                (
+                    "",
+                    f"{'#':<6} {'Input':<12} {'Output':<12} {'Change':<10} {'Time':<10} {'Hash':<16}",
+                    "-" * 70,
+                )
             )
-            lines.append("-" * 70)
 
             for chunk in self._chunks:
                 idx = str(chunk.chunk_index)
@@ -494,10 +527,10 @@ class ChunkedProtocol:
 
     def print(self) -> None:
         """Print the protocol summary to stdout."""
-        print(self.summary())
+        print(self.summary())  # noqa: T201
 
 
-def validate_chunked_pipeline(
+def validate_chunked_pipeline(  # noqa: C901
     operations: list[tuple[Any, dict[str, Any]]],
     partition_key: str | list[str] | None = None,
 ) -> ChunkValidationResult:

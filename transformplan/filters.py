@@ -97,11 +97,13 @@ class Filter(ABC):
         """
         filter_type = data.get("type")
         if filter_type is None:
-            raise ValueError("Missing 'type' in filter dict")
+            msg = "Missing 'type' in filter dict"
+            raise ValueError(msg)
 
         filter_cls = _FILTER_REGISTRY.get(filter_type)
         if filter_cls is None:
-            raise ValueError(f"Unknown filter type: {filter_type}")
+            msg = f"Unknown filter type: {filter_type}"
+            raise ValueError(msg)
 
         return filter_cls._from_dict(data)
 
@@ -195,7 +197,7 @@ class Col:
         """
         self.name = name
 
-    def __eq__(self, value: Any) -> Eq:  # type: ignore[override]
+    def __eq__(self, value: object) -> Eq:  # type: ignore[override]
         """Create an equality filter (column == value).
 
         Args:
@@ -206,7 +208,7 @@ class Col:
         """
         return Eq(self.name, value)
 
-    def __ne__(self, value: Any) -> Ne:  # type: ignore[override]
+    def __ne__(self, value: object) -> Ne:  # type: ignore[override]
         """Create an inequality filter (column != value).
 
         Args:
@@ -217,7 +219,7 @@ class Col:
         """
         return Ne(self.name, value)
 
-    def __gt__(self, value: Any) -> Gt:
+    def __gt__(self, value: Any) -> Gt:  # noqa: ANN401
         """Create a greater-than filter (column > value).
 
         Args:
@@ -228,7 +230,7 @@ class Col:
         """
         return Gt(self.name, value)
 
-    def __ge__(self, value: Any) -> Ge:
+    def __ge__(self, value: Any) -> Ge:  # noqa: ANN401
         """Create a greater-or-equal filter (column >= value).
 
         Args:
@@ -239,7 +241,7 @@ class Col:
         """
         return Ge(self.name, value)
 
-    def __lt__(self, value: Any) -> Lt:
+    def __lt__(self, value: Any) -> Lt:  # noqa: ANN401
         """Create a less-than filter (column < value).
 
         Args:
@@ -250,7 +252,7 @@ class Col:
         """
         return Lt(self.name, value)
 
-    def __le__(self, value: Any) -> Le:
+    def __le__(self, value: Any) -> Le:  # noqa: ANN401
         """Create a less-or-equal filter (column <= value).
 
         Args:
@@ -297,8 +299,8 @@ class Col:
         """
         return IsNotNull(self.name)
 
-    def str_contains(self, pattern: str, literal: bool = True) -> StrContains:
-        """Create a string contains filter.
+    def str_contains(self, pattern: str, *, literal: bool = True) -> StrContains:
+        r"""Create a string contains filter.
 
         Args:
             pattern: Substring or regex pattern to search for.
@@ -341,7 +343,7 @@ class Col:
         """
         return StrEndsWith(self.name, suffix)
 
-    def between(self, lower: Any, upper: Any) -> Between:
+    def between(self, lower: Any, upper: Any) -> Between:  # noqa: ANN401
         """Create a range filter (lower <= column <= upper).
 
         Args:
@@ -376,16 +378,28 @@ class Eq(Filter):
     value: Any
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars equality expression."""
+        """Convert to Polars equality expression.
+
+        Returns:
+            Polars expression for equality comparison.
+        """
         return pl.col(self.column) == self.value
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and value.
+        """
         return {"type": "eq", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Eq:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New Eq instance.
+        """
         return cls(data["column"], data["value"])
 
 
@@ -402,16 +416,28 @@ class Ne(Filter):
     value: Any
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars inequality expression."""
+        """Convert to Polars inequality expression.
+
+        Returns:
+            Polars expression for inequality comparison.
+        """
         return pl.col(self.column) != self.value
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and value.
+        """
         return {"type": "ne", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Ne:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New Ne instance.
+        """
         return cls(data["column"], data["value"])
 
 
@@ -428,16 +454,28 @@ class Gt(Filter):
     value: Any
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars greater-than expression."""
+        """Convert to Polars greater-than expression.
+
+        Returns:
+            Polars expression for greater-than comparison.
+        """
         return pl.col(self.column) > self.value
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and value.
+        """
         return {"type": "gt", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Gt:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New Gt instance.
+        """
         return cls(data["column"], data["value"])
 
 
@@ -454,16 +492,28 @@ class Ge(Filter):
     value: Any
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars greater-or-equal expression."""
+        """Convert to Polars greater-or-equal expression.
+
+        Returns:
+            Polars expression for greater-or-equal comparison.
+        """
         return pl.col(self.column) >= self.value
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and value.
+        """
         return {"type": "ge", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Ge:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New Ge instance.
+        """
         return cls(data["column"], data["value"])
 
 
@@ -480,16 +530,28 @@ class Lt(Filter):
     value: Any
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars less-than expression."""
+        """Convert to Polars less-than expression.
+
+        Returns:
+            Polars expression for less-than comparison.
+        """
         return pl.col(self.column) < self.value
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and value.
+        """
         return {"type": "lt", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Lt:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New Lt instance.
+        """
         return cls(data["column"], data["value"])
 
 
@@ -506,16 +568,28 @@ class Le(Filter):
     value: Any
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars less-or-equal expression."""
+        """Convert to Polars less-or-equal expression.
+
+        Returns:
+            Polars expression for less-or-equal comparison.
+        """
         return pl.col(self.column) <= self.value
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and value.
+        """
         return {"type": "le", "column": self.column, "value": self.value}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Le:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New Le instance.
+        """
         return cls(data["column"], data["value"])
 
 
@@ -532,16 +606,28 @@ class IsIn(Filter):
     values: Sequence[Any]
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars is_in expression."""
+        """Convert to Polars is_in expression.
+
+        Returns:
+            Polars expression for membership check.
+        """
         return pl.col(self.column).is_in(self.values)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and values.
+        """
         return {"type": "is_in", "column": self.column, "values": list(self.values)}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> IsIn:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New IsIn instance.
+        """
         return cls(data["column"], data["values"])
 
 
@@ -560,11 +646,19 @@ class Between(Filter):
     upper: Any
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars is_between expression."""
+        """Convert to Polars is_between expression.
+
+        Returns:
+            Polars expression for range check.
+        """
         return pl.col(self.column).is_between(self.lower, self.upper)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, lower, and upper.
+        """
         return {
             "type": "between",
             "column": self.column,
@@ -574,7 +668,11 @@ class Between(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Between:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New Between instance.
+        """
         return cls(data["column"], data["lower"], data["upper"])
 
 
@@ -594,16 +692,28 @@ class IsNull(Filter):
     column: str
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars is_null expression."""
+        """Convert to Polars is_null expression.
+
+        Returns:
+            Polars expression for null check.
+        """
         return pl.col(self.column).is_null()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type and column.
+        """
         return {"type": "is_null", "column": self.column}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> IsNull:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New IsNull instance.
+        """
         return cls(data["column"])
 
 
@@ -618,16 +728,28 @@ class IsNotNull(Filter):
     column: str
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars is_not_null expression."""
+        """Convert to Polars is_not_null expression.
+
+        Returns:
+            Polars expression for not-null check.
+        """
         return pl.col(self.column).is_not_null()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type and column.
+        """
         return {"type": "is_not_null", "column": self.column}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> IsNotNull:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New IsNotNull instance.
+        """
         return cls(data["column"])
 
 
@@ -651,11 +773,19 @@ class StrContains(Filter):
     literal: bool = True
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars str.contains expression."""
+        """Convert to Polars str.contains expression.
+
+        Returns:
+            Polars expression for string containment check.
+        """
         return pl.col(self.column).str.contains(self.pattern, literal=self.literal)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, pattern, and literal.
+        """
         return {
             "type": "str_contains",
             "column": self.column,
@@ -665,7 +795,11 @@ class StrContains(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StrContains:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New StrContains instance.
+        """
         return cls(data["column"], data["pattern"], data.get("literal", True))
 
 
@@ -682,16 +816,28 @@ class StrStartsWith(Filter):
     prefix: str
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars str.starts_with expression."""
+        """Convert to Polars str.starts_with expression.
+
+        Returns:
+            Polars expression for prefix check.
+        """
         return pl.col(self.column).str.starts_with(self.prefix)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and prefix.
+        """
         return {"type": "str_starts_with", "column": self.column, "prefix": self.prefix}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StrStartsWith:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New StrStartsWith instance.
+        """
         return cls(data["column"], data["prefix"])
 
 
@@ -708,16 +854,28 @@ class StrEndsWith(Filter):
     suffix: str
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars str.ends_with expression."""
+        """Convert to Polars str.ends_with expression.
+
+        Returns:
+            Polars expression for suffix check.
+        """
         return pl.col(self.column).str.ends_with(self.suffix)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
+        """Serialize to dictionary.
+
+        Returns:
+            Dictionary representation with type, column, and suffix.
+        """
         return {"type": "str_ends_with", "column": self.column, "suffix": self.suffix}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StrEndsWith:
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Returns:
+            New StrEndsWith instance.
+        """
         return cls(data["column"], data["suffix"])
 
 
@@ -744,11 +902,19 @@ class And(Filter):
     right: Filter
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars AND expression."""
+        """Convert to Polars AND expression.
+
+        Returns:
+            Polars expression combining both conditions with AND.
+        """
         return self.left.to_expr() & self.right.to_expr()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary with nested filter dicts."""
+        """Serialize to dictionary with nested filter dicts.
+
+        Returns:
+            Dictionary representation with type, left, and right.
+        """
         return {
             "type": "and",
             "left": self.left.to_dict(),
@@ -757,7 +923,11 @@ class And(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> And:
-        """Create from dictionary, recursively deserializing children."""
+        """Create from dictionary, recursively deserializing children.
+
+        Returns:
+            New And instance.
+        """
         return cls(
             Filter.from_dict(data["left"]),
             Filter.from_dict(data["right"]),
@@ -782,11 +952,19 @@ class Or(Filter):
     right: Filter
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars OR expression."""
+        """Convert to Polars OR expression.
+
+        Returns:
+            Polars expression combining both conditions with OR.
+        """
         return self.left.to_expr() | self.right.to_expr()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary with nested filter dicts."""
+        """Serialize to dictionary with nested filter dicts.
+
+        Returns:
+            Dictionary representation with type, left, and right.
+        """
         return {
             "type": "or",
             "left": self.left.to_dict(),
@@ -795,7 +973,11 @@ class Or(Filter):
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Or:
-        """Create from dictionary, recursively deserializing children."""
+        """Create from dictionary, recursively deserializing children.
+
+        Returns:
+            New Or instance.
+        """
         return cls(
             Filter.from_dict(data["left"]),
             Filter.from_dict(data["right"]),
@@ -818,16 +1000,28 @@ class Not(Filter):
     operand: Filter
 
     def to_expr(self) -> pl.Expr:
-        """Convert to Polars NOT expression."""
+        """Convert to Polars NOT expression.
+
+        Returns:
+            Polars expression inverting the operand condition.
+        """
         return ~self.operand.to_expr()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dictionary with nested filter dict."""
+        """Serialize to dictionary with nested filter dict.
+
+        Returns:
+            Dictionary representation with type and operand.
+        """
         return {"type": "not", "operand": self.operand.to_dict()}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> Not:
-        """Create from dictionary, recursively deserializing operand."""
+        """Create from dictionary, recursively deserializing operand.
+
+        Returns:
+            New Not instance.
+        """
         return cls(Filter.from_dict(data["operand"]))
 
 

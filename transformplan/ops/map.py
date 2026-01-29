@@ -34,7 +34,6 @@ import polars as pl
 if TYPE_CHECKING:
     from typing import Any, Callable
 
-    import polars as pl
     from typing_extensions import Self
 
 
@@ -53,7 +52,8 @@ class MapOps:
         self,
         column: str,
         mapping: dict[Any, Any],
-        default: Any = None,
+        default: Any = None,  # noqa: ANN401
+        *,
         keep_unmapped: bool = True,
     ) -> Self:
         """Map values in a column using a dictionary.
@@ -63,6 +63,9 @@ class MapOps:
             mapping: Dictionary mapping old values to new values.
             default: Default value for unmapped values (if keep_unmapped=False).
             keep_unmapped: If True, keep original value when not in mapping.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._map_values,
@@ -79,8 +82,8 @@ class MapOps:
         data: pl.DataFrame,
         column: str,
         mapping: dict[Any, Any],
-        default: Any,
-        keep_unmapped: bool,
+        default: Any,  # noqa: ANN401
+        keep_unmapped: bool,  # noqa: FBT001
     ) -> pl.DataFrame:
         # Build a when/then chain for the mapping
         expr = pl.col(column)
@@ -109,6 +112,7 @@ class MapOps:
         bins: Sequence[float],
         labels: Sequence[str] | None = None,
         new_column: str | None = None,
+        *,
         right: bool = True,
     ) -> Self:
         """Discretize a numeric column into bins/categories.
@@ -119,6 +123,9 @@ class MapOps:
             labels: Labels for each bin (must be len(bins)+1 if provided).
             new_column: Name for result column (None = modify in place).
             right: If True, bins are (left, right]. If False, [left, right).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._map_discretize,
@@ -138,12 +145,12 @@ class MapOps:
         bins: list[float],
         labels: list[str] | None,
         new_column: str,
-        right: bool,
+        right: bool,  # noqa: FBT001
     ) -> pl.DataFrame:
         # Create labels if not provided
         if labels is None:
             labels = []
-            edges = [-float("inf")] + bins + [float("inf")]
+            edges = [-float("inf"), *bins, float("inf")]
             for i in range(len(edges) - 1):
                 if right:
                     labels.append(f"({edges[i]}, {edges[i + 1]}]")
@@ -152,7 +159,7 @@ class MapOps:
 
         # Build when/then chain
         col = pl.col(column)
-        edges = [-float("inf")] + bins + [float("inf")]
+        edges = [-float("inf"), *bins, float("inf")]
 
         # First bin
         if right:
@@ -174,31 +181,49 @@ class MapOps:
         return data.with_columns(chain.alias(new_column))
 
     def map_bool_to_int(self, column: str) -> Self:
-        """Convert a boolean column to integer (True=1, False=0)."""
+        """Convert a boolean column to integer (True=1, False=0).
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._map_bool_to_int, {"column": column})
 
     def _map_bool_to_int(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).cast(pl.Int64))
 
-    def map_null_to_value(self, column: str, value: Any) -> Self:
-        """Replace null values with a specific value."""
+    def map_null_to_value(self, column: str, value: Any) -> Self:  # noqa: ANN401
+        """Replace null values with a specific value.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._map_null_to_value, {"column": column, "value": value}
         )
 
     def _map_null_to_value(
-        self, data: pl.DataFrame, column: str, value: Any
+        self,
+        data: pl.DataFrame,
+        column: str,
+        value: Any,  # noqa: ANN401
     ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).fill_null(value))
 
-    def map_value_to_null(self, column: str, value: Any) -> Self:
-        """Replace a specific value with null."""
+    def map_value_to_null(self, column: str, value: Any) -> Self:  # noqa: ANN401
+        """Replace a specific value with null.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(
             self._map_value_to_null, {"column": column, "value": value}
         )
 
     def _map_value_to_null(
-        self, data: pl.DataFrame, column: str, value: Any
+        self,
+        data: pl.DataFrame,
+        column: str,
+        value: Any,  # noqa: ANN401
     ) -> pl.DataFrame:
         return data.with_columns(
             pl.when(pl.col(column) == value)
@@ -211,7 +236,7 @@ class MapOps:
         self,
         column: str,
         cases: list[tuple[Any, Any]],
-        default: Any = None,
+        default: Any = None,  # noqa: ANN401
         new_column: str | None = None,
     ) -> Self:
         """Apply case-when logic to a column.
@@ -221,6 +246,9 @@ class MapOps:
             cases: List of (condition_value, result_value) tuples.
             default: Default value if no case matches.
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
 
         Example:
             .map_case('grade', [(90, 'A'), (80, 'B'), (70, 'C')], default='F')
@@ -241,7 +269,7 @@ class MapOps:
         data: pl.DataFrame,
         column: str,
         cases: list[tuple[Any, Any]],
-        default: Any,
+        default: Any,  # noqa: ANN401
         new_column: str,
     ) -> pl.DataFrame:
         if not cases:
@@ -263,7 +291,7 @@ class MapOps:
         lookup_column: str,
         value_column: str,
         new_column: str | None = None,
-        default: Any = None,
+        default: Any = None,  # noqa: ANN401
     ) -> Self:
         """Map values using another column as lookup (like vlookup).
 
@@ -276,6 +304,9 @@ class MapOps:
             value_column: Column containing values to map to.
             new_column: Name for result column (None = modify in place).
             default: Default value if lookup fails.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._map_from_column,
@@ -295,10 +326,16 @@ class MapOps:
         lookup_column: str,
         value_column: str,
         new_column: str,
-        default: Any,
+        default: Any,  # noqa: ANN401
     ) -> pl.DataFrame:
         # Build lookup dict from the data
-        lookup = dict(zip(data[lookup_column].to_list(), data[value_column].to_list()))
+        lookup = dict(
+            zip(
+                data[lookup_column].to_list(),
+                data[value_column].to_list(),
+                strict=False,
+            )
+        )
 
         return data.with_columns(
             pl.col(column).replace(lookup, default=default).alias(new_column)

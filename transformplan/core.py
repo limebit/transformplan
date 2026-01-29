@@ -54,6 +54,7 @@ class TransformPlanBase:
     VERSION = "1.0"
 
     def __init__(self) -> None:
+        """Initialize an empty TransformPlanBase."""
         self._operations: list[tuple[Callable[..., pl.DataFrame], dict[str, Any]]] = []
 
     def _register(
@@ -61,25 +62,27 @@ class TransformPlanBase:
         method: Callable[..., pl.DataFrame],
         params: dict[str, Any],
     ) -> Self:
-        """Register an operation for deferred execution."""
+        """Register an operation for deferred execution.
+
+        Returns:
+            Self for method chaining.
+        """
         self._operations.append((method, params))
         return self
 
     def process(
-        self, data: pl.DataFrame, validate: bool = True
+        self, data: pl.DataFrame, *, validate: bool = True
     ) -> tuple[pl.DataFrame, Protocol]:
         """Execute all registered operations and return transformed data with protocol.
 
         Args:
             data: DataFrame to process.
             validate: If True, validate schema before execution (default).
-                      Set to False for performance in hot loops with pre-validated pipelines.
+                Set to False for performance in hot loops with pre-validated
+                pipelines.
 
         Returns:
             Tuple of (processed DataFrame, Protocol).
-
-        Raises:
-            SchemaValidationError: If validate=True and validation fails.
         """
         if validate:
             validate_schema(self._operations, dict(data.schema)).raise_if_invalid()
@@ -152,7 +155,11 @@ class TransformPlanBase:
         return dry_run_schema(self._operations, dict(data.schema))
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the pipeline to a dictionary."""
+        """Serialize the pipeline to a dictionary.
+
+        Returns:
+            Dictionary representation of the pipeline.
+        """
         steps = []
         for method, params in self._operations:
             op_name = method.__name__.lstrip("_")
@@ -177,6 +184,9 @@ class TransformPlanBase:
 
         Returns:
             New TransformPlan instance with operations loaded.
+
+        Raises:
+            ValueError: If an unknown operation is encountered.
         """
         plan = cls()
 
@@ -187,7 +197,8 @@ class TransformPlanBase:
             # Find the public method on the class
             method = getattr(plan, op_name, None)
             if method is None:
-                raise ValueError(f"Unknown operation: {op_name}")
+                msg = f"Unknown operation: {op_name}"
+                raise ValueError(msg)
 
             # Call the method with params to register the operation
             method(**params)
@@ -221,9 +232,7 @@ class TransformPlanBase:
         Returns:
             New TransformPlan instance.
         """
-        if isinstance(source, Path) or (
-            isinstance(source, str) and not source.strip().startswith("{")
-        ):
+        if isinstance(source, Path) or not source.strip().startswith("{"):
             content = Path(source).read_text()
         else:
             content = source
@@ -231,10 +240,19 @@ class TransformPlanBase:
         return cls.from_dict(json.loads(content))
 
     def __len__(self) -> int:
-        """Return number of registered operations."""
+        """Return number of registered operations.
+
+        Returns:
+            Number of operations.
+        """
         return len(self._operations)
 
     def __repr__(self) -> str:
+        """Return string representation.
+
+        Returns:
+            Human-readable representation.
+        """
         return f"TransformPlan({len(self._operations)} operations)"
 
     def to_python(self, variable_name: str = "plan") -> str:
@@ -247,8 +265,7 @@ class TransformPlanBase:
             Python code string.
         """
         lines = ["from transformplan import TransformPlan, Col", ""]
-        lines.append(f"{variable_name} = (")
-        lines.append("    TransformPlan()")
+        lines.extend((f"{variable_name} = (", "    TransformPlan()"))
 
         for method, params in self._operations:
             op_name = method.__name__.lstrip("_")
@@ -259,7 +276,11 @@ class TransformPlanBase:
         return "\n".join(lines)
 
     def _format_params_as_python(self, params: dict[str, Any]) -> str:
-        """Format parameters as Python code."""
+        """Format parameters as Python code.
+
+        Returns:
+            Python code string for the parameters.
+        """
         parts = []
 
         for key, value in params.items():
@@ -272,21 +293,23 @@ class TransformPlanBase:
                 parts.append(filter_str)
             elif isinstance(value, str):
                 parts.append(f'{key}="{value}"')
-            elif isinstance(value, bool):
+            elif isinstance(value, (bool, int, float)):
                 parts.append(f"{key}={value}")
-            elif isinstance(value, (int, float)):
-                parts.append(f"{key}={value}")
-            elif isinstance(value, list):
-                parts.append(f"{key}={value!r}")
-            elif isinstance(value, dict):
+            elif isinstance(value, (list, dict)):
                 parts.append(f"{key}={value!r}")
             else:
                 parts.append(f"{key}={value!r}")
 
         return ", ".join(parts)
 
-    def _format_filter_as_python(self, filter_dict: dict[str, Any]) -> str:
-        """Convert a filter dict back to Col() expression string."""
+    def _format_filter_as_python(  # noqa: C901
+        self, filter_dict: dict[str, Any]
+    ) -> str:
+        """Convert a filter dict back to Col() expression string.
+
+        Returns:
+            Python code string for the filter.
+        """
         filter_type = filter_dict.get("type", "")
 
         # Logical operators
@@ -294,11 +317,11 @@ class TransformPlanBase:
             left = self._format_filter_as_python(filter_dict["left"])
             right = self._format_filter_as_python(filter_dict["right"])
             return f"({left}) & ({right})"
-        elif filter_type == "or":
+        if filter_type == "or":
             left = self._format_filter_as_python(filter_dict["left"])
             right = self._format_filter_as_python(filter_dict["right"])
             return f"({left}) | ({right})"
-        elif filter_type == "not":
+        if filter_type == "not":
             operand = self._format_filter_as_python(filter_dict["operand"])
             return f"~({operand})"
 
@@ -318,25 +341,25 @@ class TransformPlanBase:
         if filter_type in op_map:
             op = op_map[filter_type]
             return f'Col("{col}") {op} {val!r}'
-        elif filter_type == "is_in":
+        if filter_type == "is_in":
             values = filter_dict.get("values", [])
             return f'Col("{col}").is_in({values!r})'
-        elif filter_type == "is_null":
+        if filter_type == "is_null":
             return f'Col("{col}").is_null()'
-        elif filter_type == "is_not_null":
+        if filter_type == "is_not_null":
             return f'Col("{col}").is_not_null()'
-        elif filter_type == "between":
+        if filter_type == "between":
             lower = filter_dict.get("lower")
             upper = filter_dict.get("upper")
             return f'Col("{col}").between({lower!r}, {upper!r})'
-        elif filter_type == "str_contains":
+        if filter_type == "str_contains":
             pattern = filter_dict.get("pattern", "")
             literal = filter_dict.get("literal", True)
             return f'Col("{col}").str_contains({pattern!r}, literal={literal})'
-        elif filter_type == "str_starts_with":
+        if filter_type == "str_starts_with":
             prefix = filter_dict.get("prefix", "")
             return f'Col("{col}").str_starts_with({prefix!r})'
-        elif filter_type == "str_ends_with":
+        if filter_type == "str_ends_with":
             suffix = filter_dict.get("suffix", "")
             return f'Col("{col}").str_ends_with({suffix!r})'
 

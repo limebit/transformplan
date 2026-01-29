@@ -1,3 +1,5 @@
+![Coverage](./coverage.svg)
+
 # TransformPlan: Auditable Data Transformation Pipelines
 
 <table>
@@ -36,7 +38,7 @@ plan = (
     .dt_age_years(column="date_of_birth", new_column="age")
     .math_clamp(column="age", min_value=0, max_value=120)
 
-    # Categorize patients
+    # Categorize patients age
     .map_discretize(column="age", bins=[18, 40, 65], labels=["young", "adult", "senior"], new_column="age_group")
 
     # Filter and clean

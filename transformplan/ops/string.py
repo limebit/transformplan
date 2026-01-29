@@ -35,7 +35,6 @@ import polars as pl
 if TYPE_CHECKING:
     from typing import Any, Callable
 
-    import polars as pl
     from typing_extensions import Self
 
 
@@ -55,6 +54,7 @@ class StrOps:
         column: str,
         pattern: str,
         replacement: str,
+        *,
         literal: bool = True,
     ) -> Self:
         """Replace occurrences of a pattern in a string column.
@@ -64,6 +64,9 @@ class StrOps:
             pattern: Pattern to search for.
             replacement: String to replace with.
             literal: If True, treat pattern as literal string. If False, treat as regex.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._str_replace,
@@ -81,7 +84,7 @@ class StrOps:
         column: str,
         pattern: str,
         replacement: str,
-        literal: bool,
+        literal: bool,  # noqa: FBT001
     ) -> pl.DataFrame:
         return data.with_columns(
             pl.col(column).str.replace_all(pattern, replacement, literal=literal)
@@ -99,6 +102,9 @@ class StrOps:
             column: Column to modify.
             offset: Start position (0-indexed, negative counts from end).
             length: Number of characters to extract (None = to end).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._str_slice, {"column": column, "offset": offset, "length": length}
@@ -116,6 +122,9 @@ class StrOps:
             column: Column to modify.
             max_length: Maximum length of the string (including suffix).
             suffix: Suffix to append to truncated strings.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._str_truncate,
@@ -138,6 +147,7 @@ class StrOps:
         column: str,
         separator: str,
         new_columns: list[str] | None = None,
+        *,
         keep_original: bool = False,
     ) -> Self:
         """Split a string column by separator.
@@ -147,6 +157,9 @@ class StrOps:
             separator: String to split on.
             new_columns: Names for the resulting columns. If None, explodes into rows.
             keep_original: Whether to keep the original column.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._str_split,
@@ -164,7 +177,7 @@ class StrOps:
         column: str,
         separator: str,
         new_columns: list[str] | None,
-        keep_original: bool,
+        keep_original: bool,  # noqa: FBT001
     ) -> pl.DataFrame:
         if new_columns is None:
             # Explode into rows
@@ -183,14 +196,22 @@ class StrOps:
         return result
 
     def str_lower(self, column: str) -> Self:
-        """Convert string column to lowercase."""
+        """Convert string column to lowercase.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._str_lower, {"column": column})
 
     def _str_lower(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).str.to_lowercase())
 
     def str_upper(self, column: str) -> Self:
-        """Convert string column to uppercase."""
+        """Convert string column to uppercase.
+
+        Returns:
+            Self for method chaining.
+        """
         return self._register(self._str_upper, {"column": column})
 
     def _str_upper(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
@@ -202,6 +223,9 @@ class StrOps:
         Args:
             column: Column to modify.
             chars: Characters to strip (None = whitespace).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(self._str_strip, {"column": column, "chars": chars})
 
@@ -226,6 +250,9 @@ class StrOps:
             length: Target length.
             fill_char: Character to pad with.
             side: 'left' or 'right'.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._str_pad,
@@ -251,6 +278,9 @@ class StrOps:
             columns: Columns to concatenate.
             new_column: Name for the new column.
             separator: Separator between values.
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._str_concat,
@@ -280,6 +310,9 @@ class StrOps:
             pattern: Regex pattern with capture group(s).
             group_index: Which capture group to extract (1-indexed).
             new_column: Name for result column (None = modify in place).
+
+        Returns:
+            Self for method chaining.
         """
         return self._register(
             self._str_extract,

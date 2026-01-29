@@ -1,6 +1,8 @@
-name: Test Pull Request
+name: Tests
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 jobs:
@@ -23,5 +25,41 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Run tests
-        run: uv run pytest -vv -W error
+      - name: Run tests with coverage
+        run: uv run pytest -vv -W error --cov=transformplan --cov-report=xml --cov-report=term
+
+  coverage-badge:
+    needs: test
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Generate coverage report
+        run: uv run pytest --cov=transformplan --cov-report=xml --cov-report=term
+
+      - name: Create coverage badge
+        uses: tj-actions/coverage-badge-py@v2
+        with:
+          output: coverage.svg
+
+      - name: Commit badge
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add coverage.svg
+          git diff --staged --quiet || git commit -m "chore: update coverage badge [skip ci]"
+          git push
