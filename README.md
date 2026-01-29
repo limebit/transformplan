@@ -1,4 +1,4 @@
-# TransformPlan
+# TransformPlan: Data Transformation Pipeline
 
 <table>
 <tr>
@@ -7,14 +7,13 @@
 </td>
 <td width="70%" valign="top">
 
-# Data Transformation Pipeline
+# Features
 
-- **Features:**
-    - **Declarative transformations**: Build transformation pipelines using method chaining
-    - **Schema validation**: Validate operations before execution with dry-run capability
-    - **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
-    - **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
-    - **Serializable pipelines**: Save and load transformation plans as JSON
+- **Declarative transformations**: Build transformation pipelines using method chaining
+- **Schema validation**: Validate operations before execution with dry-run capability
+- **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
+- **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
+- **Serializable pipelines**: Save and load transformation plans as JSON
 
 </td>
 </tr>
