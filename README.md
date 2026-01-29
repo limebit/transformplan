@@ -2,7 +2,11 @@
 
 <img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="150" style="margin-right: 20px;">
 
-A Python library for safe, reproducible data transformations with built-in auditing and validation. TransformPlan tracks transformation history, validates operations against DataFrame schemas, and generates audit trails for data processing workflows.
+- Safe, reproducible data transformations
+- Built-in auditing and validation
+- Tracks transformation history
+- Validates operations against DataFrame schemas
+- Generates audit trails for data processing workflows
 
 <br clear="left"/>
 
