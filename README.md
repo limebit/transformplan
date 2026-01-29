@@ -1,7 +1,8 @@
 # TransformPlan
 
-<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="150" style="margin-right: 20px;">
+<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="140" style="margin-right: 30px;">
 
+**Python Data Transformation Library for:**
 - Safe, reproducible data transformations
 - Built-in auditing and validation
 - Tracks transformation history
