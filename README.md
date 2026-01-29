@@ -1,5 +1,3 @@
-![Coverage](./coverage.svg)
-
 # TransformPlan: Auditable Data Transformation Pipelines
 
 <table>
@@ -20,6 +18,9 @@
 </td>
 </tr>
 </table>
+
+![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
+![Coverage](./coverage.svg)
 
 ## Quick Example
 
