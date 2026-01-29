@@ -1,6 +1,6 @@
 # TransformPlan
 
-<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="140" style="margin-right: 30px;">
+<img align="left" src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="160" style="margin-right: 30px;">
 
 **Python Data Transformation Library for:**
 - Safe, reproducible data transformations
