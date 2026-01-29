@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="400">
+  <img src="docs/assets/images/logo_blue.png" alt="TransformPlan Logo" width="250">
 </p>
 
 # TransformPlan
