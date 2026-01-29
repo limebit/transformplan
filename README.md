@@ -19,8 +19,50 @@
 </tr>
 </table>
 
+## Quick Example
 
+```python
+from transformplan import TransformPlan, Col
 
+plan = (
+    TransformPlan()
+    # Standardize column names
+    .col_rename(column="PatientID", new_name="patient_id")
+    .col_rename(column="DOB", new_name="date_of_birth")
+    # Calculate derived values
+    .dt_age_years(column="date_of_birth", new_column="age")
+    .math_clamp(column="age", min_value=0, max_value=120)
+    # Categorize patients
+    .map_discretize(column="age", bins=[18, 40, 65], labels=["young", "adult", "senior"], new_column="age_group")
+    # Filter and clean
+    .rows_filter(Col("age") >= 18)
+    .rows_drop_nulls(columns=["patient_id", "age"])
+    .col_drop(column="date_of_birth")
+)
+
+df_result, protocol = plan.process(df)
+```
+
+### Generated Audit Protocol
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ TRANSFORMATION PROTOCOL                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Input:  4a7b2c1d  (1000 rows × 8 cols)                                      │
+│ Output: 8f3e9a2b  (847 rows × 8 cols)                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Operations:                                                                 │
+│   1. col_rename: PatientID → patient_id                                     │
+│   2. col_rename: DOB → date_of_birth                                        │
+│   3. dt_age_years: date_of_birth → age                                      │
+│   4. math_clamp: age [0, 120]                                               │
+│   5. map_discretize: age → age_group                                        │
+│   6. rows_filter: Col("age") >= 18  (-142 rows)                             │
+│   7. rows_drop_nulls: ["patient_id", "age"]  (-11 rows)                     │
+│   8. col_drop: date_of_birth                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Installation
 
@@ -34,91 +76,14 @@ Or with uv:
 uv add transformplan
 ```
 
-## Quick Start
-
-```python
-import polars as pl
-from transformplan import TransformPlan, Col
-
-# Create sample data
-df = pl.DataFrame({
-    "name": ["Alice", "Bob", "Charlie"],
-    "age": [25, 30, 35],
-    "salary": [50000, 60000, 70000]
-})
-
-# Build a transformation plan
-plan = (
-    TransformPlan()
-    .col_rename(column="name", new_name="employee_name")
-    .math_multiply(column="salary", value=1.1, new_column="new_salary")
-    .math_round(column="new_salary", decimals=0)
-    .rows_filter(Col("age") >= 30)
-)
-
-# Validate the plan
-print(plan.validate(df))
-
-# Execute and get audit trail
-df_result, protocol = plan.process(df)
-protocol.print()
-```
-
-## Setup
-
-### Installation
-
-Create a virtualenv and install all dependencies:
+## Development Setup
 
 ```bash
-make install
+make install-dev   # Install with dev dependencies and pre-commit hooks
+make test          # Run the test suite
+make lint          # Run ruff linting and pyright type checking
+make format        # Fix import sorting and format code
 ```
-
-### Development Installation
-
-Install with dev dependencies and pre-commit hooks:
-
-```bash
-make install-dev
-```
-
-### Lint
-
-Run ruff linting and pyright type checking:
-
-```bash
-make lint
-```
-
-### Format
-
-Fix import sorting and format code with ruff:
-
-```bash
-make format
-```
-
-### Test
-
-Run the test suite:
-
-```bash
-make test
-```
-
-### Cleanup
-
-Delete the virtualenv and cache directories:
-
-```bash
-make clean
-```
-
-## Development
-
-- Run python script: `uv run python <filename.py>`
-- Add new dependency: `uv add <package>`
-- Add dev dependency: `uv add --group dev <package>`
 
 ## License
 
