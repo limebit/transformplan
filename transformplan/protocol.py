@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ class Protocol:
         self._steps: list[dict[str, Any]] = []
         self._input_hash: str | None = None
         self._input_shape: tuple[int, int] | None = None
-        self._created_at: str = datetime.utcnow().isoformat() + "Z"
+        self._created_at: str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         self._metadata: dict[str, Any] = {}
 
     def set_input(self, hash_value: str, shape: tuple[int, int]) -> None:
