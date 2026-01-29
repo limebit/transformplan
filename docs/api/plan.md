@@ -27,7 +27,9 @@ df_result, protocol = plan.process(df)
       show_root_heading: true
       members:
         - process
+        - process_chunked
         - validate
+        - validate_chunked
         - dry_run
         - to_dict
         - from_dict
@@ -63,6 +65,38 @@ Preview what the pipeline will do without executing it.
 ```python
 preview = plan.dry_run(df)
 preview.print()
+```
+
+## Chunked Processing
+
+For large Parquet files that exceed available RAM, use chunked processing methods.
+
+### process_chunked
+
+Process a large Parquet file in chunks, optionally keeping related rows together.
+
+```python
+result, protocol = plan.process_chunked(
+    source="large_file.parquet",
+    partition_key="patient_id",  # Keep patient rows together
+    chunk_size=100_000,
+)
+protocol.print()
+```
+
+See [Chunked Processing](chunking.md) for details on operation compatibility.
+
+### validate_chunked
+
+Validate that a pipeline is compatible with chunked processing before executing.
+
+```python
+validation = plan.validate_chunked(
+    schema={"id": pl.Int64, "name": pl.Utf8},
+    partition_key="id"
+)
+if not validation.is_valid:
+    print(validation.errors)
 ```
 
 ## Serialization

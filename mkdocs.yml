@@ -82,6 +82,7 @@ nav:
       - TransformPlan: api/plan.md
       - Filters: api/filters.md
       - Protocol: api/protocol.md
+      - Chunked Processing: api/chunking.md
       - Validation: api/validation.md
       - Operations:
           - Column Operations: api/ops/column.md

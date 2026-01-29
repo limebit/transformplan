@@ -13,6 +13,7 @@ TransformPlan tracks transformation history, validates operations against DataFr
 - **Declarative transformations**: Build transformation pipelines using method chaining
 - **Schema validation**: Validate operations before execution with dry-run capability
 - **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
+- **Chunked processing**: Process large Parquet files that exceed RAM with partition-aware chunking
 - **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
 - **Serializable pipelines**: Save and load transformation plans as JSON
 
@@ -70,4 +71,5 @@ Complete audit protocols capture every operation, timing, and data shape change 
 - [TransformPlan](api/plan.md) - Main class for building pipelines
 - [Filters](api/filters.md) - Filter expressions for row operations
 - [Protocol](api/protocol.md) - Audit trail generation
+- [Chunked Processing](api/chunking.md) - Process large files that exceed RAM
 - [Validation](api/validation.md) - Schema validation utilities

@@ -19,6 +19,14 @@ This section provides detailed API documentation for all TransformPlan classes a
 | [`DryRunResult`](validation.md#transformplan.validation.DryRunResult) | Preview of pipeline execution |
 | [`SchemaValidationError`](validation.md#transformplan.validation.SchemaValidationError) | Exception raised on validation failure |
 
+## Chunked Processing Classes
+
+| Class | Description |
+|-------|-------------|
+| [`ChunkedProtocol`](chunking.md#transformplan.chunking.ChunkedProtocol) | Protocol for tracking chunked file processing |
+| [`ChunkValidationResult`](chunking.md#transformplan.chunking.ChunkValidationResult) | Result of validating pipeline for chunked processing |
+| [`ChunkingError`](chunking.md#transformplan.chunking.ChunkingError) | Exception raised when pipeline is incompatible with chunking |
+
 ## Operation Categories
 
 TransformPlan provides operations organized by category:
@@ -144,3 +152,4 @@ All TransformPlan operations at a glance. Click method names for detailed docume
 | Function | Description |
 |----------|-------------|
 | [`frame_hash`](protocol.md#transformplan.protocol.frame_hash) | Compute deterministic hash of a DataFrame |
+| [`validate_chunked_pipeline`](chunking.md) | Validate pipeline compatibility with chunked processing |

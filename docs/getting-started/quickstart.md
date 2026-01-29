@@ -124,8 +124,56 @@ json_str = plan.to_json()
 plan_from_str = TransformPlan.from_json(json_str)
 ```
 
+## Processing Large Files
+
+For Parquet files that exceed available RAM, use `process_chunked()`:
+
+```python
+# Process a large file in chunks
+result, protocol = plan.process_chunked(
+    source="large_dataset.parquet",
+    chunk_size=100_000,  # Rows per chunk
+)
+
+protocol.print()  # Shows per-chunk statistics
+```
+
+When using operations that need related rows together (like `rows_unique`), specify a partition key:
+
+```python
+plan = (
+    TransformPlan()
+    .col_rename(column="PatientID", new_name="patient_id")
+    .rows_unique(columns=["patient_id"])  # Needs all patient rows together
+)
+
+result, protocol = plan.process_chunked(
+    source="patients.parquet",
+    partition_key="patient_id",  # Keep patient rows in same chunk
+    chunk_size=50_000,
+)
+```
+
+Validate compatibility before processing:
+
+```python
+validation = plan.validate_chunked(
+    schema=df.schema,
+    partition_key="patient_id"
+)
+
+if not validation.is_valid:
+    print(validation.errors)
+```
+
+!!! note "Operation Restrictions"
+    Some operations cannot be used with chunked processing:
+    `rows_sort`, `rows_pivot`, `rows_sample`, `rows_head`, `rows_tail`.
+    See [Chunked Processing](../api/chunking.md) for details.
+
 ## Next Steps
 
 - Explore the [API Reference](../api/index.md) for all available operations
 - Learn about [Filters](../api/filters.md) for complex row filtering
 - Understand [Protocols](../api/protocol.md) for audit trails
+- Process large files with [Chunked Processing](../api/chunking.md)
