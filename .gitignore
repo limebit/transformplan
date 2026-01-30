@@ -6,7 +6,4 @@ sandbox/
 .vscode/*.log
 __pycache__
 *.pyc
-
-# DVC
-.dvc/tmp/
-.dvc/cache/
+.coverage
