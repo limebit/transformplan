@@ -23,9 +23,7 @@ class TestEncOnehot:
 
     def test_enc_onehot_with_categories(self, encoding_df: pl.DataFrame) -> None:
         """Test one-hot encoding with explicit categories."""
-        plan = TransformPlan().enc_onehot(
-            "color", categories=["red", "green", "blue"]
-        )
+        plan = TransformPlan().enc_onehot("color", categories=["red", "green", "blue"])
         result, _ = plan.process(encoding_df)
 
         # Check columns created
@@ -329,9 +327,7 @@ class TestEncodingValidation:
 
     def test_enc_onehot_duplicate_categories(self, encoding_df: pl.DataFrame) -> None:
         """Test validation error for duplicate categories."""
-        plan = TransformPlan().enc_onehot(
-            "color", categories=["red", "red", "blue"]
-        )
+        plan = TransformPlan().enc_onehot("color", categories=["red", "red", "blue"])
         result = plan.validate(encoding_df)
 
         assert not result.is_valid
@@ -395,9 +391,7 @@ class TestEncodingValidation:
 
     def test_enc_label_duplicate_categories(self, encoding_df: pl.DataFrame) -> None:
         """Test validation error for duplicate categories."""
-        plan = TransformPlan().enc_label(
-            "department", categories=["HR", "HR"]
-        )
+        plan = TransformPlan().enc_label("department", categories=["HR", "HR"])
         result = plan.validate(encoding_df)
 
         assert not result.is_valid
@@ -498,9 +492,7 @@ class TestEncodingProtocol:
 
     def test_enc_onehot_in_protocol(self, encoding_df: pl.DataFrame) -> None:
         """Test that one-hot encoding is recorded in protocol."""
-        plan = TransformPlan().enc_onehot(
-            "color", categories=["red", "green", "blue"]
-        )
+        plan = TransformPlan().enc_onehot("color", categories=["red", "green", "blue"])
         _, protocol = plan.process(encoding_df)
 
         protocol_dict = protocol.to_dict()

@@ -1258,9 +1258,7 @@ def _resolve_drop_category(
     if drop == "last":
         return categories[-1], True
     # Value not in categories and not a keyword
-    result.add_error(
-        step, op_name, f"Drop value '{drop}' not in categories list"
-    )
+    result.add_error(step, op_name, f"Drop value '{drop}' not in categories list")
     return None, False
 
 
