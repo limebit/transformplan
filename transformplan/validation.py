@@ -813,6 +813,28 @@ def _validate_math_percent_of(
     tracker.add_column(new_column, pl.Float64())
 
 
+def _validate_math_scaling(
+    tracker: SchemaTracker,
+    params: dict[str, Any],
+    result: ValidationResult,
+    step: int,
+    op_name: str,
+) -> None:
+    """Validate scaling/transform operations: column must exist and be numeric."""
+    column = params["column"]
+    new_column = params.get("new_column", column)
+
+    if _check_column_exists(tracker, column, result, step, op_name):
+        _check_column_numeric(tracker, column, result, step, op_name)
+
+    # If outputting to a new column, add it to the schema
+    if new_column != column:
+        tracker.add_column(new_column, pl.Float64())
+    else:
+        # Type may change to float
+        tracker.set_dtype(column, pl.Float64())
+
+
 # =============================================================================
 # String operation validators
 # =============================================================================
@@ -1398,6 +1420,16 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
     "math_cumsum": _validate_math_cumsum,
     "math_rank": _validate_math_rank,
     "math_percent_of": _validate_math_percent_of,
+    # Scaling ops
+    "math_standardize": partial(_validate_math_scaling, op_name="math_standardize"),
+    "math_minmax": partial(_validate_math_scaling, op_name="math_minmax"),
+    "math_robust_scale": partial(_validate_math_scaling, op_name="math_robust_scale"),
+    # Transform ops
+    "math_log": partial(_validate_math_scaling, op_name="math_log"),
+    "math_sqrt": partial(_validate_math_scaling, op_name="math_sqrt"),
+    "math_power": partial(_validate_math_scaling, op_name="math_power"),
+    # Outlier handling
+    "math_winsorize": partial(_validate_math_scaling, op_name="math_winsorize"),
     # String ops
     "str_replace": partial(_validate_str_op, op_name="str_replace"),
     "str_slice": partial(_validate_str_op, op_name="str_slice"),

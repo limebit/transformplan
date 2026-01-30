@@ -28,13 +28,27 @@ Aggregate Operations:
     math_cumsum: Cumulative sum.
     math_rank: Rank values.
 
+Scaling Operations:
+    math_standardize: Z-score standardization (mean=0, std=1).
+    math_minmax: Min-max normalization to a range.
+    math_robust_scale: Robust scaling using median and IQR.
+
+Transform Operations:
+    math_log: Logarithmic transform.
+    math_sqrt: Square root transform.
+    math_power: Power transform.
+
+Outlier Handling:
+    math_winsorize: Clip values to percentiles or explicit bounds.
+
 Example:
     >>> plan = TransformPlan().math_multiply("price", 1.1).math_round("price", 2)
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Union
+import math
+from typing import TYPE_CHECKING, Literal, Union, cast
 
 import polars as pl
 
@@ -45,6 +59,7 @@ if TYPE_CHECKING:
 
 Numeric = Union[int, float]
 RankMethod = Literal["average", "min", "max", "dense", "ordinal", "random"]
+FeatureRange = tuple[Numeric, Numeric]
 
 
 class MathOps:
@@ -405,3 +420,367 @@ class MathOps:
         if group_by:
             expr = expr.over(group_by)
         return data.with_columns(expr.alias(new_column))
+
+    # =========================================================================
+    # Scaling Operations
+    # =========================================================================
+
+    def math_standardize(
+        self,
+        column: str,
+        *,
+        mean: Numeric | None = None,
+        std: Numeric | None = None,
+        new_column: str | None = None,
+    ) -> Self:
+        """Standardize a column to have mean=0 and std=1 (z-score).
+
+        Args:
+            column: Column to transform.
+            mean: Mean value. If None, derived from data.
+            std: Standard deviation. If None, derived from data.
+            new_column: Output column name (default: replace original).
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            self._math_standardize,
+            {
+                "column": column,
+                "mean": mean,
+                "std": std,
+                "new_column": new_column or column,
+            },
+        )
+
+    def _math_standardize(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        mean: Numeric | None,
+        std: Numeric | None,
+        new_column: str,
+    ) -> pl.DataFrame:
+        computed_mean = (
+            float(mean)
+            if mean is not None
+            else cast("float", data[column].mean()) or 0.0
+        )
+        computed_std = (
+            float(std) if std is not None else cast("float", data[column].std()) or 0.0
+        )
+        if computed_std == 0:
+            # Avoid division by zero - return zeros
+            return data.with_columns(pl.lit(0.0).alias(new_column))
+        return data.with_columns(
+            ((pl.col(column) - computed_mean) / computed_std).alias(new_column)
+        )
+
+    def math_minmax(
+        self,
+        column: str,
+        *,
+        min_val: Numeric | None = None,
+        max_val: Numeric | None = None,
+        feature_range: FeatureRange = (0, 1),
+        new_column: str | None = None,
+    ) -> Self:
+        """Scale a column to a range using min-max normalization.
+
+        Args:
+            column: Column to transform.
+            min_val: Minimum value. If None, derived from data.
+            max_val: Maximum value. If None, derived from data.
+            feature_range: Output range tuple (default: (0, 1)).
+            new_column: Output column name (default: replace original).
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            self._math_minmax,
+            {
+                "column": column,
+                "min_val": min_val,
+                "max_val": max_val,
+                "feature_range": feature_range,
+                "new_column": new_column or column,
+            },
+        )
+
+    def _math_minmax(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        min_val: Numeric | None,
+        max_val: Numeric | None,
+        feature_range: FeatureRange,
+        new_column: str,
+    ) -> pl.DataFrame:
+        computed_min = (
+            float(min_val)
+            if min_val is not None
+            else cast("float", data[column].min()) or 0.0
+        )
+        computed_max = (
+            float(max_val)
+            if max_val is not None
+            else cast("float", data[column].max()) or 0.0
+        )
+        a, b = feature_range
+        if computed_max == computed_min:
+            # All values are the same - return midpoint of range
+            return data.with_columns(pl.lit((a + b) / 2).alias(new_column))
+        return data.with_columns(
+            (
+                a
+                + (pl.col(column) - computed_min)
+                * (b - a)
+                / (computed_max - computed_min)
+            ).alias(new_column)
+        )
+
+    def math_robust_scale(
+        self,
+        column: str,
+        *,
+        median: Numeric | None = None,
+        iqr: Numeric | None = None,
+        new_column: str | None = None,
+    ) -> Self:
+        """Scale a column using median and interquartile range.
+
+        Robust to outliers compared to standardization.
+
+        Args:
+            column: Column to transform.
+            median: Median value. If None, derived from data.
+            iqr: Interquartile range (Q3 - Q1). If None, derived from data.
+            new_column: Output column name (default: replace original).
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            self._math_robust_scale,
+            {
+                "column": column,
+                "median": median,
+                "iqr": iqr,
+                "new_column": new_column or column,
+            },
+        )
+
+    def _math_robust_scale(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        median: Numeric | None,
+        iqr: Numeric | None,
+        new_column: str,
+    ) -> pl.DataFrame:
+        computed_median = (
+            float(median)
+            if median is not None
+            else cast("float", data[column].median()) or 0.0
+        )
+        if iqr is None:
+            q1 = cast("float", data[column].quantile(0.25)) or 0.0
+            q3 = cast("float", data[column].quantile(0.75)) or 0.0
+            computed_iqr = q3 - q1
+        else:
+            computed_iqr = float(iqr)
+        if computed_iqr == 0:
+            # Avoid division by zero - return zeros
+            return data.with_columns(pl.lit(0.0).alias(new_column))
+        return data.with_columns(
+            ((pl.col(column) - computed_median) / computed_iqr).alias(new_column)
+        )
+
+    # =========================================================================
+    # Transform Operations
+    # =========================================================================
+
+    def math_log(
+        self,
+        column: str,
+        *,
+        base: Numeric | None = None,
+        offset: Numeric = 0,
+        new_column: str | None = None,
+    ) -> Self:
+        """Apply logarithmic transform to a column.
+
+        Args:
+            column: Column to transform.
+            base: Log base (default: natural log e).
+            offset: Value added before log to handle zeros (default: 0).
+            new_column: Output column name (default: replace original).
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            self._math_log,
+            {
+                "column": column,
+                "base": base,
+                "offset": offset,
+                "new_column": new_column or column,
+            },
+        )
+
+    def _math_log(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        base: Numeric | None,
+        offset: Numeric,
+        new_column: str,
+    ) -> pl.DataFrame:
+        expr = pl.col(column) + offset
+        if base is None:
+            expr = expr.log()
+        elif base == 10:
+            expr = expr.log10()
+        else:
+            # log_b(x) = ln(x) / ln(b)
+            expr = expr.log() / math.log(base)
+        return data.with_columns(expr.alias(new_column))
+
+    def math_sqrt(
+        self,
+        column: str,
+        *,
+        new_column: str | None = None,
+    ) -> Self:
+        """Apply square root transform to a column.
+
+        Args:
+            column: Column to transform.
+            new_column: Output column name (default: replace original).
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            self._math_sqrt,
+            {
+                "column": column,
+                "new_column": new_column or column,
+            },
+        )
+
+    def _math_sqrt(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        new_column: str,
+    ) -> pl.DataFrame:
+        return data.with_columns(pl.col(column).sqrt().alias(new_column))
+
+    def math_power(
+        self,
+        column: str,
+        exponent: Numeric,
+        *,
+        new_column: str | None = None,
+    ) -> Self:
+        """Apply power transform to a column.
+
+        Args:
+            column: Column to transform.
+            exponent: Power to raise values to.
+            new_column: Output column name (default: replace original).
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            self._math_power,
+            {
+                "column": column,
+                "exponent": exponent,
+                "new_column": new_column or column,
+            },
+        )
+
+    def _math_power(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        exponent: Numeric,
+        new_column: str,
+    ) -> pl.DataFrame:
+        return data.with_columns(pl.col(column).pow(exponent).alias(new_column))
+
+    # =========================================================================
+    # Outlier Handling
+    # =========================================================================
+
+    def math_winsorize(
+        self,
+        column: str,
+        *,
+        lower: Numeric | None = None,
+        upper: Numeric | None = None,
+        lower_value: Numeric | None = None,
+        upper_value: Numeric | None = None,
+        new_column: str | None = None,
+    ) -> Self:
+        """Clip values to percentiles or explicit bounds.
+
+        Use either percentile-based (lower/upper as 0-1 fractions) or
+        value-based (lower_value/upper_value as explicit bounds) clipping.
+
+        Args:
+            column: Column to transform.
+            lower: Lower percentile (0-1). E.g., 0.05 for 5th percentile.
+            upper: Upper percentile (0-1). E.g., 0.95 for 95th percentile.
+            lower_value: Explicit lower bound (overrides lower percentile).
+            upper_value: Explicit upper bound (overrides upper percentile).
+            new_column: Output column name (default: replace original).
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            self._math_winsorize,
+            {
+                "column": column,
+                "lower": lower,
+                "upper": upper,
+                "lower_value": lower_value,
+                "upper_value": upper_value,
+                "new_column": new_column or column,
+            },
+        )
+
+    def _math_winsorize(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        lower: Numeric | None,
+        upper: Numeric | None,
+        lower_value: Numeric | None,
+        upper_value: Numeric | None,
+        new_column: str,
+    ) -> pl.DataFrame:
+        # Determine lower bound
+        lower_bound: float | None = (
+            float(lower_value) if lower_value is not None else None
+        )
+        if lower_bound is None and lower is not None:
+            lower_bound = cast("float", data[column].quantile(lower))
+
+        # Determine upper bound
+        upper_bound: float | None = (
+            float(upper_value) if upper_value is not None else None
+        )
+        if upper_bound is None and upper is not None:
+            upper_bound = cast("float", data[column].quantile(upper))
+
+        return data.with_columns(
+            pl.col(column).clip(lower_bound, upper_bound).alias(new_column)
+        )
