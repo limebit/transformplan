@@ -252,3 +252,152 @@ class TestUnknownOperation:
         }
         with pytest.raises(ValueError, match="Unknown operation"):
             TransformPlan.from_dict(d)
+
+
+class TestFormatParamsAsPython:
+    """Tests for _format_params_as_python() method."""
+
+    def test_format_params_none_value_skipped(self) -> None:
+        """Test that None values are skipped in params formatting."""
+        plan = TransformPlan()
+        # col_add with no expr (None) should skip the None value
+        plan.col_add("new_col", value="test")
+        code = plan.to_python()
+        # The output should not have expr=None in it
+        assert "expr=None" not in code
+        assert 'new_column="new_col"' in code
+
+    def test_format_params_string_value(self) -> None:
+        """Test that string values are formatted with quotes."""
+        plan = TransformPlan().col_rename("old", "new")
+        code = plan.to_python()
+        assert 'column="old"' in code
+        assert 'new_name="new"' in code
+
+    def test_format_params_bool_value(self) -> None:
+        """Test that boolean values are formatted correctly."""
+        plan = TransformPlan().rows_sort("age", descending=True)
+        code = plan.to_python()
+        assert "descending=True" in code
+
+    def test_format_params_int_value(self) -> None:
+        """Test that int values are formatted correctly."""
+        plan = TransformPlan().math_add("value", 10)
+        code = plan.to_python()
+        assert "value=10" in code
+
+    def test_format_params_float_value(self) -> None:
+        """Test that float values are formatted correctly."""
+        plan = TransformPlan().math_multiply("price", 1.5)
+        code = plan.to_python()
+        assert "value=1.5" in code
+
+    def test_format_params_list_value(self) -> None:
+        """Test that list values are formatted correctly."""
+        plan = TransformPlan().col_select(["a", "b", "c"])
+        code = plan.to_python()
+        assert "['a', 'b', 'c']" in code
+
+    def test_format_params_dict_value(self) -> None:
+        """Test that dict values are formatted correctly."""
+        plan = TransformPlan().map_values("status", {"A": "Active", "B": "Blocked"})
+        code = plan.to_python()
+        assert "mapping=" in code
+        assert "'A'" in code
+
+
+class TestFormatFilterAsPython:
+    """Tests for _format_filter_as_python() method."""
+
+    def test_format_filter_and(self) -> None:
+        """Test Python code generation for And filter."""
+        plan = TransformPlan().rows_filter((Col("age") >= 30) & (Col("id") > 1))
+        code = plan.to_python()
+        assert "&" in code
+        assert 'Col("age")' in code or "Col(" in code
+
+    def test_format_filter_or(self) -> None:
+        """Test Python code generation for Or filter."""
+        plan = TransformPlan().rows_filter((Col("age") >= 30) | (Col("id") == 1))
+        code = plan.to_python()
+        assert "|" in code
+
+    def test_format_filter_not(self) -> None:
+        """Test Python code generation for Not filter."""
+        plan = TransformPlan().rows_filter(~(Col("active") == True))  # noqa: E712
+        code = plan.to_python()
+        assert "~" in code
+
+    def test_format_filter_is_in(self) -> None:
+        """Test Python code generation for IsIn filter."""
+        plan = TransformPlan().rows_filter(Col("name").is_in(["Alice", "Bob"]))
+        code = plan.to_python()
+        assert ".is_in(" in code
+        assert "['Alice', 'Bob']" in code
+
+    def test_format_filter_is_null(self) -> None:
+        """Test Python code generation for IsNull filter."""
+        plan = TransformPlan().rows_filter(Col("name").is_null())
+        code = plan.to_python()
+        assert ".is_null()" in code
+
+    def test_format_filter_is_not_null(self) -> None:
+        """Test Python code generation for IsNotNull filter."""
+        plan = TransformPlan().rows_filter(Col("name").is_not_null())
+        code = plan.to_python()
+        assert ".is_not_null()" in code
+
+    def test_format_filter_between(self) -> None:
+        """Test Python code generation for Between filter."""
+        plan = TransformPlan().rows_filter(Col("age").between(25, 40))
+        code = plan.to_python()
+        assert ".between(" in code
+        assert "25" in code
+        assert "40" in code
+
+    def test_format_filter_str_contains(self) -> None:
+        """Test Python code generation for StrContains filter."""
+        df = pl.DataFrame({"email": ["test@example.com"]})
+        plan = TransformPlan().rows_filter(Col("email").str_contains("@example"))
+        plan.validate(df)  # Just validate to ensure it's valid
+        code = plan.to_python()
+        assert ".str_contains(" in code
+        assert "@example" in code
+
+    def test_format_filter_str_starts_with(self) -> None:
+        """Test Python code generation for StrStartsWith filter."""
+        df = pl.DataFrame({"code": ["PRD-001"]})
+        plan = TransformPlan().rows_filter(Col("code").str_starts_with("PRD"))
+        plan.validate(df)
+        code = plan.to_python()
+        assert ".str_starts_with(" in code
+        assert "'PRD'" in code
+
+    def test_format_filter_str_ends_with(self) -> None:
+        """Test Python code generation for StrEndsWith filter."""
+        df = pl.DataFrame({"file": ["data.csv"]})
+        plan = TransformPlan().rows_filter(Col("file").str_ends_with(".csv"))
+        plan.validate(df)
+        code = plan.to_python()
+        assert ".str_ends_with(" in code
+        assert "'.csv'" in code
+
+    def test_format_filter_unknown_fallback(self) -> None:
+        """Test Python code generation for unknown filter type (fallback)."""
+        plan = TransformPlan()
+        # Call the private method directly with an unknown filter type
+        result = plan._format_filter_as_python({"type": "unknown_filter", "column": "x"})
+        assert "Filter.from_dict(" in result
+
+
+class TestFormatParamsEdgeCases:
+    """Tests for _format_params_as_python edge cases."""
+
+    def test_format_params_custom_type(self) -> None:
+        """Test formatting with custom/unusual type (else branch)."""
+        plan = TransformPlan()
+        # Create a tuple value which falls into the else branch
+        # Use a frozenset or any non-standard type
+        result = plan._format_params_as_python({"custom": frozenset([1, 2, 3])})
+        assert "custom=" in result
+        assert "frozenset" in result

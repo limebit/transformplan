@@ -568,3 +568,37 @@ class TestFilterRoundtrip:
         result2 = df.filter(restored.to_expr())
 
         assert result1.equals(result2)
+
+
+class TestFilterSerializationMissing:
+    """Tests for missing filter serialization coverage."""
+
+    def test_lt_to_dict(self) -> None:
+        """Test Lt.to_dict() serialization."""
+        f = Lt("age", 65)
+        d = f.to_dict()
+        assert d == {"type": "lt", "column": "age", "value": 65}
+
+    def test_is_not_null_to_dict(self) -> None:
+        """Test IsNotNull.to_dict() serialization."""
+        f = IsNotNull("name")
+        d = f.to_dict()
+        assert d == {"type": "is_not_null", "column": "name"}
+
+    def test_str_starts_with_roundtrip(self) -> None:
+        """Test StrStartsWith round-trip via Filter.from_dict()."""
+        original = StrStartsWith("code", "PRD-")
+        d = original.to_dict()
+        restored = Filter.from_dict(d)
+        assert isinstance(restored, StrStartsWith)
+        assert restored.column == "code"
+        assert restored.prefix == "PRD-"
+
+    def test_str_ends_with_roundtrip(self) -> None:
+        """Test StrEndsWith round-trip via Filter.from_dict()."""
+        original = StrEndsWith("file", ".csv")
+        d = original.to_dict()
+        restored = Filter.from_dict(d)
+        assert isinstance(restored, StrEndsWith)
+        assert restored.column == "file"
+        assert restored.suffix == ".csv"

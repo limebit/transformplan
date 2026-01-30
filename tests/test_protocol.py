@@ -298,3 +298,190 @@ class TestProtocolStepTracking:
         for step in d["steps"]:
             assert "output_hash" in step
             assert len(step["output_hash"]) == 16
+
+
+class TestProtocolOutputHashNoSteps:
+    """Tests for Protocol.output_hash when no steps."""
+
+    def test_output_hash_returns_input_hash_when_no_steps(
+        self, basic_df: pl.DataFrame
+    ) -> None:
+        """Test that output_hash returns input_hash when no steps."""
+        protocol = Protocol()
+        input_hash = frame_hash(basic_df)
+        protocol.set_input(input_hash, basic_df.shape)
+        # No steps added
+        assert protocol.output_hash == input_hash
+
+
+class TestProtocolSummaryMetadata:
+    """Tests for Protocol.summary() with metadata."""
+
+    def test_summary_includes_metadata(self, basic_df: pl.DataFrame) -> None:
+        """Test that protocol summary includes metadata."""
+        plan = TransformPlan().col_drop("age")
+        _, protocol = plan.process(basic_df)
+        protocol.set_metadata(author="test_user", project="test_project")
+        summary = protocol.summary()
+        assert "author: test_user" in summary
+        assert "project: test_project" in summary
+
+
+class TestProtocolFormatFilter:
+    """Tests for Protocol._format_filter() method."""
+
+    def test_format_filter_and(self) -> None:
+        """Test _format_filter for And filter."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"age": [25, 35, 45], "id": [1, 2, 3]})
+        plan = TransformPlan().rows_filter((Col("age") >= 30) & (Col("id") > 1))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        # Should contain the & operator formatting
+        assert "&" in summary
+
+    def test_format_filter_or(self) -> None:
+        """Test _format_filter for Or filter."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"age": [25, 35, 45], "id": [1, 2, 3]})
+        plan = TransformPlan().rows_filter((Col("age") >= 30) | (Col("id") == 1))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        # Should contain the | operator formatting
+        assert "|" in summary
+
+    def test_format_filter_not(self) -> None:
+        """Test _format_filter for Not filter."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"active": [True, False, True]})
+        plan = TransformPlan().rows_filter(~(Col("active") == True))  # noqa: E712
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        # Should contain the ~ operator formatting
+        assert "~" in summary
+
+    def test_format_filter_is_in_short(self) -> None:
+        """Test _format_filter for IsIn with short list."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"name": ["Alice", "Bob", "Charlie"]})
+        plan = TransformPlan().rows_filter(Col("name").is_in(["Alice", "Bob"]))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        # Should show the values
+        assert "name in" in summary
+
+    def test_format_filter_is_in_long(self) -> None:
+        """Test _format_filter for IsIn with long list (truncated)."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"id": [1, 2, 3, 4, 5, 6]})
+        plan = TransformPlan().rows_filter(Col("id").is_in([1, 2, 3, 4, 5, 6]))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        # Should truncate long lists
+        assert "items" in summary
+
+    def test_format_filter_is_null(self, df_with_nulls: pl.DataFrame) -> None:
+        """Test _format_filter for IsNull."""
+        from transformplan import Col
+
+        plan = TransformPlan().rows_filter(Col("name").is_null())
+        _, protocol = plan.process(df_with_nulls)
+        summary = protocol.summary(show_params=True)
+        assert "is null" in summary
+
+    def test_format_filter_is_not_null(self, df_with_nulls: pl.DataFrame) -> None:
+        """Test _format_filter for IsNotNull."""
+        from transformplan import Col
+
+        plan = TransformPlan().rows_filter(Col("name").is_not_null())
+        _, protocol = plan.process(df_with_nulls)
+        summary = protocol.summary(show_params=True)
+        assert "is not null" in summary
+
+    def test_format_filter_between(self) -> None:
+        """Test _format_filter for Between."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"age": [25, 35, 45]})
+        plan = TransformPlan().rows_filter(Col("age").between(25, 40))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        assert "between" in summary
+
+    def test_format_filter_str_contains(self) -> None:
+        """Test _format_filter for StrContains."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"email": ["alice@example.com", "bob@test.com"]})
+        plan = TransformPlan().rows_filter(Col("email").str_contains("@example"))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        assert "contains" in summary
+
+    def test_format_filter_str_starts_with(self) -> None:
+        """Test _format_filter for StrStartsWith."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"code": ["PRD-001", "TST-002"]})
+        plan = TransformPlan().rows_filter(Col("code").str_starts_with("PRD"))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        assert "starts_with" in summary
+
+    def test_format_filter_str_ends_with(self) -> None:
+        """Test _format_filter for StrEndsWith."""
+        from transformplan import Col
+
+        df = pl.DataFrame({"file": ["data.csv", "report.pdf"]})
+        plan = TransformPlan().rows_filter(Col("file").str_ends_with(".csv"))
+        _, protocol = plan.process(df)
+        summary = protocol.summary(show_params=True)
+        assert "ends_with" in summary
+
+    def test_format_filter_unknown_type(self) -> None:
+        """Test _format_filter for unknown filter type (fallback)."""
+        protocol = Protocol()
+        # Manually test _format_filter with unknown type
+        result = protocol._format_filter({"type": "unknown_filter_type"})
+        assert "<unknown_filter_type>" in result
+
+
+class TestProtocolFormatParams:
+    """Tests for Protocol._format_params() edge cases."""
+
+    def test_format_params_long_list(self) -> None:
+        """Test _format_params truncates long lists."""
+        protocol = Protocol()
+        params = {"values": [1, 2, 3, 4, 5, 6, 7]}
+        result = protocol._format_params(params)
+        # Should truncate to show first 2 items and count
+        assert "items" in result
+        assert "1, 2" in result
+
+    def test_format_params_long_result(self) -> None:
+        """Test _format_params truncates overall result."""
+        protocol = Protocol()
+        # Create params that would produce a very long string
+        params = {
+            "column1": "some_value",
+            "column2": "another_value",
+            "column3": "yet_another",
+            "column4": "and_more",
+            "column5": "even_more",
+        }
+        result = protocol._format_params(params, max_length=30)
+        assert len(result) <= 30
+        assert result.endswith("...")
+
+    def test_format_params_dict_without_type(self) -> None:
+        """Test _format_params with dict that has no 'type' key."""
+        protocol = Protocol()
+        params = {"mapping": {"A": "Active", "B": "Blocked"}}
+        result = protocol._format_params(params)
+        # Should show {...} for dict without type
+        assert "{...}" in result
