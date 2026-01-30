@@ -44,6 +44,7 @@ class EncodingOps:
         categories: list[Any] | None = None,
         prefix: str | None = None,
         *,
+        drop: Literal["first", "last"] | Any | None = None,  # noqa: ANN401
         drop_original: bool = True,
         unknown_value: Literal["all_zero", "ignore"] = "all_zero",
     ) -> Self:
@@ -55,6 +56,11 @@ class EncodingOps:
             column: Source column to encode.
             categories: List of category values. If None, derived from data.
             prefix: Prefix for new columns (default: column name).
+            drop: Drop one category column to avoid multicollinearity:
+                - None: Keep all columns (default).
+                - "first": Drop the first category.
+                - "last": Drop the last category.
+                - Any value: Drop that specific category.
             drop_original: Drop source column after encoding (default: True).
             unknown_value: How to handle unknown values:
                 - "all_zero": Set all indicator columns to 0.
@@ -66,6 +72,10 @@ class EncodingOps:
         Example:
             >>> plan.enc_onehot("color", categories=["red", "green", "blue"])
             # Creates columns: color_red, color_green, color_blue
+
+            >>> plan.enc_onehot("color", drop="first",
+            ...                 categories=["red", "green", "blue"])
+            # Creates columns: color_green, color_blue (drops color_red)
         """
         return self._register(
             self._enc_onehot,
@@ -73,6 +83,7 @@ class EncodingOps:
                 "column": column,
                 "categories": categories,
                 "prefix": prefix or column,
+                "drop": drop,
                 "drop_original": drop_original,
                 "unknown_value": unknown_value,
             },
@@ -84,6 +95,7 @@ class EncodingOps:
         column: str,
         categories: list[Any] | None,
         prefix: str,
+        drop: Any | None,  # noqa: ANN401
         drop_original: bool,  # noqa: FBT001
         unknown_value: str,
     ) -> pl.DataFrame:
@@ -91,9 +103,28 @@ class EncodingOps:
         if categories is None:
             categories = data[column].drop_nulls().unique().sort().to_list()
 
+        # Determine which category to drop (if any)
+        # Literal values take precedence over keywords "first"/"last"
+        drop_category: Any | None = None
+        if drop is not None and categories:
+            if drop in categories:
+                # Literal value - drop this specific category
+                drop_category = drop
+            elif drop == "first":
+                drop_category = categories[0]
+            elif drop == "last":
+                drop_category = categories[-1]
+            else:
+                # Value not in categories - will result in no column being dropped
+                drop_category = drop
+
         # Build one-hot columns
         new_columns = []
         for cat in categories:
+            # Skip the dropped category
+            if drop_category is not None and cat == drop_category:
+                continue
+
             col_name = f"{prefix}_{cat}"
             if unknown_value == "all_zero":
                 # Unknown values get 0 for all categories

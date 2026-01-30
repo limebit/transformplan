@@ -100,6 +100,99 @@ class TestEncOnehot:
         assert result["color_red"][2] is None
         assert result["color_green"][2] is None
 
+    def test_enc_onehot_drop_first(self, encoding_df: pl.DataFrame) -> None:
+        """Test one-hot encoding with drop='first' to avoid multicollinearity."""
+        plan = TransformPlan().enc_onehot(
+            "color", categories=["red", "green", "blue"], drop="first"
+        )
+        result, _ = plan.process(encoding_df)
+
+        # "red" (first category) should be dropped
+        assert "color_red" not in result.columns
+        assert "color_green" in result.columns
+        assert "color_blue" in result.columns
+
+        # Row 0 is "red" - should have 0 for green and blue
+        assert result["color_green"][0] == 0
+        assert result["color_blue"][0] == 0
+
+        # Row 1 is "green"
+        assert result["color_green"][1] == 1
+        assert result["color_blue"][1] == 0
+
+    def test_enc_onehot_drop_last(self, encoding_df: pl.DataFrame) -> None:
+        """Test one-hot encoding with drop='last'."""
+        plan = TransformPlan().enc_onehot(
+            "color", categories=["red", "green", "blue"], drop="last"
+        )
+        result, _ = plan.process(encoding_df)
+
+        # "blue" (last category) should be dropped
+        assert "color_red" in result.columns
+        assert "color_green" in result.columns
+        assert "color_blue" not in result.columns
+
+        # Row 2 is "blue" - should have 0 for red and green
+        assert result["color_red"][2] == 0
+        assert result["color_green"][2] == 0
+
+    def test_enc_onehot_drop_specific_value(self, encoding_df: pl.DataFrame) -> None:
+        """Test one-hot encoding dropping a specific category value."""
+        plan = TransformPlan().enc_onehot(
+            "color", categories=["red", "green", "blue"], drop="green"
+        )
+        result, _ = plan.process(encoding_df)
+
+        # "green" should be dropped
+        assert "color_red" in result.columns
+        assert "color_green" not in result.columns
+        assert "color_blue" in result.columns
+
+        # Row 1 is "green" - should have 0 for red and blue
+        assert result["color_red"][1] == 0
+        assert result["color_blue"][1] == 0
+
+    def test_enc_onehot_drop_with_derived_categories(self) -> None:
+        """Test one-hot encoding with drop and categories derived from data."""
+        df = pl.DataFrame({"color": ["red", "green", "blue"]})
+        plan = TransformPlan().enc_onehot("color", drop="first")
+        result, _ = plan.process(df)
+
+        # Categories are derived alphabetically: blue, green, red
+        # "blue" (first alphabetically) should be dropped
+        assert "color_blue" not in result.columns
+        assert "color_green" in result.columns
+        assert "color_red" in result.columns
+
+    def test_enc_onehot_drop_literal_takes_precedence(self) -> None:
+        """Test that literal values take precedence over 'first'/'last' keywords."""
+        # Category list where "first" is NOT the first element
+        df = pl.DataFrame({"pos": ["last", "middle", "first"]})
+        plan = TransformPlan().enc_onehot(
+            "pos", categories=["last", "middle", "first"], drop="first"
+        )
+        result, _ = plan.process(df)
+
+        # "first" should be interpreted as the literal value, not positional
+        # So "first" (the value) should be dropped, NOT "last" (the first position)
+        assert "pos_last" in result.columns
+        assert "pos_middle" in result.columns
+        assert "pos_first" not in result.columns
+
+    def test_enc_onehot_drop_keyword_when_not_in_categories(self) -> None:
+        """Test that 'first'/'last' work as keywords when not in categories."""
+        df = pl.DataFrame({"color": ["red", "green", "blue"]})
+        plan = TransformPlan().enc_onehot(
+            "color", categories=["red", "green", "blue"], drop="first"
+        )
+        result, _ = plan.process(df)
+
+        # "first" is not in categories, so it's interpreted as keyword
+        # Should drop "red" (first in list)
+        assert "color_red" not in result.columns
+        assert "color_green" in result.columns
+        assert "color_blue" in result.columns
+
 
 class TestEncOrdinal:
     """Tests for enc_ordinal operation."""
@@ -252,6 +345,28 @@ class TestEncodingValidation:
 
         assert not result.is_valid
         assert any("already exists" in str(e) for e in result.errors)
+
+    def test_enc_onehot_drop_invalid_value(self, encoding_df: pl.DataFrame) -> None:
+        """Test validation error for drop value not in categories."""
+        plan = TransformPlan().enc_onehot(
+            "color", categories=["red", "green", "blue"], drop="purple"
+        )
+        result = plan.validate(encoding_df)
+
+        assert not result.is_valid
+        assert any("not in categories" in str(e) for e in result.errors)
+
+    def test_enc_onehot_drop_avoids_collision(self) -> None:
+        """Test that drop='first' avoids column collision when first column exists."""
+        # color_blue already exists, but we're dropping blue (first alphabetically)
+        df = pl.DataFrame({"color": ["red", "green", "blue"], "color_blue": [1, 2, 3]})
+        plan = TransformPlan().enc_onehot(
+            "color", categories=["blue", "green", "red"], drop="first"
+        )
+        result = plan.validate(df)
+
+        # Should be valid because we're dropping color_blue
+        assert result.is_valid
 
     def test_enc_ordinal_missing_column(self, encoding_df: pl.DataFrame) -> None:
         """Test validation error for missing column."""
