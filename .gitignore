@@ -7,3 +7,4 @@ sandbox/
 __pycache__
 *.pyc
 .coverage
+site/
