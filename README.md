@@ -90,7 +90,7 @@ Total time: 0.0247s
 | Category | Description | Examples |
 |----------|-------------|----------|
 | **col_** | Column operations | `col_rename`, `col_drop`, `col_cast`, `col_add`, `col_select` |
-| **math_** | Arithmetic operations | `math_add`, `math_multiply`, `math_clamp`, `math_round`, `math_abs` |
+| **math_** | Arithmetic & scaling | `math_add`, `math_multiply`, `math_standardize`, `math_minmax`, `math_clamp` |
 | **rows_** | Row filtering & reshaping | `rows_filter`, `rows_drop_nulls`, `rows_sort`, `rows_unique`, `rows_pivot` |
 | **str_** | String operations | `str_lower`, `str_upper`, `str_strip`, `str_replace`, `str_split` |
 | **dt_** | Datetime operations | `dt_year`, `dt_month`, `dt_parse`, `dt_age_years`, `dt_diff_days` |

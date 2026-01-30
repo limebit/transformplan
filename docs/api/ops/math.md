@@ -39,6 +39,13 @@ plan = (
         - math_percent_of
         - math_cumsum
         - math_rank
+        - math_standardize
+        - math_minmax
+        - math_robust_scale
+        - math_log
+        - math_sqrt
+        - math_power
+        - math_winsorize
 
 ## Examples
 
@@ -127,4 +134,53 @@ plan = TransformPlan().math_rank(
     descending=True,
     group_by="category"
 )
+```
+
+### Scaling Operations
+
+```python
+# Z-score standardization (explicit params for reproducibility)
+plan = TransformPlan().math_standardize("income", mean=50000, std=25000)
+
+# Derive from data
+plan = TransformPlan().math_standardize("income")
+
+# Min-max normalization to [0, 1]
+plan = TransformPlan().math_minmax("age", min_val=0, max_val=100)
+
+# Custom range
+plan = TransformPlan().math_minmax("score", min_val=0, max_val=100, feature_range=(0, 10))
+
+# Robust scaling (resistant to outliers)
+plan = TransformPlan().math_robust_scale("salary", median=60000, iqr=30000)
+```
+
+### Transform Operations
+
+```python
+# Natural log
+plan = TransformPlan().math_log("price")
+
+# Log base 10
+plan = TransformPlan().math_log("price", base=10)
+
+# Log with offset for zeros
+plan = TransformPlan().math_log("count", offset=1)  # log(x + 1)
+
+# Square root
+plan = TransformPlan().math_sqrt("variance")
+
+# Power transform
+plan = TransformPlan().math_power("value", exponent=2)  # square
+plan = TransformPlan().math_power("value", exponent=0.5)  # sqrt
+```
+
+### Outlier Handling
+
+```python
+# Winsorize by percentiles
+plan = TransformPlan().math_winsorize("salary", lower=0.05, upper=0.95)
+
+# Winsorize by explicit values
+plan = TransformPlan().math_winsorize("salary", lower_value=20000, upper_value=200000)
 ```
