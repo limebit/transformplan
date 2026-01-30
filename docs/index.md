@@ -94,6 +94,7 @@ Total time: 0.0247s
 | **str_** | String operations | `str_lower`, `str_upper`, `str_strip`, `str_replace`, `str_split` |
 | **dt_** | Datetime operations | `dt_year`, `dt_month`, `dt_parse`, `dt_age_years`, `dt_diff_days` |
 | **map_** | Value mapping | `map_values`, `map_discretize`, `map_case`, `map_from_column` |
+| **enc_** | Categorical encoding | `enc_onehot`, `enc_ordinal`, `enc_label` |
 
 
 ## Getting Started

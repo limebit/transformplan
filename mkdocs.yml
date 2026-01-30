@@ -91,3 +91,4 @@ nav:
           - String Operations: api/ops/string.md
           - Datetime Operations: api/ops/datetime.md
           - Map Operations: api/ops/map.md
+          - Encoding Operations: api/ops/encoding.md
