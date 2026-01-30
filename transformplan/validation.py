@@ -1228,7 +1228,7 @@ def _validate_map_from_column(
 
 
 # =============================================================================
-# Encoding operation validators
+# Encoding validators (map_onehot, map_ordinal, map_label)
 # =============================================================================
 
 
@@ -1262,7 +1262,7 @@ def _resolve_drop_category(
     return None, False
 
 
-def _validate_enc_onehot(
+def _validate_map_onehot(
     tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
 ) -> None:
     column = params["column"]
@@ -1271,18 +1271,18 @@ def _validate_enc_onehot(
     drop = params.get("drop")
     drop_original = params["drop_original"]
 
-    if not _check_column_exists(tracker, column, result, step, "enc_onehot"):
+    if not _check_column_exists(tracker, column, result, step, "map_onehot"):
         return
 
     if categories is not None:
         # Check for duplicate categories
         if len(categories) != len(set(categories)):
-            result.add_error(step, "enc_onehot", "Duplicate values in categories list")
+            result.add_error(step, "map_onehot", "Duplicate values in categories list")
             return
 
         # Determine which category to drop (if any)
         drop_category, is_valid = _resolve_drop_category(
-            drop, categories, result, step, "enc_onehot"
+            drop, categories, result, step, "map_onehot"
         )
         if not is_valid:
             return
@@ -1294,7 +1294,7 @@ def _validate_enc_onehot(
             new_col = f"{prefix}_{cat}"
             if tracker.has_column(new_col):
                 result.add_error(
-                    step, "enc_onehot", f"Column '{new_col}' already exists"
+                    step, "map_onehot", f"Column '{new_col}' already exists"
                 )
                 return
             tracker.add_column(new_col, pl.Int64())
@@ -1306,7 +1306,7 @@ def _validate_enc_onehot(
         tracker.drop_column(column)
 
 
-def _validate_enc_ordinal(
+def _validate_map_ordinal(
     tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
 ) -> None:
     column = params["column"]
@@ -1314,12 +1314,12 @@ def _validate_enc_ordinal(
     new_column = params["new_column"]
     drop_original = params["drop_original"]
 
-    if not _check_column_exists(tracker, column, result, step, "enc_ordinal"):
+    if not _check_column_exists(tracker, column, result, step, "map_ordinal"):
         return
 
     # Check for duplicate categories
     if categories is not None and len(categories) != len(set(categories)):
-        result.add_error(step, "enc_ordinal", "Duplicate values in categories list")
+        result.add_error(step, "map_ordinal", "Duplicate values in categories list")
         return
 
     # Update schema
@@ -1331,7 +1331,7 @@ def _validate_enc_ordinal(
         tracker.set_dtype(column, pl.Int64())
 
 
-def _validate_enc_label(
+def _validate_map_label(
     tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
 ) -> None:
     column = params["column"]
@@ -1339,12 +1339,12 @@ def _validate_enc_label(
     new_column = params["new_column"]
     drop_original = params["drop_original"]
 
-    if not _check_column_exists(tracker, column, result, step, "enc_label"):
+    if not _check_column_exists(tracker, column, result, step, "map_label"):
         return
 
     # Check for duplicate categories
     if categories is not None and len(categories) != len(set(categories)):
-        result.add_error(step, "enc_label", "Duplicate values in categories list")
+        result.add_error(step, "map_label", "Duplicate values in categories list")
         return
 
     # Update schema
@@ -1447,10 +1447,9 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
     "map_values": _validate_map_values,
     "map_discretize": _validate_map_discretize,
     "map_from_column": _validate_map_from_column,
-    # Encoding ops
-    "enc_onehot": _validate_enc_onehot,
-    "enc_ordinal": _validate_enc_ordinal,
-    "enc_label": _validate_enc_label,
+    "map_onehot": _validate_map_onehot,
+    "map_ordinal": _validate_map_ordinal,
+    "map_label": _validate_map_label,
 }
 
 

@@ -1,10 +1,10 @@
 # Map Operations
 
-Value mapping, discretization, and transformation operations.
+Value mapping, discretization, encoding, and transformation operations.
 
 ## Overview
 
-Map operations transform column values using dictionaries, bins, or other columns. They're useful for categorization, value replacement, and data normalization.
+Map operations transform column values using dictionaries, bins, or encoding schemes. They're useful for categorization, value replacement, data normalization, and ML feature preparation.
 
 ```python
 from transformplan import TransformPlan
@@ -13,6 +13,7 @@ plan = (
     TransformPlan()
     .map_values("status", {"A": "Active", "I": "Inactive"})
     .map_discretize("age", bins=[18, 35, 55], labels=["Young", "Adult", "Senior"])
+    .map_onehot("color", categories=["red", "green", "blue"], drop="first")
 )
 ```
 
@@ -29,6 +30,9 @@ plan = (
         - map_null_to_value
         - map_value_to_null
         - map_from_column
+        - map_onehot
+        - map_ordinal
+        - map_label
 
 ## Examples
 
@@ -154,4 +158,53 @@ plan = TransformPlan().map_value_to_null("score", -999)
 
 # Replace null with default
 plan = TransformPlan().map_null_to_value("category", "Uncategorized")
+```
+
+### One-Hot Encoding
+
+```python
+# Basic one-hot encoding
+plan = TransformPlan().map_onehot(
+    column="color",
+    categories=["red", "green", "blue"]
+)
+# Creates columns: color_red, color_green, color_blue
+
+# Drop first category to avoid multicollinearity (for regression models)
+plan = TransformPlan().map_onehot(
+    column="color",
+    categories=["red", "green", "blue"],
+    drop="first"
+)
+# Creates columns: color_green, color_blue (drops color_red)
+```
+
+### Ordinal Encoding
+
+```python
+# Ordinal encoding with meaningful order
+plan = TransformPlan().map_ordinal(
+    column="size",
+    categories=["small", "medium", "large"]
+)
+# Maps: small -> 0, medium -> 1, large -> 2
+```
+
+### Label Encoding
+
+```python
+# Label encoding (alphabetically sorted by default)
+plan = TransformPlan().map_label(column="department")
+# Maps alphabetically: Engineering -> 0, HR -> 1, Sales -> 2
+```
+
+### ML Feature Preparation
+
+```python
+# One-hot encode categorical features, dropping first to avoid multicollinearity
+plan = (
+    TransformPlan()
+    .map_onehot("color", categories=["red", "green", "blue"], drop="first")
+    .map_ordinal("quality", categories=["low", "medium", "high"])
+)
 ```

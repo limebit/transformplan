@@ -94,8 +94,7 @@ Total time: 0.0247s
 | **rows_** | Row filtering & reshaping | `rows_filter`, `rows_drop_nulls`, `rows_sort`, `rows_unique`, `rows_pivot` |
 | **str_** | String operations | `str_lower`, `str_upper`, `str_strip`, `str_replace`, `str_split` |
 | **dt_** | Datetime operations | `dt_year`, `dt_month`, `dt_parse`, `dt_age_years`, `dt_diff_days` |
-| **map_** | Value mapping | `map_values`, `map_discretize`, `map_case`, `map_from_column` |
-| **enc_** | Categorical encoding | `enc_onehot`, `enc_ordinal`, `enc_label` |
+| **map_** | Value mapping & encoding | `map_values`, `map_discretize`, `map_onehot`, `map_ordinal` |
 
 ## Installation
 

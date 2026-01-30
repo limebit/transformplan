@@ -20,14 +20,13 @@ Example:
 """
 
 from .core import TransformPlanBase
-from .ops import ColumnOps, DatetimeOps, EncodingOps, MapOps, MathOps, RowOps, StrOps
+from .ops import ColumnOps, DatetimeOps, MapOps, MathOps, RowOps, StrOps
 
 
 class TransformPlan(
     TransformPlanBase,
     ColumnOps,
     DatetimeOps,
-    EncodingOps,
     MapOps,
     MathOps,
     RowOps,

@@ -18,7 +18,6 @@ provide the complete transformation API.
 
 from .column import ColumnOps
 from .datetime import DatetimeOps
-from .encoding import EncodingOps
 from .map import MapOps
 from .math import MathOps
 from .rows import RowOps
@@ -27,7 +26,6 @@ from .string import StrOps
 __all__ = [
     "ColumnOps",
     "DatetimeOps",
-    "EncodingOps",
     "MapOps",
     "MathOps",
     "RowOps",
