@@ -9,7 +9,7 @@
   <img src="./coverage.svg" alt="Coverage">
 </div>
 
-## Feature
+## Features
 
 - **Declarative transformations**: Build transformation pipelines using method chaining
 - **Schema validation**: Validate operations before execution with dry-run capability
