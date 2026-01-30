@@ -500,9 +500,7 @@ class TestValidationEdgeCases:
         result = plan.validate(basic_df)
         assert not result.is_valid
 
-    def test_validate_rows_unique_missing_columns(
-        self, basic_df: pl.DataFrame
-    ) -> None:
+    def test_validate_rows_unique_missing_columns(self, basic_df: pl.DataFrame) -> None:
         """Test rows_unique validation with missing columns."""
         plan = TransformPlan().rows_unique(columns=["nonexistent"])
         result = plan.validate(basic_df)
@@ -645,7 +643,15 @@ class TestDryRunSummaryFormatting:
 
     def test_summary_long_list_param(self) -> None:
         """Test summary truncates long list params."""
-        df = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9], "d": [10, 11, 12], "e": [13, 14, 15]})
+        df = pl.DataFrame(
+            {
+                "a": [1, 2, 3],
+                "b": [4, 5, 6],
+                "c": [7, 8, 9],
+                "d": [10, 11, 12],
+                "e": [13, 14, 15],
+            }
+        )
         plan = TransformPlan().col_select(["a", "b", "c", "d", "e"])
         result = plan.dry_run(df)
         summary = result.summary(show_params=True)

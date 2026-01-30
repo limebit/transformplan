@@ -386,7 +386,9 @@ class TestFormatFilterAsPython:
         """Test Python code generation for unknown filter type (fallback)."""
         plan = TransformPlan()
         # Call the private method directly with an unknown filter type
-        result = plan._format_filter_as_python({"type": "unknown_filter", "column": "x"})
+        result = plan._format_filter_as_python(
+            {"type": "unknown_filter", "column": "x"}
+        )
         assert "Filter.from_dict(" in result
 
 

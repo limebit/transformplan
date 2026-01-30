@@ -287,7 +287,11 @@ class TestMapDiscretizeRightFalse:
         """Test discretization with right=False (left-closed intervals)."""
         df = pl.DataFrame({"value": [0, 50, 100]})
         plan = TransformPlan().map_discretize(
-            "value", bins=[50], labels=["Low", "High"], new_column="category", right=False
+            "value",
+            bins=[50],
+            labels=["Low", "High"],
+            new_column="category",
+            right=False,
         )
         result, _ = plan.process(df)
         # With right=False: [left, right)

@@ -845,9 +845,7 @@ class TestProcessChunkedPendingRows:
         df.write_parquet(path)
         return path
 
-    def test_process_chunked_with_pending_rows(
-        self, multi_group_parquet: Path
-    ) -> None:
+    def test_process_chunked_with_pending_rows(self, multi_group_parquet: Path) -> None:
         """Test chunked processing handles pending rows correctly."""
         # Use a chunk size that will cause groups to be split
         plan = TransformPlan().rows_unique(columns=["patient_id"])
