@@ -82,6 +82,13 @@ All TransformPlan operations at a glance. Click method names for detailed docume
 | [`math_percent_of`](ops/math.md) | Calculate percentage of one column relative to another |
 | [`math_cumsum`](ops/math.md) | Calculate cumulative sum (optionally grouped) |
 | [`math_rank`](ops/math.md) | Calculate rank of values |
+| [`math_standardize`](ops/math.md) | Z-score standardization (mean=0, std=1) |
+| [`math_minmax`](ops/math.md) | Min-max normalization to a range |
+| [`math_robust_scale`](ops/math.md) | Robust scaling using median and IQR |
+| [`math_log`](ops/math.md) | Logarithmic transform |
+| [`math_sqrt`](ops/math.md) | Square root transform |
+| [`math_power`](ops/math.md) | Power transform |
+| [`math_winsorize`](ops/math.md) | Clip values to percentiles or bounds |
 
 ### Row Operations
 
