@@ -278,3 +278,62 @@ class TestMapEdgeCases:
         )
         result, _ = plan.process(df)
         assert result["code"].dtype == pl.Utf8
+
+
+class TestMapDiscretizeRightFalse:
+    """Tests for map_discretize with right=False."""
+
+    def test_map_discretize_right_false(self) -> None:
+        """Test discretization with right=False (left-closed intervals)."""
+        df = pl.DataFrame({"value": [0, 50, 100]})
+        plan = TransformPlan().map_discretize(
+            "value", bins=[50], labels=["Low", "High"], new_column="category", right=False
+        )
+        result, _ = plan.process(df)
+        # With right=False: [left, right)
+        # 0 -> [-inf, 50) -> Low
+        # 50 -> [50, inf) -> High (50 is at the boundary, goes to High)
+        # 100 -> [50, inf) -> High
+        assert result["category"][0] == "Low"
+        assert result["category"][1] == "High"
+        assert result["category"][2] == "High"
+
+    def test_map_discretize_right_false_auto_labels(self) -> None:
+        """Test discretization with right=False and auto-generated labels."""
+        df = pl.DataFrame({"value": [10, 50, 90]})
+        plan = TransformPlan().map_discretize(
+            "value", bins=[30, 70], new_column="bucket", right=False
+        )
+        result, _ = plan.process(df)
+        assert "bucket" in result.columns
+        # Auto-labels should be like "[-inf, 30)", "[30, 70)", "[70, inf)"
+        # 10 -> "[-inf, 30)"
+        # 50 -> "[30, 70)"
+        # 90 -> "[70, inf)"
+        labels = result["bucket"].to_list()
+        assert "[-inf, 30)" in labels[0]
+        assert "[30, 70)" in labels[1] or "[30.0, 70.0)" in labels[1]
+        assert "[70" in labels[2]
+
+    def test_map_discretize_right_false_multiple_bins(self) -> None:
+        """Test discretization with right=False and multiple bins."""
+        df = pl.DataFrame({"score": [0, 60, 70, 80, 100]})
+        plan = TransformPlan().map_discretize(
+            "score",
+            bins=[60, 70, 80, 90],
+            labels=["F", "D", "C", "B", "A"],
+            new_column="grade",
+            right=False,
+        )
+        result, _ = plan.process(df)
+        # With right=False (left-closed):
+        # 0 -> [-inf, 60) -> F
+        # 60 -> [60, 70) -> D
+        # 70 -> [70, 80) -> C
+        # 80 -> [80, 90) -> B
+        # 100 -> [90, inf) -> A
+        assert result["grade"][0] == "F"
+        assert result["grade"][1] == "D"
+        assert result["grade"][2] == "C"
+        assert result["grade"][3] == "B"
+        assert result["grade"][4] == "A"

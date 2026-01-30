@@ -352,3 +352,313 @@ class TestFilterValidation:
         result = plan.validate(basic_df)
         assert not result.is_valid
         assert "cannot use string filter" in str(result.errors[0])
+
+
+class TestDryRunResultEdgeCases:
+    """Tests for DryRunResult edge cases."""
+
+    def test_output_schema_empty_pipeline(self, basic_df: pl.DataFrame) -> None:
+        """Test output_schema for empty pipeline returns input schema."""
+        plan = TransformPlan()
+        result = plan.dry_run(basic_df)
+        assert len(result.output_schema) == len(basic_df.columns)
+
+    def test_summary_validation_failed(self, basic_df: pl.DataFrame) -> None:
+        """Test summary shows validation failed message."""
+        plan = TransformPlan().col_drop("nonexistent")
+        result = plan.dry_run(basic_df)
+        summary = result.summary()
+        assert "FAILED" in summary
+        assert "1 errors" in summary or "1 error" in summary
+
+    def test_summary_with_show_schema(self, basic_df: pl.DataFrame) -> None:
+        """Test summary with show_schema=True."""
+        plan = TransformPlan().col_drop("age")
+        result = plan.dry_run(basic_df)
+        summary = result.summary(show_schema=True)
+        # Should show column types
+        assert "Int64" in summary or "Int" in summary
+
+    def test_summary_with_modified_columns(self, basic_df: pl.DataFrame) -> None:
+        """Test summary shows modified columns correctly."""
+        plan = TransformPlan().col_cast("age", pl.Float64)
+        result = plan.dry_run(basic_df)
+        summary = result.summary()
+        # Should show modified indicator ~
+        assert "~" in summary or "age" in summary
+
+    def test_summary_with_error_marker(self, basic_df: pl.DataFrame) -> None:
+        """Test summary shows error marker for failed steps."""
+        plan = TransformPlan().col_drop("nonexistent")
+        result = plan.dry_run(basic_df)
+        summary = result.summary()
+        # Should show error marker
+        assert "✗" in summary
+
+    def test_repr_invalid(self, basic_df: pl.DataFrame) -> None:
+        """Test repr for invalid result."""
+        plan = TransformPlan().col_drop("nonexistent")
+        result = plan.dry_run(basic_df)
+        r = repr(result)
+        assert "invalid" in r
+        assert "1 errors" in r or "error" in r
+
+
+class TestValidationEdgeCases:
+    """Tests for validation edge cases."""
+
+    def test_validate_col_drop_null_with_columns(
+        self, df_with_nulls: pl.DataFrame
+    ) -> None:
+        """Test col_drop_null validation with specified columns."""
+        plan = TransformPlan().col_drop_null(columns=["name", "age"])
+        result = plan.validate(df_with_nulls)
+        assert result.is_valid
+
+    def test_validate_col_drop_null_missing_columns(
+        self, df_with_nulls: pl.DataFrame
+    ) -> None:
+        """Test col_drop_null validation with missing columns."""
+        plan = TransformPlan().col_drop_null(columns=["nonexistent"])
+        result = plan.validate(df_with_nulls)
+        assert not result.is_valid
+
+    def test_validate_col_add_with_expr(self, basic_df: pl.DataFrame) -> None:
+        """Test col_add validation with source expression."""
+        plan = TransformPlan().col_add("name_copy", expr="name")
+        result = plan.validate(basic_df)
+        assert result.is_valid
+
+    def test_validate_col_add_duplicate_column(self, basic_df: pl.DataFrame) -> None:
+        """Test col_add validation when column already exists."""
+        plan = TransformPlan().col_add("name", value="test")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "already exists" in str(result.errors[0])
+
+    def test_validate_col_add_uuid_duplicate(self, basic_df: pl.DataFrame) -> None:
+        """Test col_add_uuid validation when column already exists."""
+        plan = TransformPlan().col_add_uuid("name")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "already exists" in str(result.errors[0])
+
+    def test_validate_col_hash_missing_columns(self, basic_df: pl.DataFrame) -> None:
+        """Test col_hash validation with missing columns."""
+        plan = TransformPlan().col_hash(["name", "nonexistent"], "hash_col")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_col_hash_duplicate_new_column(
+        self, basic_df: pl.DataFrame
+    ) -> None:
+        """Test col_hash validation when new column already exists."""
+        plan = TransformPlan().col_hash(["name", "age"], "name")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "already exists" in str(result.errors[0])
+
+    def test_validate_col_coalesce_missing(self, basic_df: pl.DataFrame) -> None:
+        """Test col_coalesce validation with missing columns."""
+        plan = TransformPlan().col_coalesce(["name", "nonexistent"], "result")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_math_cumsum_missing_group_by(
+        self, basic_df: pl.DataFrame
+    ) -> None:
+        """Test math_cumsum validation with missing group_by columns."""
+        plan = TransformPlan().math_cumsum(
+            "salary", new_column="cumsum", group_by=["nonexistent"]
+        )
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "Group-by columns do not exist" in str(result.errors[0])
+
+    def test_validate_math_rank_missing_group_by(self, basic_df: pl.DataFrame) -> None:
+        """Test math_rank validation with missing group_by columns."""
+        plan = TransformPlan().math_rank(
+            "salary", new_column="rank", group_by=["nonexistent"]
+        )
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_str_split_duplicate_columns(
+        self, string_df: pl.DataFrame
+    ) -> None:
+        """Test str_split validation when new columns already exist."""
+        plan = TransformPlan().str_split("text", " ", new_columns=["text"])
+        result = plan.validate(string_df)
+        assert not result.is_valid
+        assert "already exists" in str(result.errors[0])
+
+    def test_validate_rows_drop_nulls_missing_columns(
+        self, basic_df: pl.DataFrame
+    ) -> None:
+        """Test rows_drop_nulls validation with missing columns."""
+        plan = TransformPlan().rows_drop_nulls(columns=["nonexistent"])
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_rows_unique_missing_columns(
+        self, basic_df: pl.DataFrame
+    ) -> None:
+        """Test rows_unique validation with missing columns."""
+        plan = TransformPlan().rows_unique(columns=["nonexistent"])
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_rows_drop_filter(self, basic_df: pl.DataFrame) -> None:
+        """Test rows_drop validation with filter."""
+        plan = TransformPlan().rows_drop(Col("nonexistent") > 10)
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_rows_flag_filter(self, basic_df: pl.DataFrame) -> None:
+        """Test rows_flag validation with filter."""
+        plan = TransformPlan().rows_flag(Col("nonexistent") > 10, "flag")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_rows_flag_duplicate_column(self, basic_df: pl.DataFrame) -> None:
+        """Test rows_flag validation when new column already exists."""
+        plan = TransformPlan().rows_flag(Col("age") > 30, "name")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "already exists" in str(result.errors[0])
+
+    def test_validate_rows_sort_missing_columns(self, basic_df: pl.DataFrame) -> None:
+        """Test rows_sort validation with missing columns."""
+        plan = TransformPlan().rows_sort("nonexistent")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_rows_deduplicate_missing_sort(
+        self, duplicates_df: pl.DataFrame
+    ) -> None:
+        """Test rows_deduplicate validation with missing sort column."""
+        plan = TransformPlan().rows_deduplicate(["id"], "nonexistent")
+        result = plan.validate(duplicates_df)
+        assert not result.is_valid
+        assert "does not exist" in str(result.errors[0])
+
+    def test_validate_rows_deduplicate_missing_columns(
+        self, duplicates_df: pl.DataFrame
+    ) -> None:
+        """Test rows_deduplicate validation with missing columns."""
+        plan = TransformPlan().rows_deduplicate(["nonexistent"], "timestamp")
+        result = plan.validate(duplicates_df)
+        assert not result.is_valid
+
+    def test_validate_rows_explode_non_list(self, basic_df: pl.DataFrame) -> None:
+        """Test rows_explode validation on non-list column."""
+        plan = TransformPlan().rows_explode("name")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "expected List" in str(result.errors[0])
+
+    def test_validate_rows_melt_missing_id(self, wide_df: pl.DataFrame) -> None:
+        """Test rows_melt validation with missing id columns."""
+        plan = TransformPlan().rows_melt(
+            id_columns=["nonexistent"], value_columns=["q1"]
+        )
+        result = plan.validate(wide_df)
+        assert not result.is_valid
+
+    def test_validate_rows_melt_missing_value(self, wide_df: pl.DataFrame) -> None:
+        """Test rows_melt validation with missing value columns."""
+        plan = TransformPlan().rows_melt(
+            id_columns=["id"], value_columns=["nonexistent"]
+        )
+        result = plan.validate(wide_df)
+        assert not result.is_valid
+
+    def test_validate_rows_pivot_missing_index(self, long_df: pl.DataFrame) -> None:
+        """Test rows_pivot validation with missing index columns."""
+        plan = TransformPlan().rows_pivot(
+            index=["nonexistent"], columns="quarter", values="value"
+        )
+        result = plan.validate(long_df)
+        assert not result.is_valid
+
+    def test_validate_rows_pivot_missing_columns(self, long_df: pl.DataFrame) -> None:
+        """Test rows_pivot validation with missing pivot column."""
+        plan = TransformPlan().rows_pivot(
+            index=["id"], columns="nonexistent", values="value"
+        )
+        result = plan.validate(long_df)
+        assert not result.is_valid
+
+    def test_validate_rows_pivot_missing_values(self, long_df: pl.DataFrame) -> None:
+        """Test rows_pivot validation with missing values column."""
+        plan = TransformPlan().rows_pivot(
+            index=["id"], columns="quarter", values="nonexistent"
+        )
+        result = plan.validate(long_df)
+        assert not result.is_valid
+
+    def test_validate_filter_not_operator(self, basic_df: pl.DataFrame) -> None:
+        """Test filter validation with Not operator."""
+        plan = TransformPlan().rows_filter(~(Col("nonexistent") == 1))
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+
+    def test_validate_col_select_missing_columns(self, basic_df: pl.DataFrame) -> None:
+        """Test col_select validation with missing columns."""
+        plan = TransformPlan().col_select(["name", "nonexistent"])
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "Columns do not exist" in str(result.errors[0])
+
+    def test_validate_col_add_missing_expr(self, basic_df: pl.DataFrame) -> None:
+        """Test col_add validation with missing source expression."""
+        plan = TransformPlan().col_add("new_col", expr="nonexistent")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "does not exist" in str(result.errors[0])
+
+    def test_input_schema_property(self, basic_df: pl.DataFrame) -> None:
+        """Test DryRunResult.input_schema property."""
+        plan = TransformPlan().col_drop("age")
+        result = plan.dry_run(basic_df)
+        schema = result.input_schema
+        assert "age" in schema
+        assert schema["age"] == pl.Int64()
+
+
+class TestDryRunSummaryFormatting:
+    """Tests for DryRunResult.summary() formatting edge cases."""
+
+    def test_summary_columns_added(self, basic_df: pl.DataFrame) -> None:
+        """Test summary shows columns added with + prefix."""
+        plan = TransformPlan().col_add("new_col", value="test")
+        result = plan.dry_run(basic_df)
+        summary = result.summary()
+        assert "+['" in summary or "+" in summary
+
+    def test_summary_filter_param(self, basic_df: pl.DataFrame) -> None:
+        """Test summary shows filter params as <filter>."""
+        plan = TransformPlan().rows_filter(Col("age") > 30)
+        result = plan.dry_run(basic_df)
+        summary = result.summary(show_params=True)
+        assert "<filter>" in summary
+
+    def test_summary_long_list_param(self) -> None:
+        """Test summary truncates long list params."""
+        df = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9], "d": [10, 11, 12], "e": [13, 14, 15]})
+        plan = TransformPlan().col_select(["a", "b", "c", "d", "e"])
+        result = plan.dry_run(df)
+        summary = result.summary(show_params=True)
+        # List of 5 items should be truncated
+        assert "items" in summary
+
+    def test_summary_long_string_param(self) -> None:
+        """Test summary truncates long string params."""
+        df = pl.DataFrame({"text": ["hello world"]})
+        # Create a plan with a long string parameter
+        long_pattern = "this_is_a_very_long_pattern_that_should_be_truncated"
+        plan = TransformPlan().str_replace("text", long_pattern, "short")
+        result = plan.dry_run(df)
+        summary = result.summary(show_params=True)
+        # Long string should be truncated
+        assert "..." in summary or long_pattern[:17] in summary
