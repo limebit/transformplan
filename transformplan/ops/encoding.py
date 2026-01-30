@@ -71,11 +71,10 @@ class EncodingOps:
 
         Example:
             >>> plan.enc_onehot("color", categories=["red", "green", "blue"])
-            # Creates columns: color_red, color_green, color_blue
+            # Creates: color_red, color_green, color_blue
 
-            >>> plan.enc_onehot("color", drop="first",
-            ...                 categories=["red", "green", "blue"])
-            # Creates: color_green, color_blue (drops color_red)
+            >>> plan.enc_onehot("color", categories=["red", "green"], drop="first")
+            # Creates: color_green (drops color_red)
         """
         return self._register(
             self._enc_onehot,
