@@ -1228,6 +1228,135 @@ def _validate_map_from_column(
 
 
 # =============================================================================
+# Encoding operation validators
+# =============================================================================
+
+
+def _resolve_drop_category(
+    drop: Any | None,  # noqa: ANN401
+    categories: list[Any],
+    result: ValidationResult,
+    step: int,
+    op_name: str,
+) -> tuple[Any | None, bool]:
+    """Resolve the category to drop for one-hot encoding.
+
+    Literal values take precedence over keywords "first"/"last".
+
+    Returns:
+        Tuple of (drop_category, is_valid). If is_valid is False, an error was added.
+    """
+    if drop is None:
+        return None, True
+    if not categories:
+        return None, True
+    # Literal values take precedence over keywords
+    if drop in categories:
+        return drop, True
+    if drop == "first":
+        return categories[0], True
+    if drop == "last":
+        return categories[-1], True
+    # Value not in categories and not a keyword
+    result.add_error(step, op_name, f"Drop value '{drop}' not in categories list")
+    return None, False
+
+
+def _validate_enc_onehot(
+    tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
+) -> None:
+    column = params["column"]
+    categories = params.get("categories")
+    prefix = params["prefix"]
+    drop = params.get("drop")
+    drop_original = params["drop_original"]
+
+    if not _check_column_exists(tracker, column, result, step, "enc_onehot"):
+        return
+
+    if categories is not None:
+        # Check for duplicate categories
+        if len(categories) != len(set(categories)):
+            result.add_error(step, "enc_onehot", "Duplicate values in categories list")
+            return
+
+        # Determine which category to drop (if any)
+        drop_category, is_valid = _resolve_drop_category(
+            drop, categories, result, step, "enc_onehot"
+        )
+        if not is_valid:
+            return
+
+        # Check for column name collisions and update schema
+        for cat in categories:
+            if cat == drop_category:
+                continue
+            new_col = f"{prefix}_{cat}"
+            if tracker.has_column(new_col):
+                result.add_error(
+                    step, "enc_onehot", f"Column '{new_col}' already exists"
+                )
+                return
+            tracker.add_column(new_col, pl.Int64())
+
+    # If categories is None, we can't fully validate the output schema
+    # The validator will only check that the source column exists
+
+    if drop_original:
+        tracker.drop_column(column)
+
+
+def _validate_enc_ordinal(
+    tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
+) -> None:
+    column = params["column"]
+    categories = params.get("categories")
+    new_column = params["new_column"]
+    drop_original = params["drop_original"]
+
+    if not _check_column_exists(tracker, column, result, step, "enc_ordinal"):
+        return
+
+    # Check for duplicate categories
+    if categories is not None and len(categories) != len(set(categories)):
+        result.add_error(step, "enc_ordinal", "Duplicate values in categories list")
+        return
+
+    # Update schema
+    if new_column != column:
+        tracker.add_column(new_column, pl.Int64())
+        if drop_original:
+            tracker.drop_column(column)
+    else:
+        tracker.set_dtype(column, pl.Int64())
+
+
+def _validate_enc_label(
+    tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
+) -> None:
+    column = params["column"]
+    categories = params.get("categories")
+    new_column = params["new_column"]
+    drop_original = params["drop_original"]
+
+    if not _check_column_exists(tracker, column, result, step, "enc_label"):
+        return
+
+    # Check for duplicate categories
+    if categories is not None and len(categories) != len(set(categories)):
+        result.add_error(step, "enc_label", "Duplicate values in categories list")
+        return
+
+    # Update schema
+    if new_column != column:
+        tracker.add_column(new_column, pl.Int64())
+        if drop_original:
+            tracker.drop_column(column)
+    else:
+        tracker.set_dtype(column, pl.Int64())
+
+
+# =============================================================================
 # Validator registry
 # =============================================================================
 
@@ -1318,6 +1447,10 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
     "map_values": _validate_map_values,
     "map_discretize": _validate_map_discretize,
     "map_from_column": _validate_map_from_column,
+    # Encoding ops
+    "enc_onehot": _validate_enc_onehot,
+    "enc_ordinal": _validate_enc_ordinal,
+    "enc_label": _validate_enc_label,
 }
 
 
