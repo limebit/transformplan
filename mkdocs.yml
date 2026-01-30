@@ -6,7 +6,7 @@ repo_name: TransformPlan
 
 theme:
   name: material
-  logo: assets/images/logo.png
+  logo: assets/images/logo_wordmark_white.png
   favicon: assets/images/logo.png
   palette:
     - media: "(prefers-color-scheme: light)"
