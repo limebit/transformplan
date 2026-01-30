@@ -22,7 +22,7 @@
 ```python
 from transformplan import TransformPlan, Col
 
-# Build readable pipelines with 70+ chainable operations
+# Build readable pipelines with 75+ chainable operations
 plan = (
     TransformPlan()
     # Standardize column names
