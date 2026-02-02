@@ -6,8 +6,8 @@ repo_name: TransformPlan
 
 theme:
   name: material
-  logo: assets/images/logo_wordmark_white.png
-  favicon: assets/images/logo.png
+  logo: https://raw.githubusercontent.com/limebit/transformplan-static/refs/heads/main/logos/logo_wordmark_white.png
+  favicon: https://raw.githubusercontent.com/limebit/transformplan-static/refs/heads/main/logos/logo.png
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default

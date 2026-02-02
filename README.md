@@ -1,12 +1,12 @@
 <div align="center">
-  <img src="docs/assets/images/logo_wordmark_black.png" alt="TransformPlan" width="600">
+  <img src="https://raw.githubusercontent.com/limebit/transformplan-static/refs/heads/main/logos/logo_wordmark_black.png" alt="TransformPlan" width="600">
 </div>
 
 <h1 align="center">TransformPlan: Auditable Data Transformation Pipelines</h1>
 
 <div align="center">
   <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue" alt="Python 3.10+">
-  <img src="./coverage.svg" alt="Coverage">
+  <img src="https://raw.githubusercontent.com/limebit/transformplan-static/6cb5e0d4d33699ee663f9d40ff9b6724279fd394/icons/coverage-badge.svg" alt="Coverage">
 </div>
 
 ## Features
