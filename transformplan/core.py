@@ -22,15 +22,20 @@ from typing import Protocol as TypingProtocol
 
 import polars as pl
 
-from .chunking import (
+from transformplan.chunking import (
     ChunkedProtocol,
     ChunkInfo,
     ChunkingError,
     ChunkValidationResult,
     validate_chunked_pipeline,
 )
-from .protocol import Protocol, frame_hash
-from .validation import DryRunResult, ValidationResult, dry_run_schema, validate_schema
+from transformplan.protocol import Protocol, frame_hash
+from transformplan.validation import (
+    DryRunResult,
+    ValidationResult,
+    dry_run_schema,
+    validate_schema,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -475,7 +480,7 @@ class TransformPlanBase:
         schema = dict(lazy_frame.collect_schema())
 
         if validate:
-            from .validation import validate_schema
+            from transformplan.validation import validate_schema
 
             schema_validation = validate_schema(self._operations, schema)
             schema_validation.raise_if_invalid()

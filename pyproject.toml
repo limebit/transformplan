@@ -1,35 +1,44 @@
 [project]
 name = "transformplan"
-version = "0.0.1"
+version = "0.1.0"
 description = "Safe, reproducible data transformations with built-in auditing and validation"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = { text = "MIT" }
 keywords = ["data", "transformation", "polars", "pandas", "audit", "validation"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Typing :: Typed",
 ]
-dependencies = ["polars","pandas","pyarrow"]
+dependencies = ["polars", "pandas", "pyarrow"]
 
 [project.urls]
 Homepage = "https://github.com/limebit/transformplan"
 Repository = "https://github.com/limebit/transformplan"
 
 [dependency-groups]
-dev = [
-    "pytest>=8.2.2",
-    "ruff>=0.4.9",
-    "pyright>=1.1.370,<1.1.374",
+tests = ["pytest>=8.2.2", "pytest-cov>=7.0.0"]
+docs = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",
     "mkdocstrings[python]>=0.24.0",
-    "pytest-cov>=7.0.0",
+]
+dev = [
+    { include-group = "docs" },
+    { include-group = "tests" },
+    "ruff>=0.4.9",
+    "pyright>=1.1.370,<1.1.374",
 ]
 
 [build-system]

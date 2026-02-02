@@ -16,12 +16,12 @@ The TransformPlan class combines all these mixins with TransformPlanBase to
 provide the complete transformation API.
 """
 
-from .column import ColumnOps
-from .datetime import DatetimeOps
-from .map import MapOps
-from .math import MathOps
-from .rows import RowOps
-from .string import StrOps
+from transformplan.ops.column import ColumnOps
+from transformplan.ops.datetime import DatetimeOps
+from transformplan.ops.map import MapOps
+from transformplan.ops.math import MathOps
+from transformplan.ops.rows import RowOps
+from transformplan.ops.string import StrOps
 
 __all__ = [
     "ColumnOps",

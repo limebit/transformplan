@@ -19,8 +19,8 @@ Example:
     >>> result, protocol = plan.process(df)
 """
 
-from .core import TransformPlanBase
-from .ops import ColumnOps, DatetimeOps, MapOps, MathOps, RowOps, StrOps
+from transformplan.core import TransformPlanBase
+from transformplan.ops import ColumnOps, DatetimeOps, MapOps, MathOps, RowOps, StrOps
 
 
 class TransformPlan(
