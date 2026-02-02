@@ -111,7 +111,7 @@ uv add transformplan
 ## Development Setup
 
 ```bash
-make install-dev   # Install with dev dependencies and pre-commit hooks
+make install-dev   # Install with dev dependencies
 make test          # Run the test suite
 make lint          # Run ruff linting and pyright type checking
 make format        # Fix import sorting and format code
