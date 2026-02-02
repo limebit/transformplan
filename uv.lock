@@ -993,14 +993,15 @@ wheels = [
 
 [[package]]
 name = "pyright"
-version = "1.1.373"
+version = "1.1.408"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "nodeenv" },
+    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/3a/80b92c0a7e8e44de32d76607383a27ec61a157cc86b3ffc486f2d2180810/pyright-1.1.373.tar.gz", hash = "sha256:f41bcfc8b9d1802b09921a394d6ae1ce19694957b628bc657629688daf8a83ff", size = 17480, upload-time = "2024-07-24T08:50:37.474Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/b2/5db700e52554b8f025faa9c3c624c59f1f6c8841ba81ab97641b54322f16/pyright-1.1.408.tar.gz", hash = "sha256:f28f2321f96852fa50b5829ea492f6adb0e6954568d1caa3f3af3a5f555eb684", size = 4400578, upload-time = "2026-01-08T08:07:38.795Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f4/20/2dde33b6171ac7d7d1a018ac49f899c5ad10ad1d66e7127cca0beab65813/pyright-1.1.373-py3-none-any.whl", hash = "sha256:b805413227f2c209f27b14b55da27fe5e9fb84129c9f1eb27708a5d12f6f000e", size = 18226, upload-time = "2024-07-24T08:50:35.508Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/82/a2c93e32800940d9573fb28c346772a14778b84ba7524e691b324620ab89/pyright-1.1.408-py3-none-any.whl", hash = "sha256:090b32865f4fdb1e0e6cd82bf5618480d48eecd2eb2e70f960982a3d9a4c17c1", size = 6399144, upload-time = "2026-01-08T08:07:37.082Z" },
 ]
 
 [[package]]
@@ -1257,6 +1258,15 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
+docs = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "mkdocstrings", extra = ["python"] },
+]
+tests = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1270,10 +1280,19 @@ dev = [
     { name = "mkdocs", specifier = ">=1.6.0" },
     { name = "mkdocs-material", specifier = ">=9.5.0" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.24.0" },
-    { name = "pyright", specifier = ">=1.1.370,<1.1.374" },
+    { name = "pyright", specifier = "==1.1.408" },
     { name = "pytest", specifier = ">=8.2.2" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "ruff", specifier = ">=0.4.9" },
+]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.24.0" },
+]
+tests = [
+    { name = "pytest", specifier = ">=8.2.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
 ]
 
 [[package]]

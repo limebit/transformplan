@@ -38,7 +38,7 @@ dev = [
     { include-group = "docs" },
     { include-group = "tests" },
     "ruff>=0.4.9",
-    "pyright>=1.1.370,<1.1.374",
+    "pyright==1.1.408",
 ]
 
 [build-system]
