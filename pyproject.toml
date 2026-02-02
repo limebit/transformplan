@@ -4,13 +4,12 @@ version = "0.1.0"
 description = "Safe, reproducible data transformations with built-in auditing and validation"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 keywords = ["data", "transformation", "polars", "pandas", "audit", "validation"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -45,8 +44,8 @@ dev = [
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["transformplan"]
+[tool.setuptools.packages.find]
+include = ["transformplan*"]
 
 [tool.ruff]
 exclude = ["__pycache__", ".git", ".github", ".ruff_cache", ".venv"]
