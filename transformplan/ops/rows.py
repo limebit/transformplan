@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence
 
 import polars as pl
 
-from ..filters import Filter
+from transformplan.filters import Filter
 
 if TYPE_CHECKING:
     from typing import Any, Callable

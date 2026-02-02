@@ -5,7 +5,7 @@
 <h1 align="center">TransformPlan: Auditable Data Transformation Pipelines</h1>
 
 <div align="center">
-  <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue" alt="Python 3.10+">
   <img src="./coverage.svg" alt="Coverage">
 </div>
 
@@ -87,14 +87,14 @@ Total time: 0.0247s
 
 ## Available Operations
 
-| Category | Description | Examples |
-|----------|-------------|----------|
-| **col_** | Column operations | `col_rename`, `col_drop`, `col_cast`, `col_add`, `col_select` |
-| **math_** | Arithmetic & scaling | `math_add`, `math_multiply`, `math_standardize`, `math_minmax`, `math_clamp` |
-| **rows_** | Row filtering & reshaping | `rows_filter`, `rows_drop_nulls`, `rows_sort`, `rows_unique`, `rows_pivot` |
-| **str_** | String operations | `str_lower`, `str_upper`, `str_strip`, `str_replace`, `str_split` |
-| **dt_** | Datetime operations | `dt_year`, `dt_month`, `dt_parse`, `dt_age_years`, `dt_diff_days` |
-| **map_** | Value mapping & encoding | `map_values`, `map_discretize`, `map_onehot`, `map_ordinal` |
+| Category   | Description               | Examples                                                                     |
+| ---------- | ------------------------- | ---------------------------------------------------------------------------- |
+| **col\_**  | Column operations         | `col_rename`, `col_drop`, `col_cast`, `col_add`, `col_select`                |
+| **math\_** | Arithmetic & scaling      | `math_add`, `math_multiply`, `math_standardize`, `math_minmax`, `math_clamp` |
+| **rows\_** | Row filtering & reshaping | `rows_filter`, `rows_drop_nulls`, `rows_sort`, `rows_unique`, `rows_pivot`   |
+| **str\_**  | String operations         | `str_lower`, `str_upper`, `str_strip`, `str_replace`, `str_split`            |
+| **dt\_**   | Datetime operations       | `dt_year`, `dt_month`, `dt_parse`, `dt_age_years`, `dt_diff_days`            |
+| **map\_**  | Value mapping & encoding  | `map_values`, `map_discretize`, `map_onehot`, `map_ordinal`                  |
 
 ## Installation
 

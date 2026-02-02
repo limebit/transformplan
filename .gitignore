@@ -3,8 +3,10 @@ sandbox/
 */.ipynb_checkpoints
 .DS_Store
 *.egg-info
-.vscode/*.log
+.vscode
+.devcontainer
 __pycache__
 *.pyc
+*.log
 .coverage
 site/
