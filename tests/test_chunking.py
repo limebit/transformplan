@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 import pytest
@@ -735,14 +736,7 @@ class TestValidateChunkedPipelineUnknownOp:
 
     def test_unknown_operation_warning(self) -> None:
         """Test that unknown operations produce a warning."""
-
-        # Create a fake operation that's not in the registry
-        class FakeOp:
-            @staticmethod
-            def _custom_unknown_op(df: pl.DataFrame) -> pl.DataFrame:
-                return df
-
-        fake_ops = [(FakeOp._custom_unknown_op, {})]
+        fake_ops: list[tuple[str, dict[str, Any]]] = [("_custom_unknown_op", {})]
         result = validate_chunked_pipeline(fake_ops, partition_key=None)
         assert result.is_valid  # Unknown ops don't block
         assert len(result.warnings) == 1
@@ -796,11 +790,6 @@ class TestValidateChunkedGroupColsNormalization:
 
     def test_group_cols_string_directly_in_params(self) -> None:
         """Test group_cols normalization when param is a string directly."""
-
-        # Directly create operation tuple with string group_cols to test normalization
-        def _mock_group_op(df: pl.DataFrame, columns: str) -> pl.DataFrame:
-            _ = columns  # Unused but required in signature
-            return df
 
         # Register as GROUP_DEPENDENT with 'columns' param
         from transformplan.chunking import (

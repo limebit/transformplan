@@ -9,19 +9,11 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+import duckdb
 import pytest
 
-try:
-    import duckdb
-
-    HAS_DUCKDB = True
-except ImportError:
-    HAS_DUCKDB = False
-
-pytestmark = pytest.mark.skipif(not HAS_DUCKDB, reason="duckdb not installed")
-
-from transformplan import Col, TransformPlan  # noqa: E402
-from transformplan.backends.duckdb import DuckDBBackend  # noqa: E402
+from transformplan import Col, TransformPlan
+from transformplan.backends.duckdb import DuckDBBackend
 
 # =============================================================================
 # Fixtures
@@ -1488,6 +1480,38 @@ class TestMathDiffFromAgg:
         with pytest.raises(ValueError, match="Invalid aggregate"):
             (
                 _plan(backend)
-                .math_diff_from_agg("a", "invalid", "diff")  # type: ignore[arg-type]
+                .math_diff_from_agg("a", "invalid", "diff")  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
                 .process(numeric_rel)
             )
+
+
+class TestColExpr:
+    """Tests for col_expr on DuckDB backend."""
+
+    def test_col_expr_arithmetic(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        result, _ = (
+            _plan(backend).col_expr("age_plus_10", "age + 10").process(basic_rel)
+        )
+        assert "age_plus_10" in result.columns
+        vals = _col_values(result, "age_plus_10")
+        ages = _col_values(basic_rel, "age")
+        assert vals == [a + 10 for a in ages]
+
+    def test_col_expr_case_when(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        result, _ = (
+            _plan(backend)
+            .col_expr(
+                "category",
+                "CASE WHEN age > 30 THEN 'senior' ELSE 'junior' END",
+            )
+            .process(basic_rel)
+        )
+        assert "category" in result.columns
+        vals = _col_values(result, "category")
+        ages = _col_values(basic_rel, "age")
+        for age, cat in zip(ages, vals):
+            assert cat == ("senior" if age > 30 else "junior")

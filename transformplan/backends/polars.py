@@ -1,6 +1,6 @@
 """Polars backend for TransformPlan.
 
-This module implements all 87 operations using the Polars DataFrame library.
+This module implements all 88 operations using the Polars DataFrame library.
 It is the default backend and the reference implementation.
 
 Classes:
@@ -201,6 +201,15 @@ class PolarsBackend(Backend):
         return data.with_columns(
             pl.coalesce([pl.col(c) for c in columns]).alias(new_column)
         )
+
+    def col_expr(
+        self,
+        data: pl.DataFrame,
+        new_column: str,
+        expr: str,
+        dtype: str | None,
+    ) -> pl.DataFrame:
+        return data.with_columns(pl.sql_expr(expr).alias(new_column))
 
     # =========================================================================
     # Math operations (27)
@@ -597,7 +606,7 @@ class PolarsBackend(Backend):
             index=index,
             on=columns,
             values=values,
-            aggregate_function=aggregate_function,
+            aggregate_function=aggregate_function,  # pyright: ignore[reportArgumentType]
         )
 
     # =========================================================================

@@ -20,6 +20,7 @@ Operations:
     col_add_uuid: Add column with unique identifiers.
     col_hash: Hash columns into new column.
     col_coalesce: First non-null across columns.
+    col_expr: Add column from SQL expression.
 
 Example:
     >>> plan = TransformPlan().col_rename("old", "new").col_drop("temp")
@@ -202,6 +203,35 @@ class ColumnOps:
         """
         return self._register(
             "col_coalesce", {"columns": list(columns), "new_column": new_column}
+        )
+
+    def col_expr(
+        self,
+        new_column: str,
+        expr: str,
+        dtype: str | None = None,
+    ) -> Self:
+        """Add a new column computed from a SQL expression.
+
+        This is an escape hatch for arbitrary SQL expressions that work
+        across both backends. The expression is passed through without
+        sanitization — use with trusted input only.
+
+        For Polars, the expression is parsed via ``pl.sql_expr()``.
+        For DuckDB, the expression is embedded as raw SQL.
+
+        Args:
+            new_column: Name of the new column.
+            expr: SQL expression string.
+            dtype: Optional type hint for validation. One of
+                "float", "string", "integer", "boolean", "date".
+
+        Returns:
+            Self for method chaining.
+        """
+        return self._register(
+            "col_expr",
+            {"new_column": new_column, "expr": expr, "dtype": dtype},
         )
 
     def col_select(self, columns: Sequence[str]) -> Self:

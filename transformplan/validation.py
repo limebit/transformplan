@@ -825,6 +825,25 @@ def _validate_col_coalesce(
         tracker.add_column(new_column, tracker.get_dtype(columns[0]))
 
 
+def _validate_col_expr(
+    tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
+) -> None:
+    new_column = params["new_column"]
+    dtype_hint = params.get("dtype")
+
+    if tracker.has_column(new_column):
+        result.add_error(step, "col_expr", f"Column '{new_column}' already exists")
+    else:
+        dtype_map: dict[str, Any] = {
+            "float": tracker.float_type,
+            "integer": tracker.integer_type,
+            "boolean": tracker.boolean_type,
+            "date": tracker.date_type,
+        }
+        out_type = dtype_map.get(str(dtype_hint), tracker.string_type)
+        tracker.add_column(new_column, out_type)
+
+
 # =============================================================================
 # Math operation validators
 # =============================================================================
@@ -1547,6 +1566,7 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
     "col_add_uuid": _validate_col_add_uuid,
     "col_hash": _validate_col_hash,
     "col_coalesce": _validate_col_coalesce,
+    "col_expr": _validate_col_expr,
     # Math ops
     "math_add": partial(_validate_math_scalar, op_name="math_add"),
     "math_subtract": partial(_validate_math_scalar, op_name="math_subtract"),

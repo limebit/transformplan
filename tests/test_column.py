@@ -326,6 +326,58 @@ class TestColCoalesce:
         assert result["result"].null_count() == 2
 
 
+class TestColExpr:
+    """Tests for col_expr operation."""
+
+    def test_col_expr_arithmetic(self, basic_df: pl.DataFrame) -> None:
+        """Test simple arithmetic expression."""
+        plan = TransformPlan().col_expr("age_plus_10", "age + 10")
+        result, _ = plan.process(basic_df)
+        assert "age_plus_10" in result.columns
+        expected = [v + 10 for v in basic_df["age"].to_list()]
+        assert result["age_plus_10"].to_list() == expected
+
+    def test_col_expr_case_when(self, basic_df: pl.DataFrame) -> None:
+        """Test CASE WHEN expression."""
+        plan = TransformPlan().col_expr(
+            "category",
+            "CASE WHEN age > 30 THEN 'senior' ELSE 'junior' END",
+        )
+        result, _ = plan.process(basic_df)
+        assert "category" in result.columns
+        values = result["category"].to_list()
+        for age, cat in zip(basic_df["age"].to_list(), values):
+            assert cat == ("senior" if age > 30 else "junior")
+
+    def test_col_expr_with_dtype_hint(self, basic_df: pl.DataFrame) -> None:
+        """Test expression with dtype hint for validation."""
+        plan = TransformPlan().col_expr("age_doubled", "age * 2", dtype="float")
+        # Validation should pass with dtype hint
+        validation = plan.validate(basic_df)
+        assert validation.is_valid
+        result, _ = plan.process(basic_df)
+        assert "age_doubled" in result.columns
+
+    def test_col_expr_validation_column_exists(self, basic_df: pl.DataFrame) -> None:
+        """Test validation catches existing column name."""
+        plan = TransformPlan().col_expr("age", "salary * 2")
+        validation = plan.validate(basic_df)
+        assert not validation.is_valid
+        assert "already exists" in str(validation.errors[0])
+
+    def test_col_expr_serialization_roundtrip(self, basic_df: pl.DataFrame) -> None:
+        """Test JSON serialization round-trip."""
+        plan = TransformPlan().col_expr(
+            "category",
+            "CASE WHEN age > 30 THEN 'senior' ELSE 'junior' END",
+        )
+        json_str = plan.to_json()
+        plan2 = TransformPlan.from_json(json_str)
+        result1, _ = plan.process(basic_df)
+        result2, _ = plan2.process(basic_df)
+        assert result1["category"].to_list() == result2["category"].to_list()
+
+
 class TestMethodChaining:
     """Tests for method chaining of column operations."""
 

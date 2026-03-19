@@ -74,6 +74,7 @@ OPERATION_CHUNK_REGISTRY: dict[str, OperationMeta] = {
     "col_add_uuid": OperationMeta(ChunkMode.CHUNKABLE),
     "col_hash": OperationMeta(ChunkMode.CHUNKABLE),
     "col_coalesce": OperationMeta(ChunkMode.CHUNKABLE),
+    "col_expr": OperationMeta(ChunkMode.CHUNKABLE),
     # Math scalar operations - all chunkable
     "math_add": OperationMeta(ChunkMode.CHUNKABLE),
     "math_subtract": OperationMeta(ChunkMode.CHUNKABLE),

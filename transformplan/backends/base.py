@@ -1,11 +1,11 @@
 """Abstract base class for TransformPlan backends.
 
-This module defines the Backend ABC with all 87 operation methods that each
+This module defines the Backend ABC with all 88 operation methods that each
 backend must implement. Using ABC (not typing.Protocol) gives runtime enforcement
 that all methods are implemented, catching mistakes at instantiation.
 
 Classes:
-    Backend: Abstract base class with 87 abstract methods.
+    Backend: Abstract base class with 88 abstract methods.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ AggFunction = Literal["first", "sum", "mean", "median", "min", "max", "count"]
 class Backend(ABC):
     """Abstract base class defining the operation interface for backends.
 
-    Each backend must implement all 87 operations. Methods receive data
+    Each backend must implement all 88 operations. Methods receive data
     and operation-specific parameters, and return transformed data.
 
     Subclasses must set the ``name`` class variable to a unique identifier
@@ -127,7 +127,7 @@ class Backend(ABC):
         ...
 
     # =========================================================================
-    # Column operations (13)
+    # Column operations (14)
     # =========================================================================
 
     @abstractmethod
@@ -186,6 +186,15 @@ class Backend(ABC):
 
     @abstractmethod
     def col_coalesce(self, data: Any, columns: list[str], new_column: str) -> Any: ...
+
+    @abstractmethod
+    def col_expr(
+        self,
+        data: Any,
+        new_column: str,
+        expr: str,
+        dtype: str | None,
+    ) -> Any: ...
 
     # =========================================================================
     # Math operations (27)

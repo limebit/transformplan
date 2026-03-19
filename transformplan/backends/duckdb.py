@@ -1,6 +1,6 @@
 """DuckDB backend for TransformPlan.
 
-This module implements all 87 operations using DuckDB's ``DuckDBPyRelation``
+This module implements all 88 operations using DuckDB's ``DuckDBPyRelation``
 as the data type.  Every operation takes a relation, generates SQL using the
 relation's ``sql_query()`` as a subquery, and returns a new relation — keeping
 the pipeline composable and lazy.
@@ -367,6 +367,17 @@ class DuckDBBackend(Backend):
             f"SELECT *, COALESCE({coalesce_expr}) AS {_q(new_column)} FROM {_sub(data)}"
         )
 
+    def col_expr(
+        self,
+        data: duckdb.DuckDBPyRelation,
+        new_column: str,
+        expr: str,
+        dtype: str | None,
+    ) -> duckdb.DuckDBPyRelation:
+        return self._con.sql(
+            f"SELECT *, ({expr}) AS {_q(new_column)} FROM {_sub(data)}"
+        )
+
     # =========================================================================
     # Math operations (27)
     # =========================================================================
@@ -587,6 +598,7 @@ class DuckDBBackend(Backend):
             stats = self._con.sql(
                 f"SELECT AVG({qc}) AS m, STDDEV_SAMP({qc}) AS s FROM {_sub(data)}"
             ).fetchone()
+            assert stats is not None
             computed_mean = float(mean if mean is not None else (stats[0] or 0.0))
             computed_std = float(std if std is not None else (stats[1] or 0.0))
 
@@ -612,6 +624,7 @@ class DuckDBBackend(Backend):
             stats = self._con.sql(
                 f"SELECT MIN({qc}), MAX({qc}) FROM {_sub(data)}"
             ).fetchone()
+            assert stats is not None
             cmin = float(min_val if min_val is not None else (stats[0] or 0.0))
             cmax = float(max_val if max_val is not None else (stats[1] or 0.0))
 
@@ -645,6 +658,7 @@ class DuckDBBackend(Backend):
                 f"QUANTILE_CONT({qc}, 0.75) - QUANTILE_CONT({qc}, 0.25) "
                 f"FROM {_sub(data)}"
             ).fetchone()
+            assert stats is not None
             cmed = float(median if median is not None else (stats[0] or 0.0))
             ciqr = float(iqr if iqr is not None else (stats[1] or 0.0))
 
