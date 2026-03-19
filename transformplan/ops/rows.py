@@ -36,15 +36,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Sequence
 
-import polars as pl
-
-from transformplan.filters import Filter
-
 if TYPE_CHECKING:
-    from typing import Any, Callable
+    from typing import Any
 
     from polars._typing import PivotAgg
     from typing_extensions import Self
+
+    from transformplan.filters import Filter
 
 
 class RowOps:
@@ -54,7 +52,7 @@ class RowOps:
 
         def _register(
             self,
-            method: Callable[..., pl.DataFrame],
+            op_name: str,
             params: dict[str, Any],
         ) -> Self: ...
 
@@ -66,12 +64,7 @@ class RowOps:
         """
         if isinstance(columns, str):
             columns = [columns]
-        return self._register(self._rows_drop_nulls, {"columns": columns})
-
-    def _rows_drop_nulls(
-        self, data: pl.DataFrame, columns: list[str] | None
-    ) -> pl.DataFrame:
-        return data.drop_nulls(subset=columns)
+        return self._register("rows_drop_nulls", {"columns": columns})
 
     def rows_unique(
         self,
@@ -85,15 +78,7 @@ class RowOps:
         """
         if isinstance(columns, str):
             columns = [columns]
-        return self._register(self._rows_unique, {"columns": columns, "keep": keep})
-
-    def _rows_unique(
-        self,
-        data: pl.DataFrame,
-        columns: list[str] | None,
-        keep: Literal["first", "last", "any", "none"],
-    ) -> pl.DataFrame:
-        return data.unique(subset=columns, keep=keep)
+        return self._register("rows_unique", {"columns": columns, "keep": keep})
 
     def rows_filter(self, filter: Filter | dict[str, Any]) -> Self:
         """Filter rows using a serializable Filter expression.
@@ -108,11 +93,7 @@ class RowOps:
             .rows_filter((Col("status") == "active") & (Col("score") >= 50))
         """
         filter_dict = filter if isinstance(filter, dict) else filter.to_dict()
-        return self._register(self._rows_filter, {"filter": filter_dict})
-
-    def _rows_filter(self, data: pl.DataFrame, filter: dict[str, Any]) -> pl.DataFrame:
-        expr = Filter.from_dict(filter).to_expr()
-        return data.filter(expr)
+        return self._register("rows_filter", {"filter": filter_dict})
 
     def rows_drop(self, filter: Filter | dict[str, Any]) -> Self:
         """Drop rows matching a filter (inverse of rows_filter).
@@ -124,11 +105,7 @@ class RowOps:
             .rows_drop(Col("status") == "deleted")
         """
         filter_dict = filter if isinstance(filter, dict) else filter.to_dict()
-        return self._register(self._rows_drop, {"filter": filter_dict})
-
-    def _rows_drop(self, data: pl.DataFrame, filter: dict[str, Any]) -> pl.DataFrame:
-        expr = Filter.from_dict(filter).to_expr()
-        return data.filter(~expr)
+        return self._register("rows_drop", {"filter": filter_dict})
 
     def rows_deduplicate(
         self,
@@ -152,7 +129,7 @@ class RowOps:
         if isinstance(columns, str):
             columns = [columns]
         return self._register(
-            self._rows_deduplicate,
+            "rows_deduplicate",
             {
                 "columns": list(columns),
                 "sort_by": sort_by,
@@ -161,27 +138,13 @@ class RowOps:
             },
         )
 
-    def _rows_deduplicate(
-        self,
-        data: pl.DataFrame,
-        columns: list[str],
-        sort_by: str,
-        keep: Literal["first", "last"],
-        descending: bool,  # noqa: FBT001
-    ) -> pl.DataFrame:
-        sorted_data = data.sort(sort_by, descending=descending)
-        return sorted_data.unique(subset=columns, keep=keep, maintain_order=True)
-
     def rows_explode(self, column: str) -> Self:
         """Explode a list column into multiple rows.
 
         Returns:
             Self for method chaining.
         """
-        return self._register(self._rows_explode, {"column": column})
-
-    def _rows_explode(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
-        return data.explode(column)
+        return self._register("rows_explode", {"column": column})
 
     def rows_melt(
         self,
@@ -202,28 +165,13 @@ class RowOps:
             Self for method chaining.
         """
         return self._register(
-            self._rows_melt,
+            "rows_melt",
             {
                 "id_columns": list(id_columns),
                 "value_columns": list(value_columns),
                 "variable_name": variable_name,
                 "value_name": value_name,
             },
-        )
-
-    def _rows_melt(
-        self,
-        data: pl.DataFrame,
-        id_columns: list[str],
-        value_columns: list[str],
-        variable_name: str,
-        value_name: str,
-    ) -> pl.DataFrame:
-        return data.unpivot(
-            index=id_columns,
-            on=value_columns,
-            variable_name=variable_name,
-            value_name=value_name,
         )
 
     def rows_sample(
@@ -243,17 +191,8 @@ class RowOps:
             Self for method chaining.
         """
         return self._register(
-            self._rows_sample, {"n": n, "fraction": fraction, "seed": seed}
+            "rows_sample", {"n": n, "fraction": fraction, "seed": seed}
         )
-
-    def _rows_sample(
-        self,
-        data: pl.DataFrame,
-        n: int | None,
-        fraction: float | None,
-        seed: int | None,
-    ) -> pl.DataFrame:
-        return data.sample(n=n, fraction=fraction, seed=seed)
 
     def rows_head(self, n: int = 5) -> Self:
         """Keep only the first n rows.
@@ -261,10 +200,7 @@ class RowOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._rows_head, {"n": n})
-
-    def _rows_head(self, data: pl.DataFrame, n: int) -> pl.DataFrame:
-        return data.head(n)
+        return self._register("rows_head", {"n": n})
 
     def rows_tail(self, n: int = 5) -> Self:
         """Keep only the last n rows.
@@ -272,10 +208,7 @@ class RowOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._rows_tail, {"n": n})
-
-    def _rows_tail(self, data: pl.DataFrame, n: int) -> pl.DataFrame:
-        return data.tail(n)
+        return self._register("rows_tail", {"n": n})
 
     def rows_sort(
         self,
@@ -294,17 +227,7 @@ class RowOps:
         """
         if isinstance(by, str):
             by = [by]
-        return self._register(
-            self._rows_sort, {"by": list(by), "descending": descending}
-        )
-
-    def _rows_sort(
-        self,
-        data: pl.DataFrame,
-        by: list[str],
-        descending: bool | Sequence[bool],  # noqa: FBT001
-    ) -> pl.DataFrame:
-        return data.sort(by, descending=descending)
+        return self._register("rows_sort", {"by": list(by), "descending": descending})
 
     def rows_flag(
         self,
@@ -327,29 +250,13 @@ class RowOps:
         """
         filter_dict = filter if isinstance(filter, dict) else filter.to_dict()
         return self._register(
-            self._rows_flag,
+            "rows_flag",
             {
                 "filter": filter_dict,
                 "new_column": new_column,
                 "true_value": true_value,
                 "false_value": false_value,
             },
-        )
-
-    def _rows_flag(
-        self,
-        data: pl.DataFrame,
-        filter: dict[str, Any],
-        new_column: str,
-        true_value: Any,  # noqa: ANN401
-        false_value: Any,  # noqa: ANN401
-    ) -> pl.DataFrame:
-        expr = Filter.from_dict(filter).to_expr()
-        return data.with_columns(
-            pl.when(expr)
-            .then(pl.lit(true_value))
-            .otherwise(pl.lit(false_value))
-            .alias(new_column)
         )
 
     def rows_pivot(
@@ -374,26 +281,11 @@ class RowOps:
         if isinstance(index, str):
             index = [index]
         return self._register(
-            self._rows_pivot,
+            "rows_pivot",
             {
                 "index": list(index),
                 "columns": columns,
                 "values": values,
                 "aggregate_function": aggregate_function,
             },
-        )
-
-    def _rows_pivot(
-        self,
-        data: pl.DataFrame,
-        index: list[str],
-        columns: str,
-        values: str,
-        aggregate_function: PivotAgg,
-    ) -> pl.DataFrame:
-        return data.pivot(
-            index=index,
-            on=columns,
-            values=values,
-            aggregate_function=aggregate_function,
         )

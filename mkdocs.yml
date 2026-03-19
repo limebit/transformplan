@@ -80,6 +80,7 @@ nav:
   - API Reference:
       - Overview: api/index.md
       - TransformPlan: api/plan.md
+      - Backends: api/backends.md
       - Filters: api/filters.md
       - Protocol: api/protocol.md
       - Chunked Processing: api/chunking.md

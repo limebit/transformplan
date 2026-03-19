@@ -22,6 +22,11 @@ classifiers = [
 ]
 dependencies = ["polars", "pandas", "pyarrow"]
 
+[project.optional-dependencies]
+duckdb = [
+    "duckdb>=1.0.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/limebit/transformplan"
 Repository = "https://github.com/limebit/transformplan"
@@ -38,6 +43,7 @@ dev = [
     { include-group = "tests" },
     "ruff>=0.4.9",
     "pyright==1.1.408",
+    "duckdb>=1.5.0",
 ]
 
 [build-system]
@@ -108,6 +114,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "*/__init__.py" = ["D", "DOC"]
 "tests/**" = ["D", "DOC", "ANN", "PT009", "FBT", "B905", "W505", "PT017"]
+"transformplan/backends/base.py" = ["D102", "ANN401"]  # ABC stubs don't need docstrings, use Any for backend-agnostic types
+"transformplan/backends/polars.py" = ["D102", "ANN401"]  # Backend impls inherit docstrings from ABC, use Any for backend-agnostic types
+"transformplan/backends/duckdb.py" = ["D102", "ANN401"]  # Backend impls inherit docstrings from ABC, use Any for backend-agnostic types
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

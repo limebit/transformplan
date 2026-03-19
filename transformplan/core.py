@@ -17,11 +17,12 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 from typing import Protocol as TypingProtocol
 
 import polars as pl
 
+from transformplan.backends.polars import PolarsBackend
 from transformplan.chunking import (
     ChunkedProtocol,
     ChunkInfo,
@@ -29,7 +30,7 @@ from transformplan.chunking import (
     ChunkValidationResult,
     validate_chunked_pipeline,
 )
-from transformplan.protocol import Protocol, frame_hash
+from transformplan.protocol import Protocol
 from transformplan.validation import (
     DryRunResult,
     ValidationResult,
@@ -42,13 +43,15 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
+    from transformplan.backends.base import Backend
+
 
 class HasRegister(TypingProtocol):
     """Protocol for mixins that need access to _register."""
 
     def _register(
         self,
-        method: Callable[..., pl.DataFrame],
+        op_name: str,
         params: dict[str, Any],
     ) -> Self: ...
 
@@ -58,13 +61,18 @@ class TransformPlanBase:
 
     VERSION = "1.0"
 
-    def __init__(self) -> None:
-        """Initialize an empty TransformPlanBase."""
-        self._operations: list[tuple[Callable[..., pl.DataFrame], dict[str, Any]]] = []
+    def __init__(self, backend: Backend | None = None) -> None:
+        """Initialize an empty TransformPlanBase.
+
+        Args:
+            backend: Backend to use for execution. Defaults to PolarsBackend.
+        """
+        self._operations: list[tuple[str, dict[str, Any]]] = []
+        self._backend: Backend = backend or PolarsBackend()
 
     def _register(
         self,
-        method: Callable[..., pl.DataFrame],
+        op_name: str,
         params: dict[str, Any],
     ) -> Self:
         """Register an operation for deferred execution.
@@ -72,52 +80,59 @@ class TransformPlanBase:
         Returns:
             Self for method chaining.
         """
-        self._operations.append((method, params))
+        self._operations.append((op_name, params))
         return self
 
     def process(
-        self, data: pl.DataFrame, *, validate: bool = True
-    ) -> tuple[pl.DataFrame, Protocol]:
+        self,
+        data: Any,  # noqa: ANN401
+        *,
+        validate: bool = True,
+    ) -> tuple[Any, Protocol]:
         """Execute all registered operations and return transformed data with protocol.
 
         Args:
-            data: DataFrame to process.
+            data: Input data (Polars DataFrame, DuckDB relation, etc.).
             validate: If True, validate schema before execution (default).
                 Set to False for performance in hot loops with pre-validated
                 pipelines.
 
         Returns:
-            Tuple of (processed DataFrame, Protocol).
+            Tuple of (processed data, Protocol).
         """
         if validate:
-            validate_schema(self._operations, dict(data.schema)).raise_if_invalid()
+            validate_schema(
+                self._operations, self._backend.get_schema(data), self._backend
+            ).raise_if_invalid()
 
         protocol = Protocol()
-        protocol.set_input(frame_hash(data), data.shape)
+        protocol.set_input(
+            self._backend.compute_hash(data), self._backend.get_shape(data)
+        )
 
-        for method, params in self._operations:
-            old_shape = data.shape
+        for op_name, params in self._operations:
+            old_shape = self._backend.get_shape(data)
             start = time.perf_counter()
 
-            data = method(data, **params)
+            data = getattr(self._backend, op_name)(data, **params)
 
             elapsed = time.perf_counter() - start
             protocol.add_step(
-                operation=method.__name__.lstrip("_"),
+                operation=op_name,
                 params=params,
                 old_shape=old_shape,
-                new_shape=data.shape,
+                new_shape=self._backend.get_shape(data),
                 elapsed=elapsed,
-                output_hash=frame_hash(data),
+                output_hash=self._backend.compute_hash(data),
             )
 
         return data, protocol
 
-    def validate(self, data: pl.DataFrame) -> ValidationResult:
-        """Validate all operations against the DataFrame schema without executing.
+    def validate(self, data: Any) -> ValidationResult:  # noqa: ANN401
+        """Validate all operations against the data schema without executing.
 
         Args:
-            data: DataFrame to validate against.
+            data: Input data (Polars DataFrame, DuckDB relation, etc.).
 
         Returns:
             ValidationResult with any errors found.
@@ -131,9 +146,11 @@ class TransformPlanBase:
             else:
                 df, protocol = plan.process(df)
         """
-        return validate_schema(self._operations, dict(data.schema))
+        return validate_schema(
+            self._operations, self._backend.get_schema(data), self._backend
+        )
 
-    def dry_run(self, data: pl.DataFrame) -> DryRunResult:
+    def dry_run(self, data: Any) -> DryRunResult:  # noqa: ANN401
         """Preview what the pipeline will do without executing it.
 
         Performs validation and shows step-by-step schema changes,
@@ -157,7 +174,9 @@ class TransformPlanBase:
             if preview.is_valid:
                 df, protocol = plan.process(df)
         """
-        return dry_run_schema(self._operations, dict(data.schema))
+        return dry_run_schema(
+            self._operations, self._backend.get_schema(data), self._backend
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the pipeline to a dictionary.
@@ -166,8 +185,7 @@ class TransformPlanBase:
             Dictionary representation of the pipeline.
         """
         steps = []
-        for method, params in self._operations:
-            op_name = method.__name__.lstrip("_")
+        for op_name, params in self._operations:
             steps.append(
                 {
                     "operation": op_name,
@@ -175,25 +193,47 @@ class TransformPlanBase:
                 }
             )
 
-        return {
+        result: dict[str, Any] = {
             "version": self.VERSION,
             "steps": steps,
         }
 
+        # Include backend identifier for forward compatibility
+        if not isinstance(self._backend, PolarsBackend):
+            result["backend"] = self._backend.name
+
+        return result
+
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
+    def from_dict(cls, data: dict[str, Any], backend: Backend | None = None) -> Self:
         """Deserialize a pipeline from a dictionary.
 
         Args:
             data: Dictionary with 'steps' list.
+            backend: Optional backend override. If provided, uses this backend
+                instead of the one stored in the serialized data. This is
+                required for DuckDB when you need a specific connection.
 
         Returns:
             New TransformPlan instance with operations loaded.
 
         Raises:
-            ValueError: If an unknown operation is encountered.
+            ValueError: If an unknown operation or invalid parameters are encountered.
         """
-        plan = cls()
+        if backend is None:
+            # Read backend from serialized data (default: polars)
+            backend_name = data.get("backend", "polars")
+            if backend_name == "polars":
+                backend = None  # default
+            elif backend_name == "duckdb":
+                from transformplan.backends.duckdb import DuckDBBackend
+
+                backend = DuckDBBackend()
+            else:
+                msg = f"Unsupported backend: {backend_name}"
+                raise ValueError(msg)
+
+        plan = cls(backend=backend)
 
         for step in data.get("steps", []):
             op_name = step["operation"]
@@ -206,7 +246,11 @@ class TransformPlanBase:
                 raise ValueError(msg)
 
             # Call the method with params to register the operation
-            method(**params)
+            try:
+                method(**params)
+            except TypeError as e:
+                msg = f"Invalid parameters for operation '{op_name}': {e}"
+                raise ValueError(msg) from e
 
         return plan
 
@@ -228,11 +272,13 @@ class TransformPlanBase:
         return json_str
 
     @classmethod
-    def from_json(cls, source: str | Path) -> Self:
+    def from_json(cls, source: str | Path, backend: Backend | None = None) -> Self:
         """Deserialize a pipeline from JSON.
 
         Args:
             source: Either a JSON string or a path to a JSON file.
+            backend: Optional backend override. If provided, uses this backend
+                instead of the one stored in the serialized data.
 
         Returns:
             New TransformPlan instance.
@@ -242,7 +288,7 @@ class TransformPlanBase:
         else:
             content = source
 
-        return cls.from_dict(json.loads(content))
+        return cls.from_dict(json.loads(content), backend=backend)
 
     def __len__(self) -> int:
         """Return number of registered operations.
@@ -272,8 +318,7 @@ class TransformPlanBase:
         lines = ["from transformplan import TransformPlan, Col", ""]
         lines.extend((f"{variable_name} = (", "    TransformPlan()"))
 
-        for method, params in self._operations:
-            op_name = method.__name__.lstrip("_")
+        for op_name, params in self._operations:
             param_str = self._format_params_as_python(params)
             lines.append(f"    .{op_name}({param_str})")
 
@@ -482,7 +527,7 @@ class TransformPlanBase:
         if validate:
             from transformplan.validation import validate_schema
 
-            schema_validation = validate_schema(self._operations, schema)
+            schema_validation = validate_schema(self._operations, schema, self._backend)
             schema_validation.raise_if_invalid()
 
         # Initialize protocol
@@ -495,8 +540,8 @@ class TransformPlanBase:
 
         # Record operations
         operations_list = [
-            {"operation": method.__name__.lstrip("_"), "params": params}
-            for method, params in self._operations
+            {"operation": op_name, "params": params}
+            for op_name, params in self._operations
         ]
         protocol.set_operations(operations_list)
 
@@ -508,14 +553,14 @@ class TransformPlanBase:
 
         for chunk_index, chunk_df in enumerate(chunk_iter):
             start = time.perf_counter()
-            input_hash = frame_hash(chunk_df)
+            input_hash = self._backend.compute_hash(chunk_df)
             input_rows = len(chunk_df)
 
             # Apply all operations to this chunk
-            for method, params in self._operations:
-                chunk_df = method(chunk_df, **params)
+            for op_name, params in self._operations:
+                chunk_df = getattr(self._backend, op_name)(chunk_df, **params)
 
-            output_hash = frame_hash(chunk_df)
+            output_hash = self._backend.compute_hash(chunk_df)
             elapsed = time.perf_counter() - start
 
             protocol.add_chunk(

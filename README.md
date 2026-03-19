@@ -14,7 +14,7 @@
 - **Declarative transformations**: Build transformation pipelines using method chaining
 - **Schema validation**: Validate operations before execution with dry-run capability
 - **Audit trails**: Generate complete audit protocols with deterministic DataFrame hashing
-- **Multi-backend support**: Works with both Polars (primary) and Pandas DataFrames
+- **Multi-backend support**: Polars (default) and DuckDB backends with a pluggable Backend ABC
 - **Serializable pipelines**: Save and load transformation plans as JSON
 
 ## Quick Example
@@ -22,7 +22,7 @@
 ```python
 from transformplan import TransformPlan, Col
 
-# Build readable pipelines with 75+ chainable operations
+# Build readable pipelines with 88 chainable operations
 plan = (
     TransformPlan()
     # Standardize column names
@@ -83,6 +83,28 @@ Total time: 0.0247s
 9    col_drop             847          6 (-1)       0.0006s    e7d3f9a2
 ======================================================================
 ○ = no effect (steps 3 did not change data)
+```
+
+### DuckDB Backend
+
+Run the same pipelines on DuckDB for SQL-based execution and native large-file handling:
+
+```python
+import duckdb
+from transformplan import TransformPlan, Col
+from transformplan.backends.duckdb import DuckDBBackend
+
+con = duckdb.connect()
+rel = con.sql("SELECT * FROM 'patients.parquet'")
+
+plan = (
+    TransformPlan(backend=DuckDBBackend(con))
+    .col_rename(column="PatientID", new_name="patient_id")
+    .rows_filter(Col("age") >= 18)
+    .math_round(column="score", decimals=2)
+)
+
+result, protocol = plan.process(rel)
 ```
 
 ## Available Operations

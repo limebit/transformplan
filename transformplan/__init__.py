@@ -27,6 +27,7 @@ Example:
     >>> protocol.print()
 """
 
+from transformplan.backends import Backend, PolarsBackend
 from transformplan.chunking import ChunkedProtocol, ChunkingError, ChunkValidationResult
 from transformplan.filters import Col, Filter
 from transformplan.plan import TransformPlan
@@ -38,12 +39,14 @@ from transformplan.validation import (
 )
 
 __all__ = [
+    "Backend",
     "ChunkValidationResult",
     "ChunkedProtocol",
     "ChunkingError",
     "Col",
     "DryRunResult",
     "Filter",
+    "PolarsBackend",
     "Protocol",
     "SchemaValidationError",
     "TransformPlan",

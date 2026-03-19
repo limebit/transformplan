@@ -72,6 +72,37 @@ print(df_result)
 # +----------+-------------+--------+-------+
 ```
 
+## Using the DuckDB Backend
+
+TransformPlan supports DuckDB as an alternative backend. All 88 operations, validation, and dry-run work identically — only the data type changes from Polars DataFrames to DuckDB relations.
+
+```python
+import duckdb
+from transformplan import TransformPlan, Col
+from transformplan.backends.duckdb import DuckDBBackend
+
+con = duckdb.connect()
+rel = con.sql("""
+    SELECT 'Alice' AS name, 'Engineering' AS department, 75000 AS salary, 3 AS years
+    UNION ALL SELECT 'Bob', 'Sales', 65000, 5
+    UNION ALL SELECT 'Charlie', 'Engineering', 80000, 7
+    UNION ALL SELECT 'Diana', 'Sales', 70000, 2
+""")
+
+plan = (
+    TransformPlan(backend=DuckDBBackend(con))
+    .col_rename(column="name", new_name="employee")
+    .math_multiply(column="salary", value=1.05)
+    .math_round(column="salary", decimals=0)
+    .rows_filter(Col("years") >= 3)
+)
+
+# Validate and execute — same API as Polars
+result = plan.validate(rel)
+if result.is_valid:
+    df_result, protocol = plan.process(rel)
+```
+
 ## Viewing the Audit Protocol
 
 The protocol captures complete transformation history:
@@ -170,6 +201,10 @@ if not validation.is_valid:
     Some operations cannot be used with chunked processing:
     `rows_sort`, `rows_pivot`, `rows_sample`, `rows_head`, `rows_tail`.
     See [Chunked Processing](../api/chunking.md) for details.
+
+!!! note "Polars Only"
+    Chunked processing is designed for Polars DataFrames and Parquet files.
+    DuckDB handles large datasets natively through its out-of-core execution engine — no chunking needed.
 
 ## Next Steps
 

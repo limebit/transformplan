@@ -39,6 +39,7 @@ plan = (
         - math_percent_of
         - math_cumsum
         - math_rank
+        - math_diff_from_agg
         - math_standardize
         - math_minmax
         - math_robust_scale
@@ -133,6 +134,33 @@ plan = TransformPlan().math_rank(
     method="dense",
     descending=True,
     group_by="category"
+)
+```
+
+### Window Difference
+
+```python
+# Difference from group minimum (e.g., time since first measurement)
+plan = TransformPlan().math_diff_from_agg(
+    column="timestamp",
+    agg="min",
+    new_column="time_since_first",
+    group_by="patient_id",
+)
+
+# Difference from group mean (deviation from average)
+plan = TransformPlan().math_diff_from_agg(
+    column="score",
+    agg="mean",
+    new_column="deviation",
+    group_by="category",
+)
+
+# Global aggregate (no group_by)
+plan = TransformPlan().math_diff_from_agg(
+    column="value",
+    agg="max",
+    new_column="diff_from_max",
 )
 ```
 

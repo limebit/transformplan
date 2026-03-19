@@ -37,6 +37,7 @@ plan = (
         - col_add_uuid
         - col_hash
         - col_coalesce
+        - col_expr
 
 ## Examples
 
@@ -107,4 +108,10 @@ plan = TransformPlan().col_coalesce(
 
 # Duplicate a column
 plan = TransformPlan().col_duplicate("original", "copy")
+
+# Add column from SQL expression (works on both backends)
+plan = TransformPlan().col_expr(
+    new_column="category",
+    expr="CASE WHEN age > 30 THEN 'senior' ELSE 'junior' END",
+)
 ```

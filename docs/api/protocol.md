@@ -85,3 +85,6 @@ The frame_hash function computes a deterministic hash that is:
 - **Content-sensitive**: Any value change produces a different hash
 
 This enables verification that the same pipeline on the same input produces identical results.
+
+!!! note "Backend-Specific Hashing"
+    `frame_hash()` is used by `PolarsBackend` (SHA256-based). `DuckDBBackend` uses its own `compute_hash()` method (MD5-based via DuckDB's built-in `md5()` function). Both approaches are deterministic and order-invariant, but produce different hash values for the same data. Hashes are comparable only within the same backend.

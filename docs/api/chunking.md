@@ -2,6 +2,10 @@
 
 Process large Parquet files that exceed available RAM by reading and transforming data in chunks.
 
+!!! note "Polars Only"
+    Chunked processing is designed for Polars DataFrames and Parquet files.
+    DuckDB handles large datasets natively through its out-of-core execution engine — no chunking needed.
+
 ## Overview
 
 When working with files larger than available memory, use `process_chunked()` instead of `process()`. This method:
@@ -58,6 +62,7 @@ These operations need all rows for a group together. They work with chunked proc
 | `rows_deduplicate` | `columns` | `partition_key` must contain `columns` |
 | `math_cumsum` | `group_by` | `partition_key` must contain `group_by` |
 | `math_rank` | `group_by` | `partition_key` must contain `group_by` |
+| `math_diff_from_agg` | `group_by` | `partition_key` must contain `group_by` |
 
 **Example**: To use `rows_unique(columns=["patient_id"])`, you must set `partition_key="patient_id"` (or a list containing it).
 

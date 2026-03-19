@@ -35,6 +35,10 @@ from typing import Any, Sequence
 
 import polars as pl
 
+from transformplan.sql_utils import sql_escape_like as _sql_escape_like
+from transformplan.sql_utils import sql_format_value as _sql_format_value
+from transformplan.sql_utils import sql_quote_identifier as _sql_quote_identifier
+
 
 class Filter(ABC):
     """Abstract base class for all filter expressions.
@@ -62,6 +66,11 @@ class Filter(ABC):
         Returns:
             A Polars expression that can be used with DataFrame.filter().
         """
+        ...
+
+    @abstractmethod
+    def to_sql(self) -> str:
+        """Convert to a DuckDB-compatible SQL WHERE clause fragment."""
         ...
 
     @abstractmethod
@@ -385,6 +394,17 @@ class Eq(Filter):
         """
         return pl.col(self.column) == self.value
 
+    def to_sql(self) -> str:
+        """Convert to SQL equality expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        col = _sql_quote_identifier(self.column)
+        if self.value is None:
+            return f"{col} IS NULL"
+        return f"{col} = {_sql_format_value(self.value)}"
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
 
@@ -422,6 +442,17 @@ class Ne(Filter):
             Polars expression for inequality comparison.
         """
         return pl.col(self.column) != self.value
+
+    def to_sql(self) -> str:
+        """Convert to SQL inequality expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        col = _sql_quote_identifier(self.column)
+        if self.value is None:
+            return f"{col} IS NOT NULL"
+        return f"{col} != {_sql_format_value(self.value)}"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
@@ -461,6 +492,14 @@ class Gt(Filter):
         """
         return pl.col(self.column) > self.value
 
+    def to_sql(self) -> str:
+        """Convert to SQL greater-than expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return f"{_sql_quote_identifier(self.column)} > {_sql_format_value(self.value)}"
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
 
@@ -498,6 +537,16 @@ class Ge(Filter):
             Polars expression for greater-or-equal comparison.
         """
         return pl.col(self.column) >= self.value
+
+    def to_sql(self) -> str:
+        """Convert to SQL greater-or-equal expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return (
+            f"{_sql_quote_identifier(self.column)} >= {_sql_format_value(self.value)}"
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
@@ -537,6 +586,14 @@ class Lt(Filter):
         """
         return pl.col(self.column) < self.value
 
+    def to_sql(self) -> str:
+        """Convert to SQL less-than expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return f"{_sql_quote_identifier(self.column)} < {_sql_format_value(self.value)}"
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
 
@@ -575,6 +632,16 @@ class Le(Filter):
         """
         return pl.col(self.column) <= self.value
 
+    def to_sql(self) -> str:
+        """Convert to SQL less-or-equal expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return (
+            f"{_sql_quote_identifier(self.column)} <= {_sql_format_value(self.value)}"
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
 
@@ -612,6 +679,17 @@ class IsIn(Filter):
             Polars expression for membership check.
         """
         return pl.col(self.column).is_in(self.values)
+
+    def to_sql(self) -> str:
+        """Convert to SQL IN expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        if not self.values:
+            return "FALSE"
+        vals = ", ".join(_sql_format_value(v) for v in self.values)
+        return f"{_sql_quote_identifier(self.column)} IN ({vals})"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
@@ -652,6 +730,15 @@ class Between(Filter):
             Polars expression for range check.
         """
         return pl.col(self.column).is_between(self.lower, self.upper)
+
+    def to_sql(self) -> str:
+        """Convert to SQL BETWEEN expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        col = _sql_quote_identifier(self.column)
+        return f"{col} BETWEEN {_sql_format_value(self.lower)} AND {_sql_format_value(self.upper)}"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
@@ -699,6 +786,14 @@ class IsNull(Filter):
         """
         return pl.col(self.column).is_null()
 
+    def to_sql(self) -> str:
+        """Convert to SQL IS NULL expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return f"{_sql_quote_identifier(self.column)} IS NULL"
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
 
@@ -734,6 +829,14 @@ class IsNotNull(Filter):
             Polars expression for not-null check.
         """
         return pl.col(self.column).is_not_null()
+
+    def to_sql(self) -> str:
+        """Convert to SQL IS NOT NULL expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return f"{_sql_quote_identifier(self.column)} IS NOT NULL"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
@@ -780,6 +883,19 @@ class StrContains(Filter):
         """
         return pl.col(self.column).str.contains(self.pattern, literal=self.literal)
 
+    def to_sql(self) -> str:
+        """Convert to SQL string contains expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        col = _sql_quote_identifier(self.column)
+        if self.literal:
+            escaped = _sql_escape_like(self.pattern)
+            return f"{col} LIKE '%{escaped}%' ESCAPE '\\'"
+        pat = self.pattern.replace("'", "''")
+        return f"regexp_matches({col}, '{pat}')"
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
 
@@ -823,6 +939,16 @@ class StrStartsWith(Filter):
         """
         return pl.col(self.column).str.starts_with(self.prefix)
 
+    def to_sql(self) -> str:
+        """Convert to SQL LIKE prefix expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        col = _sql_quote_identifier(self.column)
+        escaped = _sql_escape_like(self.prefix)
+        return f"{col} LIKE '{escaped}%' ESCAPE '\\'"
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
 
@@ -860,6 +986,16 @@ class StrEndsWith(Filter):
             Polars expression for suffix check.
         """
         return pl.col(self.column).str.ends_with(self.suffix)
+
+    def to_sql(self) -> str:
+        """Convert to SQL LIKE suffix expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        col = _sql_quote_identifier(self.column)
+        escaped = _sql_escape_like(self.suffix)
+        return f"{col} LIKE '%{escaped}' ESCAPE '\\'"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary.
@@ -908,6 +1044,14 @@ class And(Filter):
             Polars expression combining both conditions with AND.
         """
         return self.left.to_expr() & self.right.to_expr()
+
+    def to_sql(self) -> str:
+        """Convert to SQL AND expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return f"({self.left.to_sql()}) AND ({self.right.to_sql()})"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary with nested filter dicts.
@@ -959,6 +1103,14 @@ class Or(Filter):
         """
         return self.left.to_expr() | self.right.to_expr()
 
+    def to_sql(self) -> str:
+        """Convert to SQL OR expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return f"({self.left.to_sql()}) OR ({self.right.to_sql()})"
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary with nested filter dicts.
 
@@ -1006,6 +1158,14 @@ class Not(Filter):
             Polars expression inverting the operand condition.
         """
         return ~self.operand.to_expr()
+
+    def to_sql(self) -> str:
+        """Convert to SQL NOT expression.
+
+        Returns:
+            SQL WHERE clause fragment.
+        """
+        return f"NOT ({self.operand.to_sql()})"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary with nested filter dict.

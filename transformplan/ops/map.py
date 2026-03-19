@@ -34,11 +34,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Sequence
 
-import polars as pl
-
 if TYPE_CHECKING:
-    from typing import Callable
-
     from typing_extensions import Self
 
 
@@ -49,7 +45,7 @@ class MapOps:
 
         def _register(
             self,
-            method: Callable[..., pl.DataFrame],
+            op_name: str,
             params: dict[str, Any],
         ) -> Self: ...
 
@@ -73,7 +69,7 @@ class MapOps:
             Self for method chaining.
         """
         return self._register(
-            self._map_values,
+            "map_values",
             {
                 "column": column,
                 "mapping": mapping,
@@ -81,35 +77,6 @@ class MapOps:
                 "keep_unmapped": keep_unmapped,
             },
         )
-
-    def _map_values(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        mapping: dict[Any, Any],
-        default: Any,  # noqa: ANN401
-        keep_unmapped: bool,  # noqa: FBT001
-    ) -> pl.DataFrame:
-        # Build a when/then chain for the mapping
-        expr = pl.col(column)
-
-        # Start with first mapping
-        items = list(mapping.items())
-        if not items:
-            return data
-
-        first_key, first_val = items[0]
-        chain = pl.when(expr == first_key).then(pl.lit(first_val))
-
-        for key, val in items[1:]:
-            chain = chain.when(expr == key).then(pl.lit(val))
-
-        if keep_unmapped:
-            chain = chain.otherwise(expr)
-        else:
-            chain = chain.otherwise(pl.lit(default))
-
-        return data.with_columns(chain.alias(column))
 
     def map_discretize(
         self,
@@ -133,7 +100,7 @@ class MapOps:
             Self for method chaining.
         """
         return self._register(
-            self._map_discretize,
+            "map_discretize",
             {
                 "column": column,
                 "bins": list(bins),
@@ -143,58 +110,13 @@ class MapOps:
             },
         )
 
-    def _map_discretize(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        bins: list[float],
-        labels: list[str] | None,
-        new_column: str,
-        right: bool,  # noqa: FBT001
-    ) -> pl.DataFrame:
-        # Create labels if not provided
-        if labels is None:
-            labels = []
-            edges = [-float("inf"), *bins, float("inf")]
-            for i in range(len(edges) - 1):
-                if right:
-                    labels.append(f"({edges[i]}, {edges[i + 1]}]")
-                else:
-                    labels.append(f"[{edges[i]}, {edges[i + 1]})")
-
-        # Build when/then chain
-        col = pl.col(column)
-        edges = [-float("inf"), *bins, float("inf")]
-
-        # First bin
-        if right:
-            cond = (col > edges[0]) & (col <= edges[1])
-        else:
-            cond = (col >= edges[0]) & (col < edges[1])
-        chain = pl.when(cond).then(pl.lit(labels[0]))
-
-        # Remaining bins
-        for i in range(1, len(edges) - 1):
-            if right:
-                cond = (col > edges[i]) & (col <= edges[i + 1])
-            else:
-                cond = (col >= edges[i]) & (col < edges[i + 1])
-            chain = chain.when(cond).then(pl.lit(labels[i]))
-
-        chain = chain.otherwise(pl.lit(None))
-
-        return data.with_columns(chain.alias(new_column))
-
     def map_bool_to_int(self, column: str) -> Self:
         """Convert a boolean column to integer (True=1, False=0).
 
         Returns:
             Self for method chaining.
         """
-        return self._register(self._map_bool_to_int, {"column": column})
-
-    def _map_bool_to_int(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).cast(pl.Int64))
+        return self._register("map_bool_to_int", {"column": column})
 
     def map_null_to_value(self, column: str, value: Any) -> Self:  # noqa: ANN401
         """Replace null values with a specific value.
@@ -202,17 +124,7 @@ class MapOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            self._map_null_to_value, {"column": column, "value": value}
-        )
-
-    def _map_null_to_value(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        value: Any,  # noqa: ANN401
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).fill_null(value))
+        return self._register("map_null_to_value", {"column": column, "value": value})
 
     def map_value_to_null(self, column: str, value: Any) -> Self:  # noqa: ANN401
         """Replace a specific value with null.
@@ -220,22 +132,7 @@ class MapOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            self._map_value_to_null, {"column": column, "value": value}
-        )
-
-    def _map_value_to_null(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        value: Any,  # noqa: ANN401
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            pl.when(pl.col(column) == value)
-            .then(pl.lit(None))
-            .otherwise(pl.col(column))
-            .alias(column)
-        )
+        return self._register("map_value_to_null", {"column": column, "value": value})
 
     def map_case(
         self,
@@ -260,7 +157,7 @@ class MapOps:
             Maps: >= 90 -> A, >= 80 -> B, >= 70 -> C, else F
         """
         return self._register(
-            self._map_case,
+            "map_case",
             {
                 "column": column,
                 "cases": cases,
@@ -268,27 +165,6 @@ class MapOps:
                 "new_column": new_column or column,
             },
         )
-
-    def _map_case(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        cases: list[tuple[Any, Any]],
-        default: Any,  # noqa: ANN401
-        new_column: str,
-    ) -> pl.DataFrame:
-        if not cases:
-            return data.with_columns(pl.lit(default).alias(new_column))
-
-        col = pl.col(column)
-        cond_val, result_val = cases[0]
-        chain = pl.when(col == cond_val).then(pl.lit(result_val))
-
-        for cond_val, result_val in cases[1:]:
-            chain = chain.when(col == cond_val).then(pl.lit(result_val))
-
-        chain = chain.otherwise(pl.lit(default))
-        return data.with_columns(chain.alias(new_column))
 
     def map_from_column(
         self,
@@ -314,7 +190,7 @@ class MapOps:
             Self for method chaining.
         """
         return self._register(
-            self._map_from_column,
+            "map_from_column",
             {
                 "column": column,
                 "lookup_column": lookup_column,
@@ -322,28 +198,6 @@ class MapOps:
                 "new_column": new_column or column,
                 "default": default,
             },
-        )
-
-    def _map_from_column(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        lookup_column: str,
-        value_column: str,
-        new_column: str,
-        default: Any,  # noqa: ANN401
-    ) -> pl.DataFrame:
-        # Build lookup dict from the data
-        lookup = dict(
-            zip(
-                data[lookup_column].to_list(),
-                data[value_column].to_list(),
-                strict=False,
-            )
-        )
-
-        return data.with_columns(
-            pl.col(column).replace(lookup, default=default).alias(new_column)
         )
 
     def map_onehot(
@@ -385,7 +239,7 @@ class MapOps:
             # Creates: color_green (drops color_red)
         """
         return self._register(
-            self._map_onehot,
+            "map_onehot",
             {
                 "column": column,
                 "categories": categories,
@@ -395,70 +249,6 @@ class MapOps:
                 "unknown_value": unknown_value,
             },
         )
-
-    def _map_onehot(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        categories: list[Any] | None,
-        prefix: str,
-        drop: Any | None,  # noqa: ANN401
-        drop_original: bool,  # noqa: FBT001
-        unknown_value: str,
-    ) -> pl.DataFrame:
-        # Derive categories from data if not provided
-        if categories is None:
-            categories = data[column].drop_nulls().unique().sort().to_list()
-
-        # Determine which category to drop (if any)
-        # Literal values take precedence over keywords "first"/"last"
-        drop_category: Any | None = None
-        if drop is not None and categories:
-            if drop in categories:
-                # Literal value - drop this specific category
-                drop_category = drop
-            elif drop == "first":
-                drop_category = categories[0]
-            elif drop == "last":
-                drop_category = categories[-1]
-            else:
-                # Value not in categories - will result in no column being dropped
-                drop_category = drop
-
-        # Build one-hot columns
-        new_columns = []
-        for cat in categories:
-            # Skip the dropped category
-            if drop_category is not None and cat == drop_category:
-                continue
-
-            col_name = f"{prefix}_{cat}"
-            if unknown_value == "all_zero":
-                # Unknown values get 0 for all categories
-                expr = (
-                    pl.when(pl.col(column) == cat)
-                    .then(pl.lit(1))
-                    .otherwise(pl.lit(0))
-                    .alias(col_name)
-                )
-            else:
-                # "ignore" - unknown values get null
-                expr = (
-                    pl.when(pl.col(column) == cat)
-                    .then(pl.lit(1))
-                    .when(pl.col(column).is_in(categories))
-                    .then(pl.lit(0))
-                    .otherwise(pl.lit(None))
-                    .alias(col_name)
-                )
-            new_columns.append(expr)
-
-        result = data.with_columns(new_columns)
-
-        if drop_original:
-            result = result.drop(column)
-
-        return result
 
     def map_ordinal(
         self,
@@ -489,7 +279,7 @@ class MapOps:
             # Maps: small->0, medium->1, large->2
         """
         return self._register(
-            self._map_ordinal,
+            "map_ordinal",
             {
                 "column": column,
                 "categories": categories,
@@ -498,37 +288,6 @@ class MapOps:
                 "unknown_value": unknown_value,
             },
         )
-
-    def _map_ordinal(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        categories: list[Any] | None,
-        new_column: str,
-        drop_original: bool,  # noqa: FBT001
-        unknown_value: int,
-    ) -> pl.DataFrame:
-        # Derive categories from data if not provided
-        if categories is None:
-            categories = data[column].drop_nulls().unique().sort().to_list()
-
-        # Build when/then chain
-        if not categories:
-            return data.with_columns(pl.lit(unknown_value).alias(new_column))
-
-        first_cat = categories[0]
-        chain = pl.when(pl.col(column) == first_cat).then(pl.lit(0))
-
-        for idx, cat in enumerate(categories[1:], start=1):
-            chain = chain.when(pl.col(column) == cat).then(pl.lit(idx))
-
-        chain = chain.otherwise(pl.lit(unknown_value))
-        result = data.with_columns(chain.alias(new_column))
-
-        if drop_original and new_column != column:
-            result = result.drop(column)
-
-        return result
 
     def map_label(
         self,
@@ -558,7 +317,7 @@ class MapOps:
             # Maps alphabetically: Engineering->0, HR->1, Sales->2
         """
         return self._register(
-            self._map_label,
+            "map_label",
             {
                 "column": column,
                 "categories": categories,
@@ -566,19 +325,4 @@ class MapOps:
                 "drop_original": drop_original,
                 "unknown_value": unknown_value,
             },
-        )
-
-    def _map_label(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        categories: list[Any] | None,
-        new_column: str,
-        drop_original: bool,  # noqa: FBT001
-        unknown_value: int,
-    ) -> pl.DataFrame:
-        # Label encoding is the same as ordinal encoding
-        # The semantic difference is that ordinal implies meaningful order
-        return self._map_ordinal(
-            data, column, categories, new_column, drop_original, unknown_value
         )

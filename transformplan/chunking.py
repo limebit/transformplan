@@ -74,6 +74,7 @@ OPERATION_CHUNK_REGISTRY: dict[str, OperationMeta] = {
     "col_add_uuid": OperationMeta(ChunkMode.CHUNKABLE),
     "col_hash": OperationMeta(ChunkMode.CHUNKABLE),
     "col_coalesce": OperationMeta(ChunkMode.CHUNKABLE),
+    "col_expr": OperationMeta(ChunkMode.CHUNKABLE),
     # Math scalar operations - all chunkable
     "math_add": OperationMeta(ChunkMode.CHUNKABLE),
     "math_subtract": OperationMeta(ChunkMode.CHUNKABLE),
@@ -93,6 +94,9 @@ OPERATION_CHUNK_REGISTRY: dict[str, OperationMeta] = {
     # Math aggregate operations - group-dependent
     "math_cumsum": OperationMeta(ChunkMode.GROUP_DEPENDENT, group_param="group_by"),
     "math_rank": OperationMeta(ChunkMode.GROUP_DEPENDENT, group_param="group_by"),
+    "math_diff_from_agg": OperationMeta(
+        ChunkMode.GROUP_DEPENDENT, group_param="group_by"
+    ),
     # String operations - all chunkable
     "str_replace": OperationMeta(ChunkMode.CHUNKABLE),
     "str_slice": OperationMeta(ChunkMode.CHUNKABLE),
@@ -531,13 +535,13 @@ class ChunkedProtocol:
 
 
 def validate_chunked_pipeline(  # noqa: C901
-    operations: list[tuple[Any, dict[str, Any]]],
+    operations: list[tuple[str, dict[str, Any]]],
     partition_key: str | list[str] | None = None,
 ) -> ChunkValidationResult:
     """Validate that a pipeline is compatible with chunked processing.
 
     Args:
-        operations: List of (method, params) tuples from the pipeline.
+        operations: List of (op_name, params) tuples from the pipeline.
         partition_key: Column(s) used for partitioning.
 
     Returns:
@@ -556,8 +560,7 @@ def validate_chunked_pipeline(  # noqa: C901
     else:
         partition_cols = set(partition_key)
 
-    for method, params in operations:
-        op_name = method.__name__.lstrip("_")
+    for op_name, params in operations:
         meta = OPERATION_CHUNK_REGISTRY.get(op_name)
 
         if meta is None:
