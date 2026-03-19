@@ -4,7 +4,7 @@ Schema validation and dry-run preview for TransformPlan pipelines.
 
 ## Overview
 
-TransformPlan validates operations against DataFrame schemas before execution. This catches errors like:
+TransformPlan validates operations against DataFrame schemas before execution. Validation is backend-agnostic — it works for both Polars DataFrames and DuckDB relations. This catches errors like:
 
 - Referencing non-existent columns
 - Applying string operations to numeric columns
@@ -66,6 +66,28 @@ if not result.is_valid:
 ::: transformplan.validation.DryRunStep
     options:
       show_root_heading: true
+
+## DuckDB Validation
+
+Validation works identically with DuckDB relations:
+
+```python
+import duckdb
+from transformplan import TransformPlan, Col
+from transformplan.backends.duckdb import DuckDBBackend
+
+con = duckdb.connect()
+rel = con.sql("SELECT 'Alice' AS name, 25 AS age, 50000 AS salary")
+
+plan = (
+    TransformPlan(backend=DuckDBBackend(con))
+    .col_drop("age")
+    .rows_filter(Col("age") > 18)  # Error: age was dropped!
+)
+
+result = plan.validate(rel)
+# ValidationResult(valid=False, errors=1)
+```
 
 ## Example: Validation
 
@@ -136,6 +158,6 @@ Validation includes type checking for operations that require specific types:
 
 | Operation Type | Required Column Type |
 |---------------|---------------------|
-| `math_*` | Numeric (Int, Float) |
-| `str_*` | String (Utf8) |
-| `dt_*` | Datetime (Date, Datetime, Time) |
+| `math_*` | Numeric (Polars: Int/Float dtypes; DuckDB: INTEGER, BIGINT, DOUBLE, etc.) |
+| `str_*` | String (Polars: Utf8/String; DuckDB: VARCHAR, TEXT, etc.) |
+| `dt_*` | Datetime (Polars: Date/Datetime/Time; DuckDB: DATE, TIMESTAMP, TIME, etc.) |

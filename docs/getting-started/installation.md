@@ -4,7 +4,7 @@
 
 - Python 3.10 or higher
 - Polars (primary DataFrame library)
-- Pandas and PyArrow (optional, for Pandas support)
+- DuckDB (optional, for DuckDB backend)
 
 ## Install with pip
 
@@ -16,6 +16,20 @@ pip install transformplan
 
 ```bash
 uv add transformplan
+```
+
+## Optional: DuckDB Backend
+
+To use the DuckDB backend, install DuckDB separately:
+
+```bash
+pip install duckdb
+```
+
+Or with uv:
+
+```bash
+uv add duckdb
 ```
 
 ## Development Installation
@@ -44,6 +58,7 @@ print(transformplan.__all__)
 You should see the list of exported classes and functions:
 
 ```python
-['TransformPlan', 'Protocol', 'frame_hash', 'Col', 'Filter',
- 'ValidationResult', 'SchemaValidationError', 'DryRunResult']
+['Backend', 'ChunkValidationResult', 'ChunkedProtocol', 'ChunkingError',
+ 'Col', 'DryRunResult', 'Filter', 'PolarsBackend', 'Protocol',
+ 'SchemaValidationError', 'TransformPlan', 'ValidationResult', 'frame_hash']
 ```

@@ -19,6 +19,14 @@ This section provides detailed API documentation for all TransformPlan classes a
 | [`DryRunResult`](validation.md#transformplan.validation.DryRunResult) | Preview of pipeline execution |
 | [`SchemaValidationError`](validation.md#transformplan.validation.SchemaValidationError) | Exception raised on validation failure |
 
+## Backend Classes
+
+| Class | Description |
+|-------|-------------|
+| [`Backend`](backends.md) | Abstract base class for backend implementations |
+| [`PolarsBackend`](backends.md#transformplan.backends.polars.PolarsBackend) | Default backend using Polars DataFrames |
+| [`DuckDBBackend`](backends.md#transformplan.backends.duckdb.DuckDBBackend) | Backend using DuckDB relations (optional dependency) |
+
 ## Chunked Processing Classes
 
 | Class | Description |

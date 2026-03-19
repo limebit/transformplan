@@ -2,6 +2,10 @@
 
 Process large Parquet files that exceed available RAM by reading and transforming data in chunks.
 
+!!! note "Polars Only"
+    Chunked processing is designed for Polars DataFrames and Parquet files.
+    DuckDB handles large datasets natively through its out-of-core execution engine — no chunking needed.
+
 ## Overview
 
 When working with files larger than available memory, use `process_chunked()` instead of `process()`. This method:
