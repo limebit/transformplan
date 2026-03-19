@@ -85,9 +85,9 @@ class TransformPlanBase:
 
     def process(
         self,
-        data: Any,
+        data: Any,  # noqa: ANN401
         *,
-        validate: bool = True,  # noqa: ANN401
+        validate: bool = True,
     ) -> tuple[Any, Protocol]:
         """Execute all registered operations and return transformed data with protocol.
 
