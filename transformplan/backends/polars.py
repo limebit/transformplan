@@ -30,6 +30,25 @@ from transformplan.backends.base import (
 from transformplan.filters import Filter
 from transformplan.protocol import frame_hash
 
+_NUMERIC_TYPES = {
+    pl.Int8(),
+    pl.Int16(),
+    pl.Int32(),
+    pl.Int64(),
+    pl.UInt8(),
+    pl.UInt16(),
+    pl.UInt32(),
+    pl.UInt64(),
+    pl.Float32(),
+    pl.Float64(),
+}
+
+_STRING_TYPES = {pl.Utf8(), pl.String()}
+
+_DATETIME_TYPES = {pl.Date(), pl.Datetime(), pl.Time(), pl.Duration()}
+
+_BOOLEAN_TYPES = {pl.Boolean()}
+
 
 class PolarsBackend(Backend):
     """Backend implementation using Polars for all operations."""
@@ -49,6 +68,46 @@ class PolarsBackend(Backend):
 
     def get_schema(self, data: pl.DataFrame) -> dict[str, Any]:
         return dict(data.schema)
+
+    # =========================================================================
+    # Type system methods (12)
+    # =========================================================================
+
+    def is_numeric_type(self, dtype: Any) -> bool:
+        return dtype in _NUMERIC_TYPES or dtype.base_type()() in _NUMERIC_TYPES
+
+    def is_string_type(self, dtype: Any) -> bool:
+        return dtype in _STRING_TYPES or dtype.base_type()() in _STRING_TYPES
+
+    def is_datetime_type(self, dtype: Any) -> bool:
+        return dtype in _DATETIME_TYPES or dtype.base_type()() in _DATETIME_TYPES
+
+    def is_boolean_type(self, dtype: Any) -> bool:
+        return dtype in _BOOLEAN_TYPES or dtype.base_type()() in _BOOLEAN_TYPES
+
+    def is_list_type(self, dtype: Any) -> bool:
+        return isinstance(dtype, pl.List)
+
+    def float_type(self) -> pl.DataType:
+        return pl.Float64()
+
+    def string_type(self) -> pl.DataType:
+        return pl.Utf8()
+
+    def integer_type(self) -> pl.DataType:
+        return pl.Int64()
+
+    def unsigned_int_type(self) -> pl.DataType:
+        return pl.UInt32()
+
+    def boolean_type(self) -> pl.DataType:
+        return pl.Boolean()
+
+    def date_type(self) -> pl.DataType:
+        return pl.Date()
+
+    def type_name(self, dtype: Any) -> str:
+        return str(dtype).split("(")[0]
 
     # =========================================================================
     # Column operations (13)
@@ -86,7 +145,7 @@ class PolarsBackend(Backend):
         self,
         data: pl.DataFrame,
         column: str,
-        value: Any,  # noqa: ANN401
+        value: Any,
         strategy: FillNullStrategy | None,
     ) -> pl.DataFrame:
         if strategy is not None:
@@ -106,7 +165,7 @@ class PolarsBackend(Backend):
         data: pl.DataFrame,
         new_column: str,
         expr: str | None,
-        value: Any,  # noqa: ANN401
+        value: Any,
     ) -> pl.DataFrame:
         if expr is not None:
             return data.with_columns(pl.col(expr).alias(new_column))
@@ -449,8 +508,8 @@ class PolarsBackend(Backend):
         data: pl.DataFrame,
         filter: dict[str, Any],
         new_column: str,
-        true_value: Any,  # noqa: ANN401
-        false_value: Any,  # noqa: ANN401
+        true_value: Any,
+        false_value: Any,
     ) -> pl.DataFrame:
         expr = Filter.from_dict(filter).to_expr()
         return data.with_columns(
@@ -776,7 +835,7 @@ class PolarsBackend(Backend):
         data: pl.DataFrame,
         column: str,
         mapping: dict[Any, Any],
-        default: Any,  # noqa: ANN401
+        default: Any,
         keep_unmapped: bool,  # noqa: FBT001
     ) -> pl.DataFrame:
         expr = pl.col(column)
@@ -802,7 +861,7 @@ class PolarsBackend(Backend):
         data: pl.DataFrame,
         column: str,
         cases: list[tuple[Any, Any]],
-        default: Any,  # noqa: ANN401
+        default: Any,
         new_column: str,
     ) -> pl.DataFrame:
         if not cases:
@@ -825,7 +884,7 @@ class PolarsBackend(Backend):
         lookup_column: str,
         value_column: str,
         new_column: str,
-        default: Any,  # noqa: ANN401
+        default: Any,
     ) -> pl.DataFrame:
         lookup = dict(
             zip(
@@ -881,7 +940,7 @@ class PolarsBackend(Backend):
         column: str,
         categories: list[Any] | None,
         prefix: str,
-        drop: Any | None,  # noqa: ANN401
+        drop: Any | None,
         drop_original: bool,  # noqa: FBT001
         unknown_value: str,
     ) -> pl.DataFrame:
@@ -978,12 +1037,12 @@ class PolarsBackend(Backend):
         return data.with_columns(pl.col(column).cast(pl.Int64))
 
     def map_null_to_value(
-        self, data: pl.DataFrame, column: str, value: Any  # noqa: ANN401
+        self, data: pl.DataFrame, column: str, value: Any
     ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).fill_null(value))
 
     def map_value_to_null(
-        self, data: pl.DataFrame, column: str, value: Any  # noqa: ANN401
+        self, data: pl.DataFrame, column: str, value: Any
     ) -> pl.DataFrame:
         return data.with_columns(
             pl.when(pl.col(column) == value)

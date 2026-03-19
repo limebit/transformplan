@@ -1209,3 +1209,153 @@ class TestPipeline:
         restored = TransformPlan.from_dict(d)
         result, _ = restored.process(basic_rel)
         assert "active" not in result.columns
+
+
+# =============================================================================
+# Validation tests for DuckDB backend
+# =============================================================================
+
+
+class TestDuckDBValidation:
+    """Tests for schema validation with DuckDB backend."""
+
+    def test_validate_valid_plan(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """validate() works for a valid DuckDB plan."""
+        plan = _plan(backend).math_add("age", 1)
+        result = plan.validate(basic_rel)
+        assert result.is_valid
+
+    def test_validate_missing_column(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """validate() catches missing column for DuckDB."""
+        plan = _plan(backend).math_add("nonexistent", 1)
+        result = plan.validate(basic_rel)
+        assert not result.is_valid
+        assert "does not exist" in str(result.errors[0])
+
+    def test_validate_wrong_type(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """validate() catches type mismatch for DuckDB."""
+        plan = _plan(backend).math_add("name", 10)
+        result = plan.validate(basic_rel)
+        assert not result.is_valid
+        assert "expected numeric" in str(result.errors[0])
+
+    def test_validate_string_on_numeric(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """validate() catches string op on numeric column for DuckDB."""
+        plan = _plan(backend).str_lower("age")
+        result = plan.validate(basic_rel)
+        assert not result.is_valid
+        assert "expected string" in str(result.errors[0])
+
+    def test_validate_multi_step(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """validate() tracks schema changes across steps for DuckDB."""
+        plan = _plan(backend).col_drop("name").col_drop("name")
+        result = plan.validate(basic_rel)
+        assert not result.is_valid
+        assert len(result.errors) == 1
+
+    def test_dry_run(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """dry_run() works for DuckDB."""
+        plan = _plan(backend).col_drop("active").math_add("age", 1)
+        preview = plan.dry_run(basic_rel)
+        assert preview.is_valid
+        assert len(preview.steps) == 2
+        assert "active" in preview.steps[0].columns_removed
+
+    def test_dry_run_invalid(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """dry_run() reports errors for DuckDB."""
+        plan = _plan(backend).col_drop("nonexistent")
+        preview = plan.dry_run(basic_rel)
+        assert not preview.is_valid
+
+    def test_process_with_validation(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """process(validate=True) works for DuckDB (was previously skipped)."""
+        plan = _plan(backend).math_add("age", 1)
+        result, _protocol = plan.process(basic_rel, validate=True)
+        rows = result.fetchall()
+        assert len(rows) == 5
+
+    def test_process_validation_catches_error(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """process(validate=True) raises for invalid DuckDB plan."""
+        from transformplan.validation import SchemaValidationError
+
+        plan = _plan(backend).math_add("nonexistent", 1)
+        with pytest.raises(SchemaValidationError):
+            plan.process(basic_rel, validate=True)
+
+    def test_validate_datetime_op(
+        self, backend: DuckDBBackend, datetime_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """validate() works for datetime ops with DuckDB."""
+        plan = _plan(backend).dt_year("date_col", "year")
+        result = plan.validate(datetime_rel)
+        assert result.is_valid
+
+    def test_validate_col_rename_chain(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """validate() correctly tracks renames for DuckDB."""
+        plan = _plan(backend).col_rename("age", "years").math_add("years", 1)
+        result = plan.validate(basic_rel)
+        assert result.is_valid
+
+
+class TestCrossBackendSerialization:
+    """Tests for cross-backend plan serialization."""
+
+    def test_polars_plan_to_duckdb(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """Plan built with Polars can be serialized and run on DuckDB."""
+        # Build plan with default (Polars) backend
+        polars_plan = TransformPlan().col_drop("active").math_add("age", 1)
+        d = polars_plan.to_dict()
+
+        # Restore with DuckDB backend
+        d.pop("backend", None)  # remove backend key if present
+        d["backend"] = "duckdb"
+        restored = TransformPlan.from_dict(d)
+        result, _ = restored.process(basic_rel)
+        assert "active" not in result.columns
+
+    def test_duckdb_plan_to_polars(
+        self, backend: DuckDBBackend
+    ) -> None:
+        """Plan built with DuckDB can be serialized and run on Polars."""
+        import polars as pl
+
+        # Build plan with DuckDB backend
+        duckdb_plan = _plan(backend).col_drop("active").math_add("age", 1)
+        d = duckdb_plan.to_dict()
+
+        # Restore with default (Polars) backend
+        d.pop("backend", None)  # force polars
+        restored = TransformPlan.from_dict(d)
+
+        df = pl.DataFrame({
+            "id": [1, 2, 3],
+            "name": ["Alice", "Bob", "Charlie"],
+            "age": [25, 30, 35],
+            "salary": [50000.0, 60000.0, 70000.0],
+            "active": [True, True, False],
+        })
+        result, _ = restored.process(df)
+        assert "active" not in result.columns
+        assert result["age"].to_list() == [26, 31, 36]

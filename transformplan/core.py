@@ -97,9 +97,9 @@ class TransformPlanBase:
         Returns:
             Tuple of (processed DataFrame, Protocol).
         """
-        if validate and isinstance(self._backend, PolarsBackend):
+        if validate:
             validate_schema(
-                self._operations, self._backend.get_schema(data)
+                self._operations, self._backend.get_schema(data), self._backend
             ).raise_if_invalid()
 
         protocol = Protocol()
@@ -143,7 +143,7 @@ class TransformPlanBase:
             else:
                 df, protocol = plan.process(df)
         """
-        return validate_schema(self._operations, self._backend.get_schema(data))
+        return validate_schema(self._operations, self._backend.get_schema(data), self._backend)
 
     def dry_run(self, data: pl.DataFrame) -> DryRunResult:
         """Preview what the pipeline will do without executing it.
@@ -169,7 +169,7 @@ class TransformPlanBase:
             if preview.is_valid:
                 df, protocol = plan.process(df)
         """
-        return dry_run_schema(self._operations, self._backend.get_schema(data))
+        return dry_run_schema(self._operations, self._backend.get_schema(data), self._backend)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the pipeline to a dictionary.
@@ -513,7 +513,7 @@ class TransformPlanBase:
         if validate:
             from transformplan.validation import validate_schema
 
-            schema_validation = validate_schema(self._operations, schema)
+            schema_validation = validate_schema(self._operations, schema, self._backend)
             schema_validation.raise_if_invalid()
 
         # Initialize protocol

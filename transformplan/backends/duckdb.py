@@ -44,7 +44,7 @@ def _q(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-def _v(value: Any) -> str:  # noqa: ANN401
+def _v(value: Any) -> str:
     """Format a Python value as a SQL literal.
 
     Returns:
@@ -135,6 +135,64 @@ class DuckDBBackend(Backend):
         return dict(zip(data.columns, [str(t) for t in data.types], strict=False))
 
     # =========================================================================
+    # Type system methods (12)
+    # =========================================================================
+
+    _NUMERIC_PREFIXES = frozenset({
+        "BIGINT", "INTEGER", "SMALLINT", "TINYINT", "HUGEINT",
+        "UBIGINT", "UINTEGER", "USMALLINT", "UTINYINT",
+        "DOUBLE", "FLOAT", "REAL", "DECIMAL",
+    })
+
+    _STRING_PREFIXES = frozenset({"VARCHAR", "TEXT", "STRING", "CHAR", "BLOB"})
+
+    _DATETIME_PREFIXES = frozenset({
+        "DATE", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE",
+        "TIMESTAMP_S", "TIMESTAMP_MS", "TIMESTAMP_NS",
+        "TIME", "INTERVAL",
+    })
+
+    def is_numeric_type(self, dtype: Any) -> bool:
+        s = str(dtype).upper()
+        return any(s == t or s.startswith(t + "(") for t in self._NUMERIC_PREFIXES)
+
+    def is_string_type(self, dtype: Any) -> bool:
+        s = str(dtype).upper()
+        return any(s == t or s.startswith(t + "(") for t in self._STRING_PREFIXES)
+
+    def is_datetime_type(self, dtype: Any) -> bool:
+        s = str(dtype).upper()
+        return any(s == t or s.startswith(t + "(") for t in self._DATETIME_PREFIXES)
+
+    def is_boolean_type(self, dtype: Any) -> bool:
+        return str(dtype).upper() == "BOOLEAN"
+
+    def is_list_type(self, dtype: Any) -> bool:
+        s = str(dtype).upper()
+        return s.endswith("[]") or s.startswith("LIST")
+
+    def float_type(self) -> str:
+        return "DOUBLE"
+
+    def string_type(self) -> str:
+        return "VARCHAR"
+
+    def integer_type(self) -> str:
+        return "BIGINT"
+
+    def unsigned_int_type(self) -> str:
+        return "UINTEGER"
+
+    def boolean_type(self) -> str:
+        return "BOOLEAN"
+
+    def date_type(self) -> str:
+        return "DATE"
+
+    def type_name(self, dtype: Any) -> str:
+        return str(dtype)
+
+    # =========================================================================
     # Column operations (13)
     # =========================================================================
 
@@ -189,7 +247,7 @@ class DuckDBBackend(Backend):
         self,
         data: duckdb.DuckDBPyRelation,
         column: str,
-        value: Any,  # noqa: ANN401
+        value: Any,
         strategy: FillNullStrategy | None,
     ) -> duckdb.DuckDBPyRelation:
         qc = _q(column)
@@ -249,7 +307,7 @@ class DuckDBBackend(Backend):
         data: duckdb.DuckDBPyRelation,
         new_column: str,
         expr: str | None,
-        value: Any,  # noqa: ANN401
+        value: Any,
     ) -> duckdb.DuckDBPyRelation:
         if expr is not None:
             add_expr = f"{_q(expr)} AS {_q(new_column)}"
@@ -685,8 +743,8 @@ class DuckDBBackend(Backend):
         data: duckdb.DuckDBPyRelation,
         filter: dict[str, Any],
         new_column: str,
-        true_value: Any,  # noqa: ANN401
-        false_value: Any,  # noqa: ANN401
+        true_value: Any,
+        false_value: Any,
     ) -> duckdb.DuckDBPyRelation:
         sql_where = Filter.from_dict(filter).to_sql()
         expr = (
@@ -1156,7 +1214,7 @@ class DuckDBBackend(Backend):
         data: duckdb.DuckDBPyRelation,
         column: str,
         mapping: dict[Any, Any],
-        default: Any,  # noqa: ANN401
+        default: Any,
         keep_unmapped: bool,  # noqa: FBT001
     ) -> duckdb.DuckDBPyRelation:
         if not mapping:
@@ -1176,7 +1234,7 @@ class DuckDBBackend(Backend):
         data: duckdb.DuckDBPyRelation,
         column: str,
         cases: list[tuple[Any, Any]],
-        default: Any,  # noqa: ANN401
+        default: Any,
         new_column: str,
     ) -> duckdb.DuckDBPyRelation:
         if not cases:
@@ -1198,7 +1256,7 @@ class DuckDBBackend(Backend):
         lookup_column: str,
         value_column: str,
         new_column: str,
-        default: Any,  # noqa: ANN401
+        default: Any,
     ) -> duckdb.DuckDBPyRelation:
         # Build lookup from the data itself
         lookup_rows = self._con.sql(
@@ -1266,7 +1324,7 @@ class DuckDBBackend(Backend):
         column: str,
         categories: list[Any] | None,
         prefix: str,
-        drop: Any | None,  # noqa: ANN401
+        drop: Any | None,
         drop_original: bool,  # noqa: FBT001
         unknown_value: str,
     ) -> duckdb.DuckDBPyRelation:
@@ -1383,14 +1441,14 @@ class DuckDBBackend(Backend):
         return self._replace_col(data, column, f"{_q(column)}::BIGINT")
 
     def map_null_to_value(
-        self, data: duckdb.DuckDBPyRelation, column: str, value: Any  # noqa: ANN401
+        self, data: duckdb.DuckDBPyRelation, column: str, value: Any
     ) -> duckdb.DuckDBPyRelation:
         return self._replace_col(
             data, column, f"COALESCE({_q(column)}, {_v(value)})"
         )
 
     def map_value_to_null(
-        self, data: duckdb.DuckDBPyRelation, column: str, value: Any  # noqa: ANN401
+        self, data: duckdb.DuckDBPyRelation, column: str, value: Any
     ) -> duckdb.DuckDBPyRelation:
         qc = _q(column)
         expr = f"CASE WHEN {qc} = {_v(value)} THEN NULL ELSE {qc} END"

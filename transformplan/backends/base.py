@@ -53,6 +53,70 @@ class Backend(ABC):
         ...
 
     # =========================================================================
+    # Type system methods (12)
+    # =========================================================================
+
+    @abstractmethod
+    def is_numeric_type(self, dtype: Any) -> bool:
+        """Check if dtype is numeric."""
+        ...
+
+    @abstractmethod
+    def is_string_type(self, dtype: Any) -> bool:
+        """Check if dtype is string/text."""
+        ...
+
+    @abstractmethod
+    def is_datetime_type(self, dtype: Any) -> bool:
+        """Check if dtype is date/datetime/time/duration."""
+        ...
+
+    @abstractmethod
+    def is_boolean_type(self, dtype: Any) -> bool:
+        """Check if dtype is boolean."""
+        ...
+
+    @abstractmethod
+    def is_list_type(self, dtype: Any) -> bool:
+        """Check if dtype is a list/array type."""
+        ...
+
+    @abstractmethod
+    def float_type(self) -> Any:
+        """Return the float/double type for this backend."""
+        ...
+
+    @abstractmethod
+    def string_type(self) -> Any:
+        """Return the string/text type for this backend."""
+        ...
+
+    @abstractmethod
+    def integer_type(self) -> Any:
+        """Return the integer type for this backend."""
+        ...
+
+    @abstractmethod
+    def unsigned_int_type(self) -> Any:
+        """Return the unsigned integer type for this backend."""
+        ...
+
+    @abstractmethod
+    def boolean_type(self) -> Any:
+        """Return the boolean type for this backend."""
+        ...
+
+    @abstractmethod
+    def date_type(self) -> Any:
+        """Return the date type for this backend."""
+        ...
+
+    @abstractmethod
+    def type_name(self, dtype: Any) -> str:
+        """Return a human-readable name for a dtype."""
+        ...
+
+    # =========================================================================
     # Column operations (13)
     # =========================================================================
 
