@@ -53,6 +53,8 @@ _BOOLEAN_TYPES = {pl.Boolean()}
 class PolarsBackend(Backend):
     """Backend implementation using Polars for all operations."""
 
+    name = "polars"
+
     # =========================================================================
     # Meta methods (4)
     # =========================================================================

@@ -35,49 +35,9 @@ from typing import Any, Sequence
 
 import polars as pl
 
-# =============================================================================
-# SQL helper functions
-# =============================================================================
-
-
-def _sql_quote_identifier(name: str) -> str:
-    """Double-quote a column name for SQL, escaping embedded double quotes.
-
-    Returns:
-        Quoted identifier string.
-    """
-    return '"' + name.replace('"', '""') + '"'
-
-
-def _sql_format_value(value: Any) -> str:  # noqa: ANN401
-    """Format a Python value as a DuckDB-compatible SQL literal.
-
-    Returns:
-        SQL literal string.
-    """
-    if value is None:
-        return "NULL"
-    if isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
-    if isinstance(value, (int, float)):
-        return str(value)
-    if isinstance(value, str):
-        return "'" + value.replace("'", "''") + "'"
-    return "'" + str(value).replace("'", "''") + "'"
-
-
-def _sql_escape_like(pattern: str) -> str:
-    r"""Escape LIKE metacharacters and single quotes for SQL.
-
-    Returns:
-        Escaped pattern string.
-    """
-    return (
-        pattern.replace("\\", "\\\\")
-        .replace("%", "\\%")
-        .replace("_", "\\_")
-        .replace("'", "''")
-    )
+from transformplan.sql_utils import sql_escape_like as _sql_escape_like
+from transformplan.sql_utils import sql_format_value as _sql_format_value
+from transformplan.sql_utils import sql_quote_identifier as _sql_quote_identifier
 
 
 class Filter(ABC):

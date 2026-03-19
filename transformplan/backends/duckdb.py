@@ -11,6 +11,7 @@ Classes:
 
 from __future__ import annotations
 
+import datetime
 import hashlib
 import math
 import secrets
@@ -29,36 +30,23 @@ from transformplan.backends.base import (
     RankMethod,
 )
 from transformplan.filters import Filter
+from transformplan.sql_utils import sql_format_value as _v
+from transformplan.sql_utils import sql_quote_identifier as _q
 
 # =============================================================================
 # SQL helpers
 # =============================================================================
 
+_DTYPE_TO_DUCKDB: dict[type, str] = {
+    int: "BIGINT",
+    float: "DOUBLE",
+    str: "VARCHAR",
+    bool: "BOOLEAN",
+    datetime.datetime: "TIMESTAMP",
+    datetime.date: "DATE",
+}
 
-def _q(name: str) -> str:
-    """Double-quote a SQL identifier.
-
-    Returns:
-        Quoted identifier string.
-    """
-    return '"' + name.replace('"', '""') + '"'
-
-
-def _v(value: Any) -> str:
-    """Format a Python value as a SQL literal.
-
-    Returns:
-        SQL literal string.
-    """
-    if value is None:
-        return "NULL"
-    if isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
-    if isinstance(value, (int, float)):
-        return str(value)
-    if isinstance(value, str):
-        return "'" + value.replace("'", "''") + "'"
-    return "'" + str(value).replace("'", "''") + "'"
+_VALID_AGG_FUNCTIONS = {"first", "sum", "mean", "median", "min", "max", "count"}
 
 
 def _dtype_to_duckdb(dtype: type) -> str:
@@ -67,17 +55,7 @@ def _dtype_to_duckdb(dtype: type) -> str:
     Returns:
         DuckDB type string.
     """
-    mapping: dict[type, str] = {
-        int: "BIGINT",
-        float: "DOUBLE",
-        str: "VARCHAR",
-        bool: "BOOLEAN",
-    }
-    import datetime
-
-    mapping[datetime.datetime] = "TIMESTAMP"
-    mapping[datetime.date] = "DATE"
-    return mapping.get(dtype, "VARCHAR")
+    return _DTYPE_TO_DUCKDB.get(dtype, "VARCHAR")
 
 
 def _sub(rel: duckdb.DuckDBPyRelation) -> str:
@@ -92,6 +70,8 @@ def _sub(rel: duckdb.DuckDBPyRelation) -> str:
 class DuckDBBackend(Backend):
     """Backend implementation using DuckDB for all operations."""
 
+    name = "duckdb"
+
     def __init__(self, con: duckdb.DuckDBPyConnection | None = None) -> None:
         """Initialize DuckDBBackend.
 
@@ -99,6 +79,10 @@ class DuckDBBackend(Backend):
             con: DuckDB connection. If None, creates an in-memory connection.
         """
         self._con = con or duckdb.connect()
+
+    def __repr__(self) -> str:
+        """Return string representation of the backend."""
+        return f"DuckDBBackend(con={self._con!r})"
 
     # =========================================================================
     # Meta methods (4)
@@ -318,7 +302,11 @@ class DuckDBBackend(Backend):
     def col_add_uuid(
         self, data: duckdb.DuckDBPyRelation, column: str, length: int
     ) -> duckdb.DuckDBPyRelation:
-        # DuckDB uuid() generates full UUIDs; we generate Python-side for length control
+        # DuckDB uuid() generates full UUIDs; we generate Python-side
+        # for length control.
+        # NOTE: ROW_NUMBER() OVER () has undefined ordering in SQL, but
+        # since UUIDs are random, the non-deterministic assignment does
+        # not affect correctness — each row gets a unique random ID.
         count = self.get_shape(data)[0]
         chars = string.ascii_letters + string.digits
         ids = [
@@ -901,6 +889,9 @@ class DuckDBBackend(Backend):
         values: str,
         aggregate_function: AggFunction,
     ) -> duckdb.DuckDBPyRelation:
+        if aggregate_function not in _VALID_AGG_FUNCTIONS:
+            msg = f"Invalid aggregate function: {aggregate_function}"
+            raise ValueError(msg)
         idx = ", ".join(_q(c) for c in index)
         return self._con.sql(
             f"PIVOT {_sub(data)} "

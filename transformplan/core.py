@@ -84,18 +84,18 @@ class TransformPlanBase:
         return self
 
     def process(
-        self, data: pl.DataFrame, *, validate: bool = True
-    ) -> tuple[pl.DataFrame, Protocol]:
+        self, data: Any, *, validate: bool = True  # noqa: ANN401
+    ) -> tuple[Any, Protocol]:
         """Execute all registered operations and return transformed data with protocol.
 
         Args:
-            data: DataFrame to process.
+            data: Input data (Polars DataFrame, DuckDB relation, etc.).
             validate: If True, validate schema before execution (default).
                 Set to False for performance in hot loops with pre-validated
                 pipelines.
 
         Returns:
-            Tuple of (processed DataFrame, Protocol).
+            Tuple of (processed data, Protocol).
         """
         if validate:
             validate_schema(
@@ -125,11 +125,11 @@ class TransformPlanBase:
 
         return data, protocol
 
-    def validate(self, data: pl.DataFrame) -> ValidationResult:
-        """Validate all operations against the DataFrame schema without executing.
+    def validate(self, data: Any) -> ValidationResult:  # noqa: ANN401
+        """Validate all operations against the data schema without executing.
 
         Args:
-            data: DataFrame to validate against.
+            data: Input data (Polars DataFrame, DuckDB relation, etc.).
 
         Returns:
             ValidationResult with any errors found.
@@ -145,7 +145,7 @@ class TransformPlanBase:
         """
         return validate_schema(self._operations, self._backend.get_schema(data), self._backend)
 
-    def dry_run(self, data: pl.DataFrame) -> DryRunResult:
+    def dry_run(self, data: Any) -> DryRunResult:  # noqa: ANN401
         """Preview what the pipeline will do without executing it.
 
         Performs validation and shows step-by-step schema changes,
@@ -193,37 +193,40 @@ class TransformPlanBase:
 
         # Include backend identifier for forward compatibility
         if not isinstance(self._backend, PolarsBackend):
-            result["backend"] = type(self._backend).__name__.lower().replace(
-                "backend", ""
-            )
+            result["backend"] = self._backend.name
 
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
+    def from_dict(
+        cls, data: dict[str, Any], backend: Backend | None = None
+    ) -> Self:
         """Deserialize a pipeline from a dictionary.
 
         Args:
             data: Dictionary with 'steps' list.
+            backend: Optional backend override. If provided, uses this backend
+                instead of the one stored in the serialized data. This is
+                required for DuckDB when you need a specific connection.
 
         Returns:
             New TransformPlan instance with operations loaded.
 
         Raises:
-            ValueError: If an unknown operation is encountered.
+            ValueError: If an unknown operation or invalid parameters are encountered.
         """
-        # Read backend from serialized data (default: polars)
-        backend_name = data.get("backend", "polars")
-        backend: Backend | None = None
-        if backend_name == "polars":
-            backend = None  # default
-        elif backend_name == "duckdb":
-            from transformplan.backends.duckdb import DuckDBBackend
+        if backend is None:
+            # Read backend from serialized data (default: polars)
+            backend_name = data.get("backend", "polars")
+            if backend_name == "polars":
+                backend = None  # default
+            elif backend_name == "duckdb":
+                from transformplan.backends.duckdb import DuckDBBackend
 
-            backend = DuckDBBackend()
-        else:
-            msg = f"Unsupported backend: {backend_name}"
-            raise ValueError(msg)
+                backend = DuckDBBackend()
+            else:
+                msg = f"Unsupported backend: {backend_name}"
+                raise ValueError(msg)
 
         plan = cls(backend=backend)
 
@@ -238,7 +241,11 @@ class TransformPlanBase:
                 raise ValueError(msg)
 
             # Call the method with params to register the operation
-            method(**params)
+            try:
+                method(**params)
+            except TypeError as e:
+                msg = f"Invalid parameters for operation '{op_name}': {e}"
+                raise ValueError(msg) from e
 
         return plan
 
@@ -260,11 +267,15 @@ class TransformPlanBase:
         return json_str
 
     @classmethod
-    def from_json(cls, source: str | Path) -> Self:
+    def from_json(
+        cls, source: str | Path, backend: Backend | None = None
+    ) -> Self:
         """Deserialize a pipeline from JSON.
 
         Args:
             source: Either a JSON string or a path to a JSON file.
+            backend: Optional backend override. If provided, uses this backend
+                instead of the one stored in the serialized data.
 
         Returns:
             New TransformPlan instance.
@@ -274,7 +285,7 @@ class TransformPlanBase:
         else:
             content = source
 
-        return cls.from_dict(json.loads(content))
+        return cls.from_dict(json.loads(content), backend=backend)
 
     def __len__(self) -> int:
         """Return number of registered operations.

@@ -26,7 +26,12 @@ class Backend(ABC):
 
     Each backend must implement all 86 operations. Methods receive data
     and operation-specific parameters, and return transformed data.
+
+    Subclasses must set the ``name`` class variable to a unique identifier
+    (e.g. ``"polars"``, ``"duckdb"``).
     """
+
+    name: str
 
     # =========================================================================
     # Meta methods (4)
