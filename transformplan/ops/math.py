@@ -201,9 +201,7 @@ class MathOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "math_round", {"column": column, "decimals": decimals}
-        )
+        return self._register("math_round", {"column": column, "decimals": decimals})
 
     def math_percent_of(
         self,

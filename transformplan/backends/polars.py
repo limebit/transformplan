@@ -126,19 +126,13 @@ class PolarsBackend(Backend):
     ) -> pl.DataFrame:
         return data.rename({column: new_name})
 
-    def col_cast(
-        self, data: pl.DataFrame, column: str, dtype: type
-    ) -> pl.DataFrame:
+    def col_cast(self, data: pl.DataFrame, column: str, dtype: type) -> pl.DataFrame:
         return data.with_columns(pl.col(column).cast(dtype))
 
-    def col_reorder(
-        self, data: pl.DataFrame, columns: list[str]
-    ) -> pl.DataFrame:
+    def col_reorder(self, data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         return data.select(columns)
 
-    def col_select(
-        self, data: pl.DataFrame, columns: list[str]
-    ) -> pl.DataFrame:
+    def col_select(self, data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         return data.select(columns)
 
     def col_duplicate(
@@ -212,9 +206,7 @@ class PolarsBackend(Backend):
     # Math operations (27)
     # =========================================================================
 
-    def math_add(
-        self, data: pl.DataFrame, column: str, value: Numeric
-    ) -> pl.DataFrame:
+    def math_add(self, data: pl.DataFrame, column: str, value: Numeric) -> pl.DataFrame:
         return data.with_columns(pl.col(column) + value)
 
     def math_subtract(
@@ -504,15 +496,11 @@ class PolarsBackend(Backend):
     # Row operations (14)
     # =========================================================================
 
-    def rows_filter(
-        self, data: pl.DataFrame, filter: dict[str, Any]
-    ) -> pl.DataFrame:
+    def rows_filter(self, data: pl.DataFrame, filter: dict[str, Any]) -> pl.DataFrame:
         expr = Filter.from_dict(filter).to_expr()
         return data.filter(expr)
 
-    def rows_drop(
-        self, data: pl.DataFrame, filter: dict[str, Any]
-    ) -> pl.DataFrame:
+    def rows_drop(self, data: pl.DataFrame, filter: dict[str, Any]) -> pl.DataFrame:
         expr = Filter.from_dict(filter).to_expr()
         return data.filter(~expr)
 
@@ -730,9 +718,7 @@ class PolarsBackend(Backend):
     # Datetime operations (13)
     # =========================================================================
 
-    def dt_year(
-        self, data: pl.DataFrame, column: str, new_column: str
-    ) -> pl.DataFrame:
+    def dt_year(self, data: pl.DataFrame, column: str, new_column: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.year().alias(new_column))
 
     def dt_month(
@@ -740,14 +726,10 @@ class PolarsBackend(Backend):
     ) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.month().alias(new_column))
 
-    def dt_day(
-        self, data: pl.DataFrame, column: str, new_column: str
-    ) -> pl.DataFrame:
+    def dt_day(self, data: pl.DataFrame, column: str, new_column: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.day().alias(new_column))
 
-    def dt_week(
-        self, data: pl.DataFrame, column: str, new_column: str
-    ) -> pl.DataFrame:
+    def dt_week(self, data: pl.DataFrame, column: str, new_column: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).dt.week().alias(new_column))
 
     def dt_quarter(
@@ -1049,9 +1031,7 @@ class PolarsBackend(Backend):
             data, column, categories, new_column, drop_original, unknown_value
         )
 
-    def map_bool_to_int(
-        self, data: pl.DataFrame, column: str
-    ) -> pl.DataFrame:
+    def map_bool_to_int(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
         return data.with_columns(pl.col(column).cast(pl.Int64))
 
     def map_null_to_value(

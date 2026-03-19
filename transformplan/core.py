@@ -84,7 +84,10 @@ class TransformPlanBase:
         return self
 
     def process(
-        self, data: Any, *, validate: bool = True  # noqa: ANN401
+        self,
+        data: Any,
+        *,
+        validate: bool = True,  # noqa: ANN401
     ) -> tuple[Any, Protocol]:
         """Execute all registered operations and return transformed data with protocol.
 
@@ -143,7 +146,9 @@ class TransformPlanBase:
             else:
                 df, protocol = plan.process(df)
         """
-        return validate_schema(self._operations, self._backend.get_schema(data), self._backend)
+        return validate_schema(
+            self._operations, self._backend.get_schema(data), self._backend
+        )
 
     def dry_run(self, data: Any) -> DryRunResult:  # noqa: ANN401
         """Preview what the pipeline will do without executing it.
@@ -169,7 +174,9 @@ class TransformPlanBase:
             if preview.is_valid:
                 df, protocol = plan.process(df)
         """
-        return dry_run_schema(self._operations, self._backend.get_schema(data), self._backend)
+        return dry_run_schema(
+            self._operations, self._backend.get_schema(data), self._backend
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the pipeline to a dictionary.
@@ -198,9 +205,7 @@ class TransformPlanBase:
         return result
 
     @classmethod
-    def from_dict(
-        cls, data: dict[str, Any], backend: Backend | None = None
-    ) -> Self:
+    def from_dict(cls, data: dict[str, Any], backend: Backend | None = None) -> Self:
         """Deserialize a pipeline from a dictionary.
 
         Args:
@@ -267,9 +272,7 @@ class TransformPlanBase:
         return json_str
 
     @classmethod
-    def from_json(
-        cls, source: str | Path, backend: Backend | None = None
-    ) -> Self:
+    def from_json(cls, source: str | Path, backend: Backend | None = None) -> Self:
         """Deserialize a pipeline from JSON.
 
         Args:

@@ -227,9 +227,7 @@ class RowOps:
         """
         if isinstance(by, str):
             by = [by]
-        return self._register(
-            "rows_sort", {"by": list(by), "descending": descending}
-        )
+        return self._register("rows_sort", {"by": list(by), "descending": descending})
 
     def rows_flag(
         self,

@@ -117,9 +117,7 @@ def _plan(backend: DuckDBBackend) -> TransformPlan:
     return TransformPlan(backend=backend)
 
 
-def _col_values(
-    rel: duckdb.DuckDBPyRelation, col: str
-) -> list[Any]:
+def _col_values(rel: duckdb.DuckDBPyRelation, col: str) -> list[Any]:
     """Fetch values of a single column."""
     idx = list(rel.columns).index(col)
     return [row[idx] for row in rel.fetchall()]
@@ -131,13 +129,25 @@ def _col_values(
 
 
 class TestMetaMethods:
-    def test_get_shape(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_get_shape(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         assert backend.get_shape(basic_rel) == (5, 5)
 
-    def test_get_columns(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
-        assert backend.get_columns(basic_rel) == ["id", "name", "age", "salary", "active"]
+    def test_get_columns(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        assert backend.get_columns(basic_rel) == [
+            "id",
+            "name",
+            "age",
+            "salary",
+            "active",
+        ]
 
-    def test_get_schema(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_get_schema(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         schema = backend.get_schema(basic_rel)
         assert "id" in schema
         assert isinstance(schema["id"], str)
@@ -157,7 +167,9 @@ class TestMetaMethods:
 
 
 class TestColDrop:
-    def test_col_drop(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_col_drop(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).col_drop("age").process(basic_rel)
         assert "age" not in result.columns
         assert len(result.columns) == 4
@@ -171,7 +183,9 @@ class TestColDrop:
 
 
 class TestColRename:
-    def test_col_rename(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_col_rename(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).col_rename("name", "full_name").process(basic_rel)
         assert "full_name" in result.columns
         assert "name" not in result.columns
@@ -201,7 +215,9 @@ class TestColCast:
 
 
 class TestColReorder:
-    def test_col_reorder(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_col_reorder(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend)
             .col_reorder(["salary", "name", "id", "age", "active"])
@@ -211,14 +227,18 @@ class TestColReorder:
 
 
 class TestColSelect:
-    def test_col_select(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_col_select(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).col_select(["id", "name"]).process(basic_rel)
         assert list(result.columns) == ["id", "name"]
         assert backend.get_shape(result) == (5, 2)
 
 
 class TestColDuplicate:
-    def test_col_duplicate(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_col_duplicate(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).col_duplicate("name", "name_copy").process(basic_rel)
         assert "name_copy" in result.columns
         assert _col_values(result, "name") == _col_values(result, "name_copy")
@@ -228,7 +248,9 @@ class TestColFillNull:
     def test_col_fill_null_with_value(
         self, backend: DuckDBBackend, null_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = _plan(backend).col_fill_null("name", value="Unknown").process(null_rel)
+        result, _ = (
+            _plan(backend).col_fill_null("name", value="Unknown").process(null_rel)
+        )
         vals = _col_values(result, "name")
         assert None not in vals
         assert vals[1] == "Unknown"
@@ -255,9 +277,7 @@ class TestColDropZero:
     def test_col_drop_zero(
         self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
     ) -> None:
-        rel = con.sql(
-            "SELECT * FROM (VALUES (1, 10), (2, 0), (3, 30)) AS t(id, val)"
-        )
+        rel = con.sql("SELECT * FROM (VALUES (1, 10), (2, 0), (3, 30)) AS t(id, val)")
         result, _ = _plan(backend).col_drop_zero("val").process(rel)
         assert backend.get_shape(result)[0] == 2
 
@@ -290,7 +310,9 @@ class TestColAddUuid:
 
 
 class TestColHash:
-    def test_col_hash(self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_col_hash(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend)
             .col_hash(columns=["id", "name"], new_column="hash", salt="test")
@@ -319,19 +341,27 @@ class TestColCoalesce:
 
 
 class TestMathScalar:
-    def test_math_add(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_add(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).math_add("a", 10).process(numeric_rel)
         assert _col_values(result, "a") == [11, 12, 13, 14, 15]
 
-    def test_math_subtract(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_subtract(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).math_subtract("a", 1).process(numeric_rel)
         assert _col_values(result, "a") == [0, 1, 2, 3, 4]
 
-    def test_math_multiply(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_multiply(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).math_multiply("a", 2).process(numeric_rel)
         assert _col_values(result, "a") == [2, 4, 6, 8, 10]
 
-    def test_math_divide(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_divide(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).math_divide("b", 10).process(numeric_rel)
         assert _col_values(result, "b") == [1.0, 2.0, 3.0, 4.0, 5.0]
 
@@ -353,7 +383,9 @@ class TestMathScalar:
     def test_math_clamp(
         self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = _plan(backend).math_clamp("a", lower=2, upper=4).process(numeric_rel)
+        result, _ = (
+            _plan(backend).math_clamp("a", lower=2, upper=4).process(numeric_rel)
+        )
         assert _col_values(result, "a") == [2, 2, 3, 4, 4]
 
     def test_math_set_min(
@@ -370,39 +402,41 @@ class TestMathScalar:
 
 
 class TestMathColumnWise:
-    def test_math_add_columns(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_add_columns(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
-            _plan(backend)
-            .math_add_columns("a", "b", "sum")
-            .process(numeric_rel)
+            _plan(backend).math_add_columns("a", "b", "sum").process(numeric_rel)
         )
         assert _col_values(result, "sum") == [11, 22, 33, 44, 55]
 
-    def test_math_subtract_columns(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_subtract_columns(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
-            _plan(backend)
-            .math_subtract_columns("b", "a", "diff")
-            .process(numeric_rel)
+            _plan(backend).math_subtract_columns("b", "a", "diff").process(numeric_rel)
         )
         assert _col_values(result, "diff") == [9, 18, 27, 36, 45]
 
-    def test_math_multiply_columns(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_multiply_columns(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
-            _plan(backend)
-            .math_multiply_columns("a", "b", "prod")
-            .process(numeric_rel)
+            _plan(backend).math_multiply_columns("a", "b", "prod").process(numeric_rel)
         )
         assert _col_values(result, "prod") == [10, 40, 90, 160, 250]
 
-    def test_math_divide_columns(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_divide_columns(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
-            _plan(backend)
-            .math_divide_columns("b", "a", "ratio")
-            .process(numeric_rel)
+            _plan(backend).math_divide_columns("b", "a", "ratio").process(numeric_rel)
         )
         assert _col_values(result, "ratio") == [10.0, 10.0, 10.0, 10.0, 10.0]
 
-    def test_math_percent_of(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_percent_of(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend)
             .math_percent_of("a", "c", "pct", multiply_by=100.0)
@@ -412,11 +446,15 @@ class TestMathColumnWise:
 
 
 class TestMathWindow:
-    def test_math_cumsum(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_cumsum(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = _plan(backend).math_cumsum("a", "cumulative").process(numeric_rel)
         assert _col_values(result, "cumulative") == [1, 3, 6, 10, 15]
 
-    def test_math_rank(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_rank(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend)
             .math_rank("a", "rank", method="ordinal", descending=False)
@@ -426,16 +464,22 @@ class TestMathWindow:
 
 
 class TestMathScaling:
-    def test_math_standardize(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_standardize(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
-            _plan(backend).math_standardize("a", new_column="z_score").process(numeric_rel)
+            _plan(backend)
+            .math_standardize("a", new_column="z_score")
+            .process(numeric_rel)
         )
         vals = _col_values(result, "z_score")
         assert len(vals) == 5
         # Mean should be ~0
         assert abs(sum(vals) / len(vals)) < 0.01
 
-    def test_math_minmax(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_minmax(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend)
             .math_minmax("a", feature_range=(0.0, 1.0), new_column="scaled")
@@ -445,7 +489,9 @@ class TestMathScaling:
         assert vals[0] == pytest.approx(0.0)
         assert vals[-1] == pytest.approx(1.0)
 
-    def test_math_robust_scale(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_robust_scale(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend)
             .math_robust_scale("a", new_column="robust")
@@ -455,25 +501,35 @@ class TestMathScaling:
 
 
 class TestMathTransform:
-    def test_math_log(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_log(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
-            _plan(backend).math_log("a", offset=0, new_column="log_a").process(numeric_rel)
+            _plan(backend)
+            .math_log("a", offset=0, new_column="log_a")
+            .process(numeric_rel)
         )
         vals = _col_values(result, "log_a")
         assert vals[0] == pytest.approx(0.0, abs=0.01)  # ln(1) = 0
 
-    def test_math_sqrt(self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection) -> None:
+    def test_math_sqrt(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
         rel = con.sql("SELECT * FROM (VALUES (4,), (9,), (16,)) AS t(a)")
         result, _ = _plan(backend).math_sqrt("a", new_column="sqrt_a").process(rel)
         assert _col_values(result, "sqrt_a") == [2.0, 3.0, 4.0]
 
-    def test_math_power(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_power(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend).math_power("a", 2, new_column="sq").process(numeric_rel)
         )
         assert _col_values(result, "sq") == [1.0, 4.0, 9.0, 16.0, 25.0]
 
-    def test_math_winsorize(self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation) -> None:
+    def test_math_winsorize(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
         result, _ = (
             _plan(backend)
             .math_winsorize("a", lower_value=2, upper_value=4, new_column="w")
@@ -493,9 +549,7 @@ class TestRowsFilter:
     def test_rows_filter_ge(
         self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).rows_filter(Col("age") >= 35).process(basic_rel)
-        )
+        result, _ = _plan(backend).rows_filter(Col("age") >= 35).process(basic_rel)
         assert backend.get_shape(result)[0] == 3
 
     def test_rows_filter_eq(
@@ -521,9 +575,7 @@ class TestRowsDrop:
     def test_rows_drop(
         self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).rows_drop(Col("age") < 30).process(basic_rel)
-        )
+        result, _ = _plan(backend).rows_drop(Col("age") < 30).process(basic_rel)
         assert backend.get_shape(result)[0] == 4  # only age=25 dropped
 
 
@@ -560,7 +612,9 @@ class TestRowsUnique:
             "SELECT * FROM (VALUES (1, 'A'), (1, 'A'), (2, 'B')) AS t(id, name)"
         )
         result, _ = (
-            _plan(backend).rows_unique(columns=["id", "name"], keep="first").process(rel)
+            _plan(backend)
+            .rows_unique(columns=["id", "name"], keep="first")
+            .process(rel)
         )
         assert backend.get_shape(result)[0] == 2
 
@@ -587,7 +641,9 @@ class TestRowsDeduplicate:
         )
         result, _ = (
             _plan(backend)
-            .rows_deduplicate(columns=["id"], sort_by="val", keep="first", descending=False)
+            .rows_deduplicate(
+                columns=["id"], sort_by="val", keep="first", descending=False
+            )
             .process(rel)
         )
         assert backend.get_shape(result)[0] == 2
@@ -730,7 +786,9 @@ class TestStrTruncate:
         self, backend: DuckDBBackend, string_rel: duckdb.DuckDBPyRelation
     ) -> None:
         result, _ = (
-            _plan(backend).str_truncate("text", max_length=10, suffix="...").process(string_rel)
+            _plan(backend)
+            .str_truncate("text", max_length=10, suffix="...")
+            .process(string_rel)
         )
         vals = _col_values(result, "text")
         # "  Hello World  " (15 chars) should be truncated
@@ -768,7 +826,9 @@ class TestStrPad:
     ) -> None:
         rel = con.sql("SELECT * FROM (VALUES ('1',), ('22',), ('333',)) AS t(a)")
         result, _ = (
-            _plan(backend).str_pad("a", length=5, fill_char="0", side="left").process(rel)
+            _plan(backend)
+            .str_pad("a", length=5, fill_char="0", side="left")
+            .process(rel)
         )
         vals = _col_values(result, "a")
         assert vals[0] == "00001"
@@ -778,7 +838,9 @@ class TestStrPad:
     ) -> None:
         rel = con.sql("SELECT * FROM (VALUES ('1',), ('22',)) AS t(a)")
         result, _ = (
-            _plan(backend).str_pad("a", length=5, fill_char=".", side="right").process(rel)
+            _plan(backend)
+            .str_pad("a", length=5, fill_char=".", side="right")
+            .process(rel)
         )
         vals = _col_values(result, "a")
         assert vals[0] == "1...."
@@ -814,9 +876,7 @@ class TestStrSplit:
     def test_str_split_with_columns(
         self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
     ) -> None:
-        rel = con.sql(
-            "SELECT * FROM (VALUES ('a-b-c',), ('d-e-f',)) AS t(text)"
-        )
+        rel = con.sql("SELECT * FROM (VALUES ('a-b-c',), ('d-e-f',)) AS t(text)")
         result, _ = (
             _plan(backend)
             .str_split("text", separator="-", new_columns=["p1", "p2", "p3"])
@@ -838,18 +898,14 @@ class TestDtExtract:
     def test_dt_year(
         self, backend: DuckDBBackend, datetime_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).dt_year("date_col", "year").process(datetime_rel)
-        )
+        result, _ = _plan(backend).dt_year("date_col", "year").process(datetime_rel)
         vals = _col_values(result, "year")
         assert all(v == 2024 for v in vals)
 
     def test_dt_month(
         self, backend: DuckDBBackend, datetime_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).dt_month("date_col", "month").process(datetime_rel)
-        )
+        result, _ = _plan(backend).dt_month("date_col", "month").process(datetime_rel)
         vals = _col_values(result, "month")
         assert vals[0] == 1
         assert vals[1] == 3
@@ -857,18 +913,14 @@ class TestDtExtract:
     def test_dt_day(
         self, backend: DuckDBBackend, datetime_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).dt_day("date_col", "day").process(datetime_rel)
-        )
+        result, _ = _plan(backend).dt_day("date_col", "day").process(datetime_rel)
         vals = _col_values(result, "day")
         assert vals[0] == 15
 
     def test_dt_quarter(
         self, backend: DuckDBBackend, datetime_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).dt_quarter("date_col", "q").process(datetime_rel)
-        )
+        result, _ = _plan(backend).dt_quarter("date_col", "q").process(datetime_rel)
         vals = _col_values(result, "q")
         assert vals[0] == 1
         assert vals[-1] == 4
@@ -876,9 +928,7 @@ class TestDtExtract:
     def test_dt_week(
         self, backend: DuckDBBackend, datetime_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).dt_week("date_col", "week").process(datetime_rel)
-        )
+        result, _ = _plan(backend).dt_week("date_col", "week").process(datetime_rel)
         vals = _col_values(result, "week")
         assert all(isinstance(v, int) for v in vals)
 
@@ -993,8 +1043,8 @@ class TestDtIsBetween:
             .process(datetime_rel)
         )
         vals = _col_values(result, "in_h1")
-        assert vals[0] is True   # Jan 15
-        assert vals[2] is True   # Jun 10
+        assert vals[0] is True  # Jan 15
+        assert vals[2] is True  # Jun 10
         assert vals[3] is False  # Sep 5
 
 
@@ -1158,9 +1208,7 @@ class TestMapValueToNull:
     def test_map_value_to_null(
         self, backend: DuckDBBackend, map_rel: duckdb.DuckDBPyRelation
     ) -> None:
-        result, _ = (
-            _plan(backend).map_value_to_null("status", "C").process(map_rel)
-        )
+        result, _ = _plan(backend).map_value_to_null("status", "C").process(map_rel)
         vals = _col_values(result, "status")
         assert vals[3] is None  # C -> null
 
@@ -1190,10 +1238,7 @@ class TestPipeline:
         self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
     ) -> None:
         _, protocol = (
-            _plan(backend)
-            .col_drop("active")
-            .math_add("age", 1)
-            .process(basic_rel)
+            _plan(backend).col_drop("active").math_add("age", 1).process(basic_rel)
         )
         assert protocol.input_hash is not None
         assert protocol._input_shape == (5, 5)
@@ -1335,9 +1380,7 @@ class TestCrossBackendSerialization:
         result, _ = restored.process(basic_rel)
         assert "active" not in result.columns
 
-    def test_duckdb_plan_to_polars(
-        self, backend: DuckDBBackend
-    ) -> None:
+    def test_duckdb_plan_to_polars(self, backend: DuckDBBackend) -> None:
         """Plan built with DuckDB can be serialized and run on Polars."""
         import polars as pl
 
@@ -1349,13 +1392,15 @@ class TestCrossBackendSerialization:
         d.pop("backend", None)  # force polars
         restored = TransformPlan.from_dict(d)
 
-        df = pl.DataFrame({
-            "id": [1, 2, 3],
-            "name": ["Alice", "Bob", "Charlie"],
-            "age": [25, 30, 35],
-            "salary": [50000.0, 60000.0, 70000.0],
-            "active": [True, True, False],
-        })
+        df = pl.DataFrame(
+            {
+                "id": [1, 2, 3],
+                "name": ["Alice", "Bob", "Charlie"],
+                "age": [25, 30, 35],
+                "salary": [50000.0, 60000.0, 70000.0],
+                "active": [True, True, False],
+            }
+        )
         result, _ = restored.process(df)
         assert "active" not in result.columns
         assert result["age"].to_list() == [26, 31, 36]
@@ -1379,9 +1424,7 @@ class TestMathDiffFromAgg:
     ) -> None:
         rel = con.sql("SELECT * FROM (VALUES (10), (20), (30)) AS t(val)")
         result, _ = (
-            _plan(backend)
-            .math_diff_from_agg("val", "mean", "diff_mean")
-            .process(rel)
+            _plan(backend).math_diff_from_agg("val", "mean", "diff_mean").process(rel)
         )
         vals = _col_values(result, "diff_mean")
         assert vals == pytest.approx([-10.0, 0.0, 10.0])
@@ -1412,9 +1455,7 @@ class TestMathDiffFromAgg:
             ") AS t(ts)"
         )
         result, _ = (
-            _plan(backend)
-            .math_diff_from_agg("ts", "min", "since_first")
-            .process(rel)
+            _plan(backend).math_diff_from_agg("ts", "min", "since_first").process(rel)
         )
         vals = _col_values(result, "since_first")
         # DuckDB returns INTERVAL; check the timedelta total_seconds

@@ -378,13 +378,13 @@ class TestMathDiffFromAgg:
 
     def test_grouped(self) -> None:
         """Test grouped operation with group_by."""
-        df = pl.DataFrame({
-            "dept": ["A", "A", "B", "B"],
-            "val": [10, 30, 100, 200],
-        })
-        plan = TransformPlan().math_diff_from_agg(
-            "val", "min", "diff", group_by="dept"
+        df = pl.DataFrame(
+            {
+                "dept": ["A", "A", "B", "B"],
+                "val": [10, 30, 100, 200],
+            }
         )
+        plan = TransformPlan().math_diff_from_agg("val", "min", "diff", group_by="dept")
         result, _ = plan.process(df)
         # Group A: min=10, diff=[0, 20]. Group B: min=100, diff=[0, 100]
         assert result["diff"].to_list() == [0, 20, 0, 100]
@@ -398,13 +398,15 @@ class TestMathDiffFromAgg:
 
     def test_datetime_column(self) -> None:
         """Test datetime column produces duration output."""
-        df = pl.DataFrame({
-            "ts": [
-                datetime(2024, 1, 1, 0, 0),
-                datetime(2024, 1, 1, 1, 0),
-                datetime(2024, 1, 1, 3, 0),
-            ],
-        })
+        df = pl.DataFrame(
+            {
+                "ts": [
+                    datetime(2024, 1, 1, 0, 0),
+                    datetime(2024, 1, 1, 1, 0),
+                    datetime(2024, 1, 1, 3, 0),
+                ],
+            }
+        )
         plan = TransformPlan().math_diff_from_agg("ts", "min", "since_first")
         result, _ = plan.process(df)
         assert result["since_first"].dtype == pl.Duration
@@ -414,15 +416,17 @@ class TestMathDiffFromAgg:
 
     def test_datetime_grouped(self) -> None:
         """Test datetime column with group_by — the primary use case."""
-        df = pl.DataFrame({
-            "patient": ["A", "A", "B", "B"],
-            "ts": [
-                datetime(2024, 1, 1, 0, 0),
-                datetime(2024, 1, 1, 2, 0),
-                datetime(2024, 1, 1, 10, 0),
-                datetime(2024, 1, 1, 13, 0),
-            ],
-        })
+        df = pl.DataFrame(
+            {
+                "patient": ["A", "A", "B", "B"],
+                "ts": [
+                    datetime(2024, 1, 1, 0, 0),
+                    datetime(2024, 1, 1, 2, 0),
+                    datetime(2024, 1, 1, 10, 0),
+                    datetime(2024, 1, 1, 13, 0),
+                ],
+            }
+        )
         plan = TransformPlan().math_diff_from_agg(
             "ts", "min", "since_first", group_by="patient"
         )
@@ -455,9 +459,7 @@ class TestMathDiffFromAgg:
 
     def test_serialization_roundtrip(self, numeric_df: pl.DataFrame) -> None:
         """Test JSON serialization round-trip."""
-        plan = TransformPlan().math_diff_from_agg(
-            "a", "min", "diff", group_by="b"
-        )
+        plan = TransformPlan().math_diff_from_agg("a", "min", "diff", group_by="b")
         json_str = plan.to_json()
         restored = TransformPlan.from_json(json_str)
         result1, _ = plan.process(numeric_df)

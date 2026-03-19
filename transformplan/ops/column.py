@@ -62,9 +62,7 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "col_rename", {"column": column, "new_name": new_name}
-        )
+        return self._register("col_rename", {"column": column, "new_name": new_name})
 
     def col_cast(self, column: str, dtype: type) -> Self:
         """Cast a column to a different dtype.
@@ -88,9 +86,7 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "col_duplicate", {"column": column, "new_name": new_name}
-        )
+        return self._register("col_duplicate", {"column": column, "new_name": new_name})
 
     def col_fill_null(
         self,

@@ -106,9 +106,7 @@ class DuckDBBackend(Backend):
         return str(result[0])[:16]
 
     def get_shape(self, data: duckdb.DuckDBPyRelation) -> tuple[int, int]:
-        count_result = self._con.sql(
-            f"SELECT COUNT(*) FROM {_sub(data)}"
-        ).fetchone()
+        count_result = self._con.sql(f"SELECT COUNT(*) FROM {_sub(data)}").fetchone()
         rows = count_result[0] if count_result else 0
         return (rows, len(data.columns))
 
@@ -122,19 +120,38 @@ class DuckDBBackend(Backend):
     # Type system methods (13)
     # =========================================================================
 
-    _NUMERIC_PREFIXES = frozenset({
-        "BIGINT", "INTEGER", "SMALLINT", "TINYINT", "HUGEINT",
-        "UBIGINT", "UINTEGER", "USMALLINT", "UTINYINT",
-        "DOUBLE", "FLOAT", "REAL", "DECIMAL",
-    })
+    _NUMERIC_PREFIXES = frozenset(
+        {
+            "BIGINT",
+            "INTEGER",
+            "SMALLINT",
+            "TINYINT",
+            "HUGEINT",
+            "UBIGINT",
+            "UINTEGER",
+            "USMALLINT",
+            "UTINYINT",
+            "DOUBLE",
+            "FLOAT",
+            "REAL",
+            "DECIMAL",
+        }
+    )
 
     _STRING_PREFIXES = frozenset({"VARCHAR", "TEXT", "STRING", "CHAR", "BLOB"})
 
-    _DATETIME_PREFIXES = frozenset({
-        "DATE", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE",
-        "TIMESTAMP_S", "TIMESTAMP_MS", "TIMESTAMP_NS",
-        "TIME", "INTERVAL",
-    })
+    _DATETIME_PREFIXES = frozenset(
+        {
+            "DATE",
+            "TIMESTAMP",
+            "TIMESTAMP WITH TIME ZONE",
+            "TIMESTAMP_S",
+            "TIMESTAMP_MS",
+            "TIMESTAMP_NS",
+            "TIME",
+            "INTERVAL",
+        }
+    )
 
     def is_numeric_type(self, dtype: Any) -> bool:
         s = str(dtype).upper()
@@ -194,8 +211,7 @@ class DuckDBBackend(Backend):
         self, data: duckdb.DuckDBPyRelation, column: str, new_name: str
     ) -> duckdb.DuckDBPyRelation:
         cols = [
-            f"{_q(c)} AS {_q(new_name)}" if c == column else _q(c)
-            for c in data.columns
+            f"{_q(c)} AS {_q(new_name)}" if c == column else _q(c) for c in data.columns
         ]
         col_list = ", ".join(cols)
         return self._con.sql(f"SELECT {col_list} FROM {_sub(data)}")
@@ -263,14 +279,12 @@ class DuckDBBackend(Backend):
             else:
                 fill_expr = qc
             cols = [
-                f"{fill_expr} AS {qc}" if c == column else _q(c)
-                for c in data.columns
+                f"{fill_expr} AS {qc}" if c == column else _q(c) for c in data.columns
             ]
         else:
             fill_expr = f"COALESCE({qc}, {_v(value)})"
             cols = [
-                f"{fill_expr} AS {qc}" if c == column else _q(c)
-                for c in data.columns
+                f"{fill_expr} AS {qc}" if c == column else _q(c) for c in data.columns
             ]
         col_list = ", ".join(cols)
         return self._con.sql(f"SELECT {col_list} FROM {_sub(data)}")
@@ -285,9 +299,7 @@ class DuckDBBackend(Backend):
     def col_drop_zero(
         self, data: duckdb.DuckDBPyRelation, column: str
     ) -> duckdb.DuckDBPyRelation:
-        return self._con.sql(
-            f"SELECT * FROM {_sub(data)} WHERE {_q(column)} != 0"
-        )
+        return self._con.sql(f"SELECT * FROM {_sub(data)} WHERE {_q(column)} != 0")
 
     def col_add(
         self,
@@ -313,8 +325,7 @@ class DuckDBBackend(Backend):
         count = self.get_shape(data)[0]
         chars = string.ascii_letters + string.digits
         ids = [
-            "".join(secrets.choice(chars) for _ in range(length))
-            for _ in range(count)
+            "".join(secrets.choice(chars) for _ in range(length)) for _ in range(count)
         ]
         # Create a temp table with the IDs and join
         id_values = ", ".join(f"({_v(uid)})" for uid in ids)
@@ -353,8 +364,7 @@ class DuckDBBackend(Backend):
         # Cast all to VARCHAR to handle mixed types (like Polars does)
         coalesce_expr = ", ".join(f"{_q(c)}::VARCHAR" for c in columns)
         return self._con.sql(
-            f"SELECT *, COALESCE({coalesce_expr}) AS {_q(new_column)} "
-            f"FROM {_sub(data)}"
+            f"SELECT *, COALESCE({coalesce_expr}) AS {_q(new_column)} FROM {_sub(data)}"
         )
 
     # =========================================================================
@@ -410,20 +420,14 @@ class DuckDBBackend(Backend):
         self, data: duckdb.DuckDBPyRelation, column: str, min_value: Numeric
     ) -> duckdb.DuckDBPyRelation:
         qc = _q(column)
-        expr = (
-            f"CASE WHEN {qc} < {_v(min_value)} "
-            f"THEN {_v(min_value)} ELSE {qc} END"
-        )
+        expr = f"CASE WHEN {qc} < {_v(min_value)} THEN {_v(min_value)} ELSE {qc} END"
         return self._replace_col(data, column, expr)
 
     def math_set_max(
         self, data: duckdb.DuckDBPyRelation, column: str, max_value: Numeric
     ) -> duckdb.DuckDBPyRelation:
         qc = _q(column)
-        expr = (
-            f"CASE WHEN {qc} > {_v(max_value)} "
-            f"THEN {_v(max_value)} ELSE {qc} END"
-        )
+        expr = f"CASE WHEN {qc} > {_v(max_value)} THEN {_v(max_value)} ELSE {qc} END"
         return self._replace_col(data, column, expr)
 
     def math_add_columns(
@@ -483,8 +487,7 @@ class DuckDBBackend(Backend):
         multiply_by: float,
     ) -> duckdb.DuckDBPyRelation:
         expr = (
-            f"{_q(column)} / {_q(total_column)} * {_v(multiply_by)} "
-            f"AS {_q(new_column)}"
+            f"{_q(column)} / {_q(total_column)} * {_v(multiply_by)} AS {_q(new_column)}"
         )
         return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
 
@@ -588,13 +591,8 @@ class DuckDBBackend(Backend):
             computed_std = float(std if std is not None else (stats[1] or 0.0))
 
         if computed_std == 0:
-            return self._con.sql(
-                f"SELECT *, 0.0 AS {_q(new_column)} FROM {_sub(data)}"
-            )
-        expr = (
-            f"({qc} - {_v(computed_mean)}) / {_v(computed_std)} "
-            f"AS {_q(new_column)}"
-        )
+            return self._con.sql(f"SELECT *, 0.0 AS {_q(new_column)} FROM {_sub(data)}")
+        expr = f"({qc} - {_v(computed_mean)}) / {_v(computed_std)} AS {_q(new_column)}"
         return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
 
     def math_minmax(
@@ -651,9 +649,7 @@ class DuckDBBackend(Backend):
             ciqr = float(iqr if iqr is not None else (stats[1] or 0.0))
 
         if ciqr == 0:
-            return self._con.sql(
-                f"SELECT *, 0.0 AS {_q(new_column)} FROM {_sub(data)}"
-            )
+            return self._con.sql(f"SELECT *, 0.0 AS {_q(new_column)} FROM {_sub(data)}")
         expr = f"({qc} - {_v(cmed)}) / {_v(ciqr)} AS {_q(new_column)}"
         return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
 
@@ -673,9 +669,7 @@ class DuckDBBackend(Backend):
             expr = f"LOG10({inner})"
         else:
             expr = f"LN({inner}) / {_v(math.log(base))}"
-        return self._con.sql(
-            f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}"
-        )
+        return self._con.sql(f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}")
 
     def math_sqrt(
         self, data: duckdb.DuckDBPyRelation, column: str, new_column: str
@@ -731,9 +725,7 @@ class DuckDBBackend(Backend):
             expr = f"GREATEST({_v(lower_bound)}, {expr})"
         if upper_bound is not None:
             expr = f"LEAST({_v(upper_bound)}, {expr})"
-        return self._con.sql(
-            f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}"
-        )
+        return self._con.sql(f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}")
 
     # =========================================================================
     # Row operations (14)
@@ -749,9 +741,7 @@ class DuckDBBackend(Backend):
         self, data: duckdb.DuckDBPyRelation, filter: dict[str, Any]
     ) -> duckdb.DuckDBPyRelation:
         sql_where = Filter.from_dict(filter).to_sql()
-        return self._con.sql(
-            f"SELECT * FROM {_sub(data)} WHERE NOT ({sql_where})"
-        )
+        return self._con.sql(f"SELECT * FROM {_sub(data)} WHERE NOT ({sql_where})")
 
     def rows_drop_nulls(
         self, data: duckdb.DuckDBPyRelation, columns: list[str] | None
@@ -844,9 +834,7 @@ class DuckDBBackend(Backend):
             for col, desc in zip(by, desc_list, strict=False)
         ]
         order_clause = ", ".join(order_parts)
-        return self._con.sql(
-            f"SELECT * FROM {_sub(data)} ORDER BY {order_clause}"
-        )
+        return self._con.sql(f"SELECT * FROM {_sub(data)} ORDER BY {order_clause}")
 
     def rows_head(
         self, data: duckdb.DuckDBPyRelation, n: int
@@ -874,14 +862,12 @@ class DuckDBBackend(Backend):
         seed_clause = f" REPEATABLE({seed})" if seed is not None else ""
         if n is not None:
             return self._con.sql(
-                f"SELECT * FROM {_sub(data)} "
-                f"USING SAMPLE {n} ROWS{seed_clause}"
+                f"SELECT * FROM {_sub(data)} USING SAMPLE {n} ROWS{seed_clause}"
             )
         if fraction is not None:
             pct = fraction * 100
             return self._con.sql(
-                f"SELECT * FROM {_sub(data)} "
-                f"USING SAMPLE {pct} PERCENT{seed_clause}"
+                f"SELECT * FROM {_sub(data)} USING SAMPLE {pct} PERCENT{seed_clause}"
             )
         return data
 
@@ -893,12 +879,9 @@ class DuckDBBackend(Backend):
         qc = _q(column)
         if other_cols:
             return self._con.sql(
-                f"SELECT {other_cols_list}, UNNEST(_t.{qc}) AS {qc} "
-                f"FROM {_sub(data)}"
+                f"SELECT {other_cols_list}, UNNEST(_t.{qc}) AS {qc} FROM {_sub(data)}"
             )
-        return self._con.sql(
-            f"SELECT UNNEST(_t.{qc}) AS {qc} FROM {_sub(data)}"
-        )
+        return self._con.sql(f"SELECT UNNEST(_t.{qc}) AS {qc} FROM {_sub(data)}")
 
     def rows_melt(
         self,
@@ -1008,16 +991,12 @@ class DuckDBBackend(Backend):
         ]
         parts_sql = ", ".join(parts)
         if keep_original:
-            return self._con.sql(
-                f"SELECT *, {parts_sql} FROM {_sub(data)}"
-            )
+            return self._con.sql(f"SELECT *, {parts_sql} FROM {_sub(data)}")
         # Drop original, keep rest plus new
         other_cols = [c for c in data.columns if c != column]
         other_sql = ", ".join(_q(c) for c in other_cols)
         prefix = f"{other_sql}, " if other_sql else ""
-        return self._con.sql(
-            f"SELECT {prefix}{parts_sql} FROM {_sub(data)}"
-        )
+        return self._con.sql(f"SELECT {prefix}{parts_sql} FROM {_sub(data)}")
 
     def str_lower(
         self, data: duckdb.DuckDBPyRelation, column: str
@@ -1061,9 +1040,7 @@ class DuckDBBackend(Backend):
         parts = f" || {_v(separator)} || ".join(
             f"COALESCE({_q(c)}::VARCHAR, '')" for c in columns
         )
-        return self._con.sql(
-            f"SELECT *, {parts} AS {_q(new_column)} FROM {_sub(data)}"
-        )
+        return self._con.sql(f"SELECT *, {parts} AS {_q(new_column)} FROM {_sub(data)}")
 
     def str_extract(
         self,
@@ -1074,9 +1051,7 @@ class DuckDBBackend(Backend):
         new_column: str,
     ) -> duckdb.DuckDBPyRelation:
         expr = f"regexp_extract({_q(column)}, {_v(pattern)}, {group_index})"
-        return self._con.sql(
-            f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}"
-        )
+        return self._con.sql(f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}")
 
     # =========================================================================
     # Datetime operations (13)
@@ -1107,8 +1082,7 @@ class DuckDBBackend(Backend):
         self, data: duckdb.DuckDBPyRelation, column: str, new_column: str
     ) -> duckdb.DuckDBPyRelation:
         return self._con.sql(
-            f"SELECT *, WEEKOFYEAR({_q(column)}) AS {_q(new_column)} "
-            f"FROM {_sub(data)}"
+            f"SELECT *, WEEKOFYEAR({_q(column)}) AS {_q(new_column)} FROM {_sub(data)}"
         )
 
     def dt_quarter(
@@ -1131,24 +1105,17 @@ class DuckDBBackend(Backend):
         self, data: duckdb.DuckDBPyRelation, column: str, new_column: str
     ) -> duckdb.DuckDBPyRelation:
         qc = _q(column)
-        expr = (
-            f"'Q' || QUARTER({qc})::VARCHAR || '-' || YEAR({qc})::VARCHAR"
-        )
-        return self._con.sql(
-            f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}"
-        )
+        expr = f"'Q' || QUARTER({qc})::VARCHAR || '-' || YEAR({qc})::VARCHAR"
+        return self._con.sql(f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}")
 
     def dt_calendar_week(
         self, data: duckdb.DuckDBPyRelation, column: str, new_column: str
     ) -> duckdb.DuckDBPyRelation:
         qc = _q(column)
         expr = (
-            f"ISOYEAR({qc})::VARCHAR || '-W' || "
-            f"LPAD(WEEKOFYEAR({qc})::VARCHAR, 2, '0')"
+            f"ISOYEAR({qc})::VARCHAR || '-W' || LPAD(WEEKOFYEAR({qc})::VARCHAR, 2, '0')"
         )
-        return self._con.sql(
-            f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}"
-        )
+        return self._con.sql(f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}")
 
     def dt_parse(
         self, data: duckdb.DuckDBPyRelation, column: str, fmt: str, new_column: str
@@ -1188,12 +1155,8 @@ class DuckDBBackend(Backend):
         new_column: str,
     ) -> duckdb.DuckDBPyRelation:
         ref = _q(reference_column) if reference_column else "CURRENT_DATE"
-        expr = (
-            f"DATEDIFF('day', {_q(birth_column)}, {ref}) // 365"
-        )
-        return self._con.sql(
-            f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}"
-        )
+        expr = f"DATEDIFF('day', {_q(birth_column)}, {ref}) // 365"
+        return self._con.sql(f"SELECT *, {expr} AS {_q(new_column)} FROM {_sub(data)}")
 
     def dt_truncate(
         self, data: duckdb.DuckDBPyRelation, column: str, every: str, new_column: str
@@ -1268,8 +1231,7 @@ class DuckDBBackend(Backend):
             )
         qc = _q(column)
         case_clauses = " ".join(
-            f"WHEN {qc} = {_v(cond)} THEN {_v(result)}"
-            for cond, result in cases
+            f"WHEN {qc} = {_v(cond)} THEN {_v(result)}" for cond, result in cases
         )
         expr = f"CASE {case_clauses} ELSE {_v(default)} END AS {_q(new_column)}"
         return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
@@ -1285,8 +1247,7 @@ class DuckDBBackend(Backend):
     ) -> duckdb.DuckDBPyRelation:
         # Build lookup from the data itself
         lookup_rows = self._con.sql(
-            f"SELECT DISTINCT {_q(lookup_column)}, {_q(value_column)} "
-            f"FROM {_sub(data)}"
+            f"SELECT DISTINCT {_q(lookup_column)}, {_q(value_column)} FROM {_sub(data)}"
         ).fetchall()
         if not lookup_rows:
             return self._con.sql(
@@ -1296,9 +1257,7 @@ class DuckDBBackend(Backend):
         case_clauses = " ".join(
             f"WHEN {qc} = {_v(row[0])} THEN {_v(row[1])}" for row in lookup_rows
         )
-        expr = (
-            f"CASE {case_clauses} ELSE {_v(default)} END AS {_q(new_column)}"
-        )
+        expr = f"CASE {case_clauses} ELSE {_v(default)} END AS {_q(new_column)}"
         return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
 
     def map_discretize(
@@ -1378,10 +1337,7 @@ class DuckDBBackend(Backend):
                 continue
             col_name = f"{prefix}_{cat}"
             if unknown_value == "all_zero":
-                expr = (
-                    f"CASE WHEN {qc} = {_v(cat)} THEN 1 ELSE 0 END "
-                    f"AS {_q(col_name)}"
-                )
+                expr = f"CASE WHEN {qc} = {_v(cat)} THEN 1 ELSE 0 END AS {_q(col_name)}"
             else:
                 cat_list = ", ".join(_v(c) for c in categories)
                 expr = (
@@ -1392,9 +1348,7 @@ class DuckDBBackend(Backend):
             new_cols.append(expr)
 
         new_cols_sql = ", ".join(new_cols) if new_cols else "1 AS _dummy"
-        result = self._con.sql(
-            f"SELECT *, {new_cols_sql} FROM {_sub(data)}"
-        )
+        result = self._con.sql(f"SELECT *, {new_cols_sql} FROM {_sub(data)}")
 
         if drop_original:
             keep = [c for c in result.columns if c != column]
@@ -1423,19 +1377,14 @@ class DuckDBBackend(Backend):
 
         if not categories:
             return self._con.sql(
-                f"SELECT *, {_v(unknown_value)} AS {_q(new_column)} "
-                f"FROM {_sub(data)}"
+                f"SELECT *, {_v(unknown_value)} AS {_q(new_column)} FROM {_sub(data)}"
             )
 
         qc = _q(column)
         case_clauses = " ".join(
-            f"WHEN {qc} = {_v(cat)} THEN {idx}"
-            for idx, cat in enumerate(categories)
+            f"WHEN {qc} = {_v(cat)} THEN {idx}" for idx, cat in enumerate(categories)
         )
-        expr = (
-            f"CASE {case_clauses} ELSE {_v(unknown_value)} END "
-            f"AS {_q(new_column)}"
-        )
+        expr = f"CASE {case_clauses} ELSE {_v(unknown_value)} END AS {_q(new_column)}"
         result = self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
 
         if drop_original and new_column != column:
@@ -1468,9 +1417,7 @@ class DuckDBBackend(Backend):
     def map_null_to_value(
         self, data: duckdb.DuckDBPyRelation, column: str, value: Any
     ) -> duckdb.DuckDBPyRelation:
-        return self._replace_col(
-            data, column, f"COALESCE({_q(column)}, {_v(value)})"
-        )
+        return self._replace_col(data, column, f"COALESCE({_q(column)}, {_v(value)})")
 
     def map_value_to_null(
         self, data: duckdb.DuckDBPyRelation, column: str, value: Any
@@ -1494,9 +1441,7 @@ class DuckDBBackend(Backend):
         Returns:
             New relation with the column replaced.
         """
-        cols = [
-            f"{expr} AS {_q(c)}" if c == column else _q(c) for c in data.columns
-        ]
+        cols = [f"{expr} AS {_q(c)}" if c == column else _q(c) for c in data.columns]
         col_list = ", ".join(cols)
         return self._con.sql(f"SELECT {col_list} FROM {_sub(data)}")
 

@@ -620,7 +620,9 @@ def _check_column_numeric(
     dtype = tracker.get_dtype(column)
     if dtype and not tracker.is_numeric(dtype):
         result.add_error(
-            step, op_name, f"Column '{column}' is {tracker.type_name(dtype)}, expected numeric"
+            step,
+            op_name,
+            f"Column '{column}' is {tracker.type_name(dtype)}, expected numeric",
         )
         return False
     return True
@@ -641,7 +643,9 @@ def _check_column_string(
     dtype = tracker.get_dtype(column)
     if dtype and not tracker.is_string(dtype):
         result.add_error(
-            step, op_name, f"Column '{column}' is {tracker.type_name(dtype)}, expected string"
+            step,
+            op_name,
+            f"Column '{column}' is {tracker.type_name(dtype)}, expected string",
         )
         return False
     return True
@@ -779,7 +783,9 @@ def _validate_col_add(
         if expr:
             tracker.add_column(new_column, tracker.get_dtype(expr))
         else:
-            tracker.add_column(new_column, tracker.string_type)  # default to string for literals
+            tracker.add_column(
+                new_column, tracker.string_type
+            )  # default to string for literals
 
 
 def _validate_col_add_uuid(
@@ -1676,7 +1682,6 @@ def dry_run_schema(
     steps: list[DryRunStep] = []
 
     for step_num, (op_name, params) in enumerate(operations, start=1):
-
         # Capture schema before
         schema_before = {k: tracker.type_name(v) for k, v in tracker._schema.items()}
         cols_before = set(tracker._schema.keys())

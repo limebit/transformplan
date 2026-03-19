@@ -124,9 +124,7 @@ class MapOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "map_null_to_value", {"column": column, "value": value}
-        )
+        return self._register("map_null_to_value", {"column": column, "value": value})
 
     def map_value_to_null(self, column: str, value: Any) -> Self:  # noqa: ANN401
         """Replace a specific value with null.
@@ -134,9 +132,7 @@ class MapOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "map_value_to_null", {"column": column, "value": value}
-        )
+        return self._register("map_value_to_null", {"column": column, "value": value})
 
     def map_case(
         self,

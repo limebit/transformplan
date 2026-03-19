@@ -134,29 +134,19 @@ class Backend(ABC):
     def col_drop(self, data: Any, column: str) -> Any: ...
 
     @abstractmethod
-    def col_rename(
-        self, data: Any, column: str, new_name: str
-    ) -> Any: ...
+    def col_rename(self, data: Any, column: str, new_name: str) -> Any: ...
 
     @abstractmethod
-    def col_cast(
-        self, data: Any, column: str, dtype: type
-    ) -> Any: ...
+    def col_cast(self, data: Any, column: str, dtype: type) -> Any: ...
 
     @abstractmethod
-    def col_reorder(
-        self, data: Any, columns: list[str]
-    ) -> Any: ...
+    def col_reorder(self, data: Any, columns: list[str]) -> Any: ...
 
     @abstractmethod
-    def col_select(
-        self, data: Any, columns: list[str]
-    ) -> Any: ...
+    def col_select(self, data: Any, columns: list[str]) -> Any: ...
 
     @abstractmethod
-    def col_duplicate(
-        self, data: Any, column: str, new_name: str
-    ) -> Any: ...
+    def col_duplicate(self, data: Any, column: str, new_name: str) -> Any: ...
 
     @abstractmethod
     def col_fill_null(
@@ -168,14 +158,10 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def col_drop_null(
-        self, data: Any, columns: list[str] | None
-    ) -> Any: ...
+    def col_drop_null(self, data: Any, columns: list[str] | None) -> Any: ...
 
     @abstractmethod
-    def col_drop_zero(
-        self, data: Any, column: str
-    ) -> Any: ...
+    def col_drop_zero(self, data: Any, column: str) -> Any: ...
 
     @abstractmethod
     def col_add(
@@ -187,9 +173,7 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def col_add_uuid(
-        self, data: Any, column: str, length: int
-    ) -> Any: ...
+    def col_add_uuid(self, data: Any, column: str, length: int) -> Any: ...
 
     @abstractmethod
     def col_hash(
@@ -201,33 +185,23 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def col_coalesce(
-        self, data: Any, columns: list[str], new_column: str
-    ) -> Any: ...
+    def col_coalesce(self, data: Any, columns: list[str], new_column: str) -> Any: ...
 
     # =========================================================================
     # Math operations (27)
     # =========================================================================
 
     @abstractmethod
-    def math_add(
-        self, data: Any, column: str, value: Numeric
-    ) -> Any: ...
+    def math_add(self, data: Any, column: str, value: Numeric) -> Any: ...
 
     @abstractmethod
-    def math_subtract(
-        self, data: Any, column: str, value: Numeric
-    ) -> Any: ...
+    def math_subtract(self, data: Any, column: str, value: Numeric) -> Any: ...
 
     @abstractmethod
-    def math_multiply(
-        self, data: Any, column: str, value: Numeric
-    ) -> Any: ...
+    def math_multiply(self, data: Any, column: str, value: Numeric) -> Any: ...
 
     @abstractmethod
-    def math_divide(
-        self, data: Any, column: str, value: Numeric
-    ) -> Any: ...
+    def math_divide(self, data: Any, column: str, value: Numeric) -> Any: ...
 
     @abstractmethod
     def math_clamp(
@@ -242,19 +216,13 @@ class Backend(ABC):
     def math_abs(self, data: Any, column: str) -> Any: ...
 
     @abstractmethod
-    def math_round(
-        self, data: Any, column: str, decimals: int
-    ) -> Any: ...
+    def math_round(self, data: Any, column: str, decimals: int) -> Any: ...
 
     @abstractmethod
-    def math_set_min(
-        self, data: Any, column: str, min_value: Numeric
-    ) -> Any: ...
+    def math_set_min(self, data: Any, column: str, min_value: Numeric) -> Any: ...
 
     @abstractmethod
-    def math_set_max(
-        self, data: Any, column: str, max_value: Numeric
-    ) -> Any: ...
+    def math_set_max(self, data: Any, column: str, max_value: Numeric) -> Any: ...
 
     @abstractmethod
     def math_add_columns(
@@ -374,9 +342,7 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def math_sqrt(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def math_sqrt(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
     def math_power(
@@ -404,19 +370,13 @@ class Backend(ABC):
     # =========================================================================
 
     @abstractmethod
-    def rows_filter(
-        self, data: Any, filter: dict[str, Any]
-    ) -> Any: ...
+    def rows_filter(self, data: Any, filter: dict[str, Any]) -> Any: ...
 
     @abstractmethod
-    def rows_drop(
-        self, data: Any, filter: dict[str, Any]
-    ) -> Any: ...
+    def rows_drop(self, data: Any, filter: dict[str, Any]) -> Any: ...
 
     @abstractmethod
-    def rows_drop_nulls(
-        self, data: Any, columns: list[str] | None
-    ) -> Any: ...
+    def rows_drop_nulls(self, data: Any, columns: list[str] | None) -> Any: ...
 
     @abstractmethod
     def rows_flag(
@@ -470,9 +430,7 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def rows_explode(
-        self, data: Any, column: str
-    ) -> Any: ...
+    def rows_explode(self, data: Any, column: str) -> Any: ...
 
     @abstractmethod
     def rows_melt(
@@ -537,19 +495,13 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def str_lower(
-        self, data: Any, column: str
-    ) -> Any: ...
+    def str_lower(self, data: Any, column: str) -> Any: ...
 
     @abstractmethod
-    def str_upper(
-        self, data: Any, column: str
-    ) -> Any: ...
+    def str_upper(self, data: Any, column: str) -> Any: ...
 
     @abstractmethod
-    def str_strip(
-        self, data: Any, column: str, chars: str | None
-    ) -> Any: ...
+    def str_strip(self, data: Any, column: str, chars: str | None) -> Any: ...
 
     @abstractmethod
     def str_pad(
@@ -585,29 +537,19 @@ class Backend(ABC):
     # =========================================================================
 
     @abstractmethod
-    def dt_year(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def dt_year(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
-    def dt_month(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def dt_month(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
-    def dt_day(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def dt_day(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
-    def dt_week(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def dt_week(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
-    def dt_quarter(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def dt_quarter(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
     def dt_year_month(
@@ -615,24 +557,16 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def dt_quarter_year(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def dt_quarter_year(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
-    def dt_calendar_week(
-        self, data: Any, column: str, new_column: str
-    ) -> Any: ...
+    def dt_calendar_week(self, data: Any, column: str, new_column: str) -> Any: ...
 
     @abstractmethod
-    def dt_parse(
-        self, data: Any, column: str, fmt: str, new_column: str
-    ) -> Any: ...
+    def dt_parse(self, data: Any, column: str, fmt: str, new_column: str) -> Any: ...
 
     @abstractmethod
-    def dt_format(
-        self, data: Any, column: str, fmt: str, new_column: str
-    ) -> Any: ...
+    def dt_format(self, data: Any, column: str, fmt: str, new_column: str) -> Any: ...
 
     @abstractmethod
     def dt_diff_days(
@@ -749,16 +683,10 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
-    def map_bool_to_int(
-        self, data: Any, column: str
-    ) -> Any: ...
+    def map_bool_to_int(self, data: Any, column: str) -> Any: ...
 
     @abstractmethod
-    def map_null_to_value(
-        self, data: Any, column: str, value: Any
-    ) -> Any: ...
+    def map_null_to_value(self, data: Any, column: str, value: Any) -> Any: ...
 
     @abstractmethod
-    def map_value_to_null(
-        self, data: Any, column: str, value: Any
-    ) -> Any: ...
+    def map_value_to_null(self, data: Any, column: str, value: Any) -> Any: ...
