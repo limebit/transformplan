@@ -30,7 +30,7 @@ from transformplan.chunking import (
     ChunkValidationResult,
     validate_chunked_pipeline,
 )
-from transformplan.protocol import Protocol, frame_hash
+from transformplan.protocol import Protocol
 from transformplan.validation import (
     DryRunResult,
     ValidationResult,
@@ -97,14 +97,18 @@ class TransformPlanBase:
         Returns:
             Tuple of (processed DataFrame, Protocol).
         """
-        if validate:
-            validate_schema(self._operations, dict(data.schema)).raise_if_invalid()
+        if validate and isinstance(self._backend, PolarsBackend):
+            validate_schema(
+                self._operations, self._backend.get_schema(data)
+            ).raise_if_invalid()
 
         protocol = Protocol()
-        protocol.set_input(frame_hash(data), data.shape)
+        protocol.set_input(
+            self._backend.compute_hash(data), self._backend.get_shape(data)
+        )
 
         for op_name, params in self._operations:
-            old_shape = data.shape
+            old_shape = self._backend.get_shape(data)
             start = time.perf_counter()
 
             data = getattr(self._backend, op_name)(data, **params)
@@ -114,9 +118,9 @@ class TransformPlanBase:
                 operation=op_name,
                 params=params,
                 old_shape=old_shape,
-                new_shape=data.shape,
+                new_shape=self._backend.get_shape(data),
                 elapsed=elapsed,
-                output_hash=frame_hash(data),
+                output_hash=self._backend.compute_hash(data),
             )
 
         return data, protocol
@@ -139,7 +143,7 @@ class TransformPlanBase:
             else:
                 df, protocol = plan.process(df)
         """
-        return validate_schema(self._operations, dict(data.schema))
+        return validate_schema(self._operations, self._backend.get_schema(data))
 
     def dry_run(self, data: pl.DataFrame) -> DryRunResult:
         """Preview what the pipeline will do without executing it.
@@ -165,7 +169,7 @@ class TransformPlanBase:
             if preview.is_valid:
                 df, protocol = plan.process(df)
         """
-        return dry_run_schema(self._operations, dict(data.schema))
+        return dry_run_schema(self._operations, self._backend.get_schema(data))
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the pipeline to a dictionary.
@@ -210,11 +214,18 @@ class TransformPlanBase:
         """
         # Read backend from serialized data (default: polars)
         backend_name = data.get("backend", "polars")
-        if backend_name != "polars":
+        backend: Backend | None = None
+        if backend_name == "polars":
+            backend = None  # default
+        elif backend_name == "duckdb":
+            from transformplan.backends.duckdb import DuckDBBackend
+
+            backend = DuckDBBackend()
+        else:
             msg = f"Unsupported backend: {backend_name}"
             raise ValueError(msg)
 
-        plan = cls()
+        plan = cls(backend=backend)
 
         for step in data.get("steps", []):
             op_name = step["operation"]
@@ -528,14 +539,14 @@ class TransformPlanBase:
 
         for chunk_index, chunk_df in enumerate(chunk_iter):
             start = time.perf_counter()
-            input_hash = frame_hash(chunk_df)
+            input_hash = self._backend.compute_hash(chunk_df)
             input_rows = len(chunk_df)
 
             # Apply all operations to this chunk
             for op_name, params in self._operations:
                 chunk_df = getattr(self._backend, op_name)(chunk_df, **params)
 
-            output_hash = frame_hash(chunk_df)
+            output_hash = self._backend.compute_hash(chunk_df)
             elapsed = time.perf_counter() - start
 
             protocol.add_chunk(

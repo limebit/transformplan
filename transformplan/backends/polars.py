@@ -14,11 +14,12 @@ import hashlib
 import math
 import secrets
 import string
-from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
+from typing import Any, Literal, Sequence, cast
 
 import polars as pl
 
 from transformplan.backends.base import (
+    AggFunction,
     Backend,
     ClosedInterval,
     FeatureRange,
@@ -27,13 +28,27 @@ from transformplan.backends.base import (
     RankMethod,
 )
 from transformplan.filters import Filter
-
-if TYPE_CHECKING:
-    from polars._typing import PivotAgg
+from transformplan.protocol import frame_hash
 
 
 class PolarsBackend(Backend):
     """Backend implementation using Polars for all operations."""
+
+    # =========================================================================
+    # Meta methods (4)
+    # =========================================================================
+
+    def compute_hash(self, data: pl.DataFrame) -> str:
+        return frame_hash(data)
+
+    def get_shape(self, data: pl.DataFrame) -> tuple[int, int]:
+        return data.shape
+
+    def get_columns(self, data: pl.DataFrame) -> list[str]:
+        return data.columns
+
+    def get_schema(self, data: pl.DataFrame) -> dict[str, Any]:
+        return dict(data.schema)
 
     # =========================================================================
     # Column operations (13)
@@ -511,7 +526,7 @@ class PolarsBackend(Backend):
         index: list[str],
         columns: str,
         values: str,
-        aggregate_function: PivotAgg,
+        aggregate_function: AggFunction,
     ) -> pl.DataFrame:
         return data.pivot(
             index=index,
