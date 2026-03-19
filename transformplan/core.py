@@ -17,11 +17,12 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 from typing import Protocol as TypingProtocol
 
 import polars as pl
 
+from transformplan.backends.polars import PolarsBackend
 from transformplan.chunking import (
     ChunkedProtocol,
     ChunkInfo,
@@ -42,13 +43,15 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
+    from transformplan.backends.base import Backend
+
 
 class HasRegister(TypingProtocol):
     """Protocol for mixins that need access to _register."""
 
     def _register(
         self,
-        method: Callable[..., pl.DataFrame],
+        op_name: str,
         params: dict[str, Any],
     ) -> Self: ...
 
@@ -58,13 +61,18 @@ class TransformPlanBase:
 
     VERSION = "1.0"
 
-    def __init__(self) -> None:
-        """Initialize an empty TransformPlanBase."""
-        self._operations: list[tuple[Callable[..., pl.DataFrame], dict[str, Any]]] = []
+    def __init__(self, backend: Backend | None = None) -> None:
+        """Initialize an empty TransformPlanBase.
+
+        Args:
+            backend: Backend to use for execution. Defaults to PolarsBackend.
+        """
+        self._operations: list[tuple[str, dict[str, Any]]] = []
+        self._backend: Backend = backend or PolarsBackend()
 
     def _register(
         self,
-        method: Callable[..., pl.DataFrame],
+        op_name: str,
         params: dict[str, Any],
     ) -> Self:
         """Register an operation for deferred execution.
@@ -72,7 +80,7 @@ class TransformPlanBase:
         Returns:
             Self for method chaining.
         """
-        self._operations.append((method, params))
+        self._operations.append((op_name, params))
         return self
 
     def process(
@@ -95,15 +103,15 @@ class TransformPlanBase:
         protocol = Protocol()
         protocol.set_input(frame_hash(data), data.shape)
 
-        for method, params in self._operations:
+        for op_name, params in self._operations:
             old_shape = data.shape
             start = time.perf_counter()
 
-            data = method(data, **params)
+            data = getattr(self._backend, op_name)(data, **params)
 
             elapsed = time.perf_counter() - start
             protocol.add_step(
-                operation=method.__name__.lstrip("_"),
+                operation=op_name,
                 params=params,
                 old_shape=old_shape,
                 new_shape=data.shape,
@@ -166,8 +174,7 @@ class TransformPlanBase:
             Dictionary representation of the pipeline.
         """
         steps = []
-        for method, params in self._operations:
-            op_name = method.__name__.lstrip("_")
+        for op_name, params in self._operations:
             steps.append(
                 {
                     "operation": op_name,
@@ -175,10 +182,18 @@ class TransformPlanBase:
                 }
             )
 
-        return {
+        result: dict[str, Any] = {
             "version": self.VERSION,
             "steps": steps,
         }
+
+        # Include backend identifier for forward compatibility
+        if not isinstance(self._backend, PolarsBackend):
+            result["backend"] = type(self._backend).__name__.lower().replace(
+                "backend", ""
+            )
+
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
@@ -193,6 +208,12 @@ class TransformPlanBase:
         Raises:
             ValueError: If an unknown operation is encountered.
         """
+        # Read backend from serialized data (default: polars)
+        backend_name = data.get("backend", "polars")
+        if backend_name != "polars":
+            msg = f"Unsupported backend: {backend_name}"
+            raise ValueError(msg)
+
         plan = cls()
 
         for step in data.get("steps", []):
@@ -272,8 +293,7 @@ class TransformPlanBase:
         lines = ["from transformplan import TransformPlan, Col", ""]
         lines.extend((f"{variable_name} = (", "    TransformPlan()"))
 
-        for method, params in self._operations:
-            op_name = method.__name__.lstrip("_")
+        for op_name, params in self._operations:
             param_str = self._format_params_as_python(params)
             lines.append(f"    .{op_name}({param_str})")
 
@@ -495,8 +515,8 @@ class TransformPlanBase:
 
         # Record operations
         operations_list = [
-            {"operation": method.__name__.lstrip("_"), "params": params}
-            for method, params in self._operations
+            {"operation": op_name, "params": params}
+            for op_name, params in self._operations
         ]
         protocol.set_operations(operations_list)
 
@@ -512,8 +532,8 @@ class TransformPlanBase:
             input_rows = len(chunk_df)
 
             # Apply all operations to this chunk
-            for method, params in self._operations:
-                chunk_df = method(chunk_df, **params)
+            for op_name, params in self._operations:
+                chunk_df = getattr(self._backend, op_name)(chunk_df, **params)
 
             output_hash = frame_hash(chunk_df)
             elapsed = time.perf_counter() - start

@@ -19,8 +19,15 @@ Example:
     >>> result, protocol = plan.process(df)
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from transformplan.core import TransformPlanBase
 from transformplan.ops import ColumnOps, DatetimeOps, MapOps, MathOps, RowOps, StrOps
+
+if TYPE_CHECKING:
+    from transformplan.backends.base import Backend
 
 
 class TransformPlan(
@@ -44,4 +51,10 @@ class TransformPlan(
         )
     """
 
-    pass
+    def __init__(self, backend: Backend | None = None) -> None:
+        """Initialize TransformPlan with optional backend.
+
+        Args:
+            backend: Backend to use for execution. Defaults to PolarsBackend.
+        """
+        super().__init__(backend=backend)

@@ -1486,12 +1486,12 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
 
 
 def validate_schema(
-    operations: list[tuple[Any, dict[str, Any]]], schema: dict[str, pl.DataType]
+    operations: list[tuple[str, dict[str, Any]]], schema: dict[str, pl.DataType]
 ) -> ValidationResult:
     """Validate all operations against the given schema.
 
     Args:
-        operations: List of (method, params) tuples from TransformPlan.
+        operations: List of (op_name, params) tuples from TransformPlan.
         schema: Initial DataFrame schema.
 
     Returns:
@@ -1500,8 +1500,7 @@ def validate_schema(
     result = ValidationResult()
     tracker = SchemaTracker(schema)
 
-    for step, (method, params) in enumerate(operations, start=1):
-        op_name = method.__name__.lstrip("_")
+    for step, (op_name, params) in enumerate(operations, start=1):
         validator = _VALIDATORS.get(op_name)
         if validator:
             validator(tracker, params, result, step)
@@ -1510,12 +1509,12 @@ def validate_schema(
 
 
 def dry_run_schema(
-    operations: list[tuple[Any, dict[str, Any]]], schema: dict[str, pl.DataType]
+    operations: list[tuple[str, dict[str, Any]]], schema: dict[str, pl.DataType]
 ) -> DryRunResult:
     """Perform a dry run showing what each operation will do.
 
     Args:
-        operations: List of (method, params) tuples from TransformPlan.
+        operations: List of (op_name, params) tuples from TransformPlan.
         schema: Initial DataFrame schema.
 
     Returns:
@@ -1525,8 +1524,7 @@ def dry_run_schema(
     tracker = SchemaTracker(schema)
     steps: list[DryRunStep] = []
 
-    for step_num, (method, params) in enumerate(operations, start=1):
-        op_name = method.__name__.lstrip("_")
+    for step_num, (op_name, params) in enumerate(operations, start=1):
 
         # Capture schema before
         schema_before = {k: dtype_name(v) for k, v in tracker._schema.items()}

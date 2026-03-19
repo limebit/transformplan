@@ -47,13 +47,10 @@ Example:
 
 from __future__ import annotations
 
-import math
-from typing import TYPE_CHECKING, Literal, Union, cast
-
-import polars as pl
+from typing import TYPE_CHECKING, Literal, Union
 
 if TYPE_CHECKING:
-    from typing import Any, Callable
+    from typing import Any
 
     from typing_extensions import Self
 
@@ -69,7 +66,7 @@ class MathOps:
 
         def _register(
             self,
-            method: Callable[..., pl.DataFrame],
+            op_name: str,
             params: dict[str, Any],
         ) -> Self: ...
 
@@ -79,12 +76,7 @@ class MathOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._math_add, {"column": column, "value": value})
-
-    def _math_add(
-        self, data: pl.DataFrame, column: str, value: Numeric
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column) + value)
+        return self._register("math_add", {"column": column, "value": value})
 
     def math_subtract(self, column: str, value: Numeric) -> Self:
         """Subtract a scalar value from a column.
@@ -92,12 +84,7 @@ class MathOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._math_subtract, {"column": column, "value": value})
-
-    def _math_subtract(
-        self, data: pl.DataFrame, column: str, value: Numeric
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column) - value)
+        return self._register("math_subtract", {"column": column, "value": value})
 
     def math_multiply(self, column: str, value: Numeric) -> Self:
         """Multiply a column by a scalar value.
@@ -105,12 +92,7 @@ class MathOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._math_multiply, {"column": column, "value": value})
-
-    def _math_multiply(
-        self, data: pl.DataFrame, column: str, value: Numeric
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column) * value)
+        return self._register("math_multiply", {"column": column, "value": value})
 
     def math_divide(self, column: str, value: Numeric) -> Self:
         """Divide a column by a scalar value.
@@ -118,12 +100,7 @@ class MathOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._math_divide, {"column": column, "value": value})
-
-    def _math_divide(
-        self, data: pl.DataFrame, column: str, value: Numeric
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column) / value)
+        return self._register("math_divide", {"column": column, "value": value})
 
     def math_clamp(
         self,
@@ -137,17 +114,8 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_clamp, {"column": column, "lower": lower, "upper": upper}
+            "math_clamp", {"column": column, "lower": lower, "upper": upper}
         )
-
-    def _math_clamp(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        lower: Numeric | None,
-        upper: Numeric | None,
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).clip(lower, upper))
 
     def math_add_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
         """Add two columns together into a new column.
@@ -156,15 +124,8 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_add_columns,
+            "math_add_columns",
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
-        )
-
-    def _math_add_columns(
-        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            (pl.col(column_a) + pl.col(column_b)).alias(new_column)
         )
 
     def math_subtract_columns(
@@ -176,15 +137,8 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_subtract_columns,
+            "math_subtract_columns",
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
-        )
-
-    def _math_subtract_columns(
-        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            (pl.col(column_a) - pl.col(column_b)).alias(new_column)
         )
 
     def math_multiply_columns(
@@ -196,15 +150,8 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_multiply_columns,
+            "math_multiply_columns",
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
-        )
-
-    def _math_multiply_columns(
-        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            (pl.col(column_a) * pl.col(column_b)).alias(new_column)
         )
 
     def math_divide_columns(
@@ -216,15 +163,8 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_divide_columns,
+            "math_divide_columns",
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
-        )
-
-    def _math_divide_columns(
-        self, data: pl.DataFrame, column_a: str, column_b: str, new_column: str
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            (pl.col(column_a) / pl.col(column_b)).alias(new_column)
         )
 
     def math_set_min(self, column: str, min_value: Numeric) -> Self:
@@ -234,17 +174,7 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_set_min, {"column": column, "min_value": min_value}
-        )
-
-    def _math_set_min(
-        self, data: pl.DataFrame, column: str, min_value: Numeric
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            pl.when(pl.col(column) < min_value)
-            .then(min_value)
-            .otherwise(pl.col(column))
-            .alias(column)
+            "math_set_min", {"column": column, "min_value": min_value}
         )
 
     def math_set_max(self, column: str, max_value: Numeric) -> Self:
@@ -254,17 +184,7 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_set_max, {"column": column, "max_value": max_value}
-        )
-
-    def _math_set_max(
-        self, data: pl.DataFrame, column: str, max_value: Numeric
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            pl.when(pl.col(column) > max_value)
-            .then(max_value)
-            .otherwise(pl.col(column))
-            .alias(column)
+            "math_set_max", {"column": column, "max_value": max_value}
         )
 
     def math_abs(self, column: str) -> Self:
@@ -273,10 +193,7 @@ class MathOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._math_abs, {"column": column})
-
-    def _math_abs(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).abs())
+        return self._register("math_abs", {"column": column})
 
     def math_round(self, column: str, decimals: int = 0) -> Self:
         """Round a column to specified decimal places.
@@ -285,13 +202,8 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_round, {"column": column, "decimals": decimals}
+            "math_round", {"column": column, "decimals": decimals}
         )
-
-    def _math_round(
-        self, data: pl.DataFrame, column: str, decimals: int
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).round(decimals))
 
     def math_percent_of(
         self,
@@ -312,25 +224,13 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_percent_of,
+            "math_percent_of",
             {
                 "column": column,
                 "total_column": total_column,
                 "new_column": new_column,
                 "multiply_by": multiply_by,
             },
-        )
-
-    def _math_percent_of(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        total_column: str,
-        new_column: str,
-        multiply_by: float,
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            (pl.col(column) / pl.col(total_column) * multiply_by).alias(new_column)
         )
 
     def math_cumsum(
@@ -352,26 +252,13 @@ class MathOps:
         if isinstance(group_by, str):
             group_by = [group_by]
         return self._register(
-            self._math_cumsum,
+            "math_cumsum",
             {
                 "column": column,
                 "new_column": new_column or column,
                 "group_by": group_by,
             },
         )
-
-    def _math_cumsum(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        new_column: str,
-        group_by: list[str] | None,
-    ) -> pl.DataFrame:
-        if group_by:
-            return data.with_columns(
-                pl.col(column).cum_sum().over(group_by).alias(new_column)
-            )
-        return data.with_columns(pl.col(column).cum_sum().alias(new_column))
 
     def math_rank(
         self,
@@ -397,7 +284,7 @@ class MathOps:
         if isinstance(group_by, str):
             group_by = [group_by]
         return self._register(
-            self._math_rank,
+            "math_rank",
             {
                 "column": column,
                 "new_column": new_column,
@@ -406,20 +293,6 @@ class MathOps:
                 "group_by": group_by,
             },
         )
-
-    def _math_rank(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        new_column: str,
-        method: RankMethod,
-        descending: bool,  # noqa: FBT001
-        group_by: list[str] | None,
-    ) -> pl.DataFrame:
-        expr = pl.col(column).rank(method=method, descending=descending)
-        if group_by:
-            expr = expr.over(group_by)
-        return data.with_columns(expr.alias(new_column))
 
     # =========================================================================
     # Scaling Operations
@@ -445,36 +318,13 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_standardize,
+            "math_standardize",
             {
                 "column": column,
                 "mean": mean,
                 "std": std,
                 "new_column": new_column or column,
             },
-        )
-
-    def _math_standardize(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        mean: Numeric | None,
-        std: Numeric | None,
-        new_column: str,
-    ) -> pl.DataFrame:
-        computed_mean = (
-            float(mean)
-            if mean is not None
-            else cast("float", data[column].mean()) or 0.0
-        )
-        computed_std = (
-            float(std) if std is not None else cast("float", data[column].std()) or 0.0
-        )
-        if computed_std == 0:
-            # Avoid division by zero - return zeros
-            return data.with_columns(pl.lit(0.0).alias(new_column))
-        return data.with_columns(
-            ((pl.col(column) - computed_mean) / computed_std).alias(new_column)
         )
 
     def math_minmax(
@@ -499,7 +349,7 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_minmax,
+            "math_minmax",
             {
                 "column": column,
                 "min_val": min_val,
@@ -507,38 +357,6 @@ class MathOps:
                 "feature_range": feature_range,
                 "new_column": new_column or column,
             },
-        )
-
-    def _math_minmax(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        min_val: Numeric | None,
-        max_val: Numeric | None,
-        feature_range: FeatureRange,
-        new_column: str,
-    ) -> pl.DataFrame:
-        computed_min = (
-            float(min_val)
-            if min_val is not None
-            else cast("float", data[column].min()) or 0.0
-        )
-        computed_max = (
-            float(max_val)
-            if max_val is not None
-            else cast("float", data[column].max()) or 0.0
-        )
-        a, b = feature_range
-        if computed_max == computed_min:
-            # All values are the same - return midpoint of range
-            return data.with_columns(pl.lit((a + b) / 2).alias(new_column))
-        return data.with_columns(
-            (
-                a
-                + (pl.col(column) - computed_min)
-                * (b - a)
-                / (computed_max - computed_min)
-            ).alias(new_column)
         )
 
     def math_robust_scale(
@@ -563,39 +381,13 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_robust_scale,
+            "math_robust_scale",
             {
                 "column": column,
                 "median": median,
                 "iqr": iqr,
                 "new_column": new_column or column,
             },
-        )
-
-    def _math_robust_scale(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        median: Numeric | None,
-        iqr: Numeric | None,
-        new_column: str,
-    ) -> pl.DataFrame:
-        computed_median = (
-            float(median)
-            if median is not None
-            else cast("float", data[column].median()) or 0.0
-        )
-        if iqr is None:
-            q1 = cast("float", data[column].quantile(0.25)) or 0.0
-            q3 = cast("float", data[column].quantile(0.75)) or 0.0
-            computed_iqr = q3 - q1
-        else:
-            computed_iqr = float(iqr)
-        if computed_iqr == 0:
-            # Avoid division by zero - return zeros
-            return data.with_columns(pl.lit(0.0).alias(new_column))
-        return data.with_columns(
-            ((pl.col(column) - computed_median) / computed_iqr).alias(new_column)
         )
 
     # =========================================================================
@@ -622,7 +414,7 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_log,
+            "math_log",
             {
                 "column": column,
                 "base": base,
@@ -630,24 +422,6 @@ class MathOps:
                 "new_column": new_column or column,
             },
         )
-
-    def _math_log(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        base: Numeric | None,
-        offset: Numeric,
-        new_column: str,
-    ) -> pl.DataFrame:
-        expr = pl.col(column) + offset
-        if base is None:
-            expr = expr.log()
-        elif base == 10:
-            expr = expr.log10()
-        else:
-            # log_b(x) = ln(x) / ln(b)
-            expr = expr.log() / math.log(base)
-        return data.with_columns(expr.alias(new_column))
 
     def math_sqrt(
         self,
@@ -665,20 +439,12 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_sqrt,
+            "math_sqrt",
             {
                 "column": column,
                 "new_column": new_column or column,
             },
         )
-
-    def _math_sqrt(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        new_column: str,
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).sqrt().alias(new_column))
 
     def math_power(
         self,
@@ -698,22 +464,13 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_power,
+            "math_power",
             {
                 "column": column,
                 "exponent": exponent,
                 "new_column": new_column or column,
             },
         )
-
-    def _math_power(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        exponent: Numeric,
-        new_column: str,
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).pow(exponent).alias(new_column))
 
     # =========================================================================
     # Outlier Handling
@@ -746,7 +503,7 @@ class MathOps:
             Self for method chaining.
         """
         return self._register(
-            self._math_winsorize,
+            "math_winsorize",
             {
                 "column": column,
                 "lower": lower,
@@ -755,32 +512,4 @@ class MathOps:
                 "upper_value": upper_value,
                 "new_column": new_column or column,
             },
-        )
-
-    def _math_winsorize(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        lower: Numeric | None,
-        upper: Numeric | None,
-        lower_value: Numeric | None,
-        upper_value: Numeric | None,
-        new_column: str,
-    ) -> pl.DataFrame:
-        # Determine lower bound
-        lower_bound: float | None = (
-            float(lower_value) if lower_value is not None else None
-        )
-        if lower_bound is None and lower is not None:
-            lower_bound = cast("float", data[column].quantile(lower))
-
-        # Determine upper bound
-        upper_bound: float | None = (
-            float(upper_value) if upper_value is not None else None
-        )
-        if upper_bound is None and upper is not None:
-            upper_bound = cast("float", data[column].quantile(upper))
-
-        return data.with_columns(
-            pl.col(column).clip(lower_bound, upper_bound).alias(new_column)
         )

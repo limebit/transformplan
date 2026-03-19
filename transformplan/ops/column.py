@@ -27,15 +27,10 @@ Example:
 
 from __future__ import annotations
 
-import hashlib
-import secrets
-import string
 from typing import TYPE_CHECKING, Any, Literal, Sequence
 
-import polars as pl
-
 if TYPE_CHECKING:
-    from typing import Any, Callable
+    from typing import Any
 
     from typing_extensions import Self
 
@@ -49,7 +44,7 @@ class ColumnOps:
 
         def _register(
             self,
-            method: Callable[..., pl.DataFrame],
+            op_name: str,
             params: dict[str, Any],
         ) -> Self: ...
 
@@ -59,10 +54,7 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._col_drop, {"column": column})
-
-    def _col_drop(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
-        return data.drop(column)
+        return self._register("col_drop", {"column": column})
 
     def col_rename(self, column: str, new_name: str) -> Self:
         """Rename a column.
@@ -71,13 +63,8 @@ class ColumnOps:
             Self for method chaining.
         """
         return self._register(
-            self._col_rename, {"column": column, "new_name": new_name}
+            "col_rename", {"column": column, "new_name": new_name}
         )
-
-    def _col_rename(
-        self, data: pl.DataFrame, column: str, new_name: str
-    ) -> pl.DataFrame:
-        return data.rename({column: new_name})
 
     def col_cast(self, column: str, dtype: type) -> Self:
         """Cast a column to a different dtype.
@@ -85,10 +72,7 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._col_cast, {"column": column, "dtype": dtype})
-
-    def _col_cast(self, data: pl.DataFrame, column: str, dtype: type) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).cast(dtype))
+        return self._register("col_cast", {"column": column, "dtype": dtype})
 
     def col_reorder(self, columns: Sequence[str]) -> Self:
         """Reorder columns. Unlisted columns are dropped.
@@ -96,10 +80,7 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._col_reorder, {"columns": list(columns)})
-
-    def _col_reorder(self, data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
-        return data.select(columns)
+        return self._register("col_reorder", {"columns": list(columns)})
 
     def col_duplicate(self, column: str, new_name: str) -> Self:
         """Duplicate a column under a new name.
@@ -108,13 +89,8 @@ class ColumnOps:
             Self for method chaining.
         """
         return self._register(
-            self._col_duplicate, {"column": column, "new_name": new_name}
+            "col_duplicate", {"column": column, "new_name": new_name}
         )
-
-    def _col_duplicate(
-        self, data: pl.DataFrame, column: str, new_name: str
-    ) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).alias(new_name))
 
     def col_fill_null(
         self,
@@ -134,20 +110,9 @@ class ColumnOps:
             Self for method chaining.
         """
         return self._register(
-            self._col_fill_null,
+            "col_fill_null",
             {"column": column, "value": value, "strategy": strategy},
         )
-
-    def _col_fill_null(
-        self,
-        data: pl.DataFrame,
-        column: str,
-        value: Any,  # noqa: ANN401
-        strategy: FillNullStrategy | None,
-    ) -> pl.DataFrame:
-        if strategy is not None:
-            return data.with_columns(pl.col(column).fill_null(strategy=strategy))
-        return data.with_columns(pl.col(column).fill_null(value))
 
     def col_drop_null(self, columns: str | Sequence[str] | None = None) -> Self:
         """Drop rows with null values in specified columns.
@@ -160,12 +125,7 @@ class ColumnOps:
         """
         if isinstance(columns, str):
             columns = [columns]
-        return self._register(self._col_drop_null, {"columns": columns})
-
-    def _col_drop_null(
-        self, data: pl.DataFrame, columns: list[str] | None
-    ) -> pl.DataFrame:
-        return data.drop_nulls(subset=columns)
+        return self._register("col_drop_null", {"columns": columns})
 
     def col_drop_zero(self, column: str) -> Self:
         """Drop rows where the specified column is zero.
@@ -173,10 +133,7 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._col_drop_zero, {"column": column})
-
-    def _col_drop_zero(self, data: pl.DataFrame, column: str) -> pl.DataFrame:
-        return data.filter(pl.col(column) != 0)
+        return self._register("col_drop_zero", {"column": column})
 
     def col_add(
         self,
@@ -195,19 +152,8 @@ class ColumnOps:
             Self for method chaining.
         """
         return self._register(
-            self._col_add, {"new_column": new_column, "expr": expr, "value": value}
+            "col_add", {"new_column": new_column, "expr": expr, "value": value}
         )
-
-    def _col_add(
-        self,
-        data: pl.DataFrame,
-        new_column: str,
-        expr: str | None,
-        value: Any,  # noqa: ANN401
-    ) -> pl.DataFrame:
-        if expr is not None:
-            return data.with_columns(pl.col(expr).alias(new_column))
-        return data.with_columns(pl.lit(value).alias(new_column))
 
     def col_add_uuid(self, column: str, length: int = 16) -> Self:
         """Add a column with unique random identifiers.
@@ -219,17 +165,7 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._col_add_uuid, {"column": column, "length": length})
-
-    def _col_add_uuid(
-        self, data: pl.DataFrame, column: str, length: int
-    ) -> pl.DataFrame:
-        chars = string.ascii_letters + string.digits
-        ids = [
-            "".join(secrets.choice(chars) for _ in range(length))
-            for _ in range(len(data))
-        ]
-        return data.with_columns(pl.Series(name=column, values=ids))
+        return self._register("col_add_uuid", {"column": column, "length": length})
 
     def col_hash(
         self,
@@ -250,20 +186,9 @@ class ColumnOps:
         if isinstance(columns, str):
             columns = [columns]
         return self._register(
-            self._col_hash,
+            "col_hash",
             {"columns": list(columns), "new_column": new_column, "salt": salt},
         )
-
-    def _col_hash(
-        self, data: pl.DataFrame, columns: list[str], new_column: str, salt: str
-    ) -> pl.DataFrame:
-        def hash_row(values: tuple[Any, ...]) -> str:
-            content = "|".join(str(v) for v in values) + salt
-            return hashlib.sha256(content.encode()).hexdigest()[:16]
-
-        combined = data.select(columns).to_numpy()
-        hashes = [hash_row(tuple(row)) for row in combined]
-        return data.with_columns(pl.Series(name=new_column, values=hashes))
 
     def col_coalesce(
         self,
@@ -280,14 +205,7 @@ class ColumnOps:
             Self for method chaining.
         """
         return self._register(
-            self._col_coalesce, {"columns": list(columns), "new_column": new_column}
-        )
-
-    def _col_coalesce(
-        self, data: pl.DataFrame, columns: list[str], new_column: str
-    ) -> pl.DataFrame:
-        return data.with_columns(
-            pl.coalesce([pl.col(c) for c in columns]).alias(new_column)
+            "col_coalesce", {"columns": list(columns), "new_column": new_column}
         )
 
     def col_select(self, columns: Sequence[str]) -> Self:
@@ -299,7 +217,4 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(self._col_select, {"columns": list(columns)})
-
-    def _col_select(self, data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
-        return data.select(columns)
+        return self._register("col_select", {"columns": list(columns)})

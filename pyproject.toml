@@ -108,6 +108,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "*/__init__.py" = ["D", "DOC"]
 "tests/**" = ["D", "DOC", "ANN", "PT009", "FBT", "B905", "W505", "PT017"]
+"transformplan/backends/base.py" = ["D102"]  # ABC stubs don't need docstrings
+"transformplan/backends/polars.py" = ["D102"]  # Backend impls inherit docstrings from ABC
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

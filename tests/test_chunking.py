@@ -815,7 +815,7 @@ class TestValidateChunkedGroupColsNormalization:
         )
         try:
             # Create fake operation with string columns (not list)
-            fake_ops = [(_mock_group_op, {"columns": "patient_id"})]
+            fake_ops = [("mock_group_op", {"columns": "patient_id"})]
             result = validate_chunked_pipeline(fake_ops, partition_key="patient_id")
             assert result.is_valid
             # The group_cols should be normalized to a list
