@@ -1,6 +1,6 @@
 """DuckDB backend for TransformPlan.
 
-This module implements all 86 operations using DuckDB's ``DuckDBPyRelation``
+This module implements all 87 operations using DuckDB's ``DuckDBPyRelation``
 as the data type.  Every operation takes a relation, generates SQL using the
 relation's ``sql_query()`` as a subquery, and returns a new relation — keeping
 the pipeline composable and lazy.
@@ -16,7 +16,7 @@ import hashlib
 import math
 import secrets
 import string
-from typing import Any, Literal, Sequence
+from typing import Any, ClassVar, Literal, Sequence
 
 import duckdb
 
@@ -119,7 +119,7 @@ class DuckDBBackend(Backend):
         return dict(zip(data.columns, [str(t) for t in data.types], strict=False))
 
     # =========================================================================
-    # Type system methods (12)
+    # Type system methods (13)
     # =========================================================================
 
     _NUMERIC_PREFIXES = frozenset({
@@ -172,6 +172,9 @@ class DuckDBBackend(Backend):
 
     def date_type(self) -> str:
         return "DATE"
+
+    def duration_type(self) -> str:
+        return "INTERVAL"
 
     def type_name(self, dtype: Any) -> str:
         return str(dtype)
@@ -355,7 +358,7 @@ class DuckDBBackend(Backend):
         )
 
     # =========================================================================
-    # Math operations (26)
+    # Math operations (27)
     # =========================================================================
 
     def math_add(
@@ -531,6 +534,37 @@ class DuckDBBackend(Backend):
         expr = (
             f"CAST({func}() OVER ({partition}ORDER BY {_q(column)} {order}) "
             f"AS BIGINT) AS {_q(new_column)}"
+        )
+        return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
+
+    _VALID_AGG_MAP: ClassVar[dict[str, str]] = {
+        "min": "MIN",
+        "max": "MAX",
+        "mean": "AVG",
+        "median": "MEDIAN",
+        "sum": "SUM",
+        "first": "FIRST",
+        "count": "COUNT",
+    }
+
+    def math_diff_from_agg(
+        self,
+        data: duckdb.DuckDBPyRelation,
+        column: str,
+        agg: str,
+        new_column: str,
+        group_by: list[str] | None,
+    ) -> duckdb.DuckDBPyRelation:
+        if agg not in self._VALID_AGG_MAP:
+            msg = f"Invalid aggregate function: {agg}"
+            raise ValueError(msg)
+        func = self._VALID_AGG_MAP[agg]
+        partition = ""
+        if group_by:
+            partition = "PARTITION BY " + ", ".join(_q(g) for g in group_by)
+        expr = (
+            f"({_q(column)} - {func}({_q(column)}) OVER ({partition})) "
+            f"AS {_q(new_column)}"
         )
         return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
 

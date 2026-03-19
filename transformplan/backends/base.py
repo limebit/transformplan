@@ -1,11 +1,11 @@
 """Abstract base class for TransformPlan backends.
 
-This module defines the Backend ABC with all 86 operation methods that each
+This module defines the Backend ABC with all 87 operation methods that each
 backend must implement. Using ABC (not typing.Protocol) gives runtime enforcement
 that all methods are implemented, catching mistakes at instantiation.
 
 Classes:
-    Backend: Abstract base class with 86 abstract methods.
+    Backend: Abstract base class with 87 abstract methods.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ AggFunction = Literal["first", "sum", "mean", "median", "min", "max", "count"]
 class Backend(ABC):
     """Abstract base class defining the operation interface for backends.
 
-    Each backend must implement all 86 operations. Methods receive data
+    Each backend must implement all 87 operations. Methods receive data
     and operation-specific parameters, and return transformed data.
 
     Subclasses must set the ``name`` class variable to a unique identifier
@@ -58,7 +58,7 @@ class Backend(ABC):
         ...
 
     # =========================================================================
-    # Type system methods (12)
+    # Type system methods (13)
     # =========================================================================
 
     @abstractmethod
@@ -114,6 +114,11 @@ class Backend(ABC):
     @abstractmethod
     def date_type(self) -> Any:
         """Return the date type for this backend."""
+        ...
+
+    @abstractmethod
+    def duration_type(self) -> Any:
+        """Return the duration/interval type for this backend."""
         ...
 
     @abstractmethod
@@ -201,7 +206,7 @@ class Backend(ABC):
     ) -> Any: ...
 
     # =========================================================================
-    # Math operations (26)
+    # Math operations (27)
     # =========================================================================
 
     @abstractmethod
@@ -314,6 +319,16 @@ class Backend(ABC):
         new_column: str,
         method: RankMethod,
         descending: bool,  # noqa: FBT001
+        group_by: list[str] | None,
+    ) -> Any: ...
+
+    @abstractmethod
+    def math_diff_from_agg(
+        self,
+        data: Any,
+        column: str,
+        agg: str,
+        new_column: str,
         group_by: list[str] | None,
     ) -> Any: ...
 

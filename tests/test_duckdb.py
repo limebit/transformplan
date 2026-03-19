@@ -1359,3 +1359,94 @@ class TestCrossBackendSerialization:
         result, _ = restored.process(df)
         assert "active" not in result.columns
         assert result["age"].to_list() == [26, 31, 36]
+
+
+class TestMathDiffFromAgg:
+    """Tests for math_diff_from_agg with DuckDB backend."""
+
+    def test_numeric_min(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        result, _ = (
+            _plan(backend)
+            .math_diff_from_agg("a", "min", "diff_min")
+            .process(numeric_rel)
+        )
+        assert _col_values(result, "diff_min") == [0, 1, 2, 3, 4]
+
+    def test_numeric_mean(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql("SELECT * FROM (VALUES (10), (20), (30)) AS t(val)")
+        result, _ = (
+            _plan(backend)
+            .math_diff_from_agg("val", "mean", "diff_mean")
+            .process(rel)
+        )
+        vals = _col_values(result, "diff_mean")
+        assert vals == pytest.approx([-10.0, 0.0, 10.0])
+
+    def test_grouped(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES "
+            "('A', 10), ('A', 30), ('B', 100), ('B', 200)"
+            ") AS t(dept, val)"
+        )
+        result, _ = (
+            _plan(backend)
+            .math_diff_from_agg("val", "min", "diff", group_by="dept")
+            .process(rel)
+        )
+        assert _col_values(result, "diff") == [0, 20, 0, 100]
+
+    def test_datetime_column(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES "
+            "(TIMESTAMP '2024-01-01 00:00:00'), "
+            "(TIMESTAMP '2024-01-01 01:00:00'), "
+            "(TIMESTAMP '2024-01-01 03:00:00')"
+            ") AS t(ts)"
+        )
+        result, _ = (
+            _plan(backend)
+            .math_diff_from_agg("ts", "min", "since_first")
+            .process(rel)
+        )
+        vals = _col_values(result, "since_first")
+        # DuckDB returns INTERVAL; check the timedelta total_seconds
+        hours = [v.total_seconds() / 3600 for v in vals]
+        assert hours == [0.0, 1.0, 3.0]
+
+    def test_datetime_grouped(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES "
+            "('A', TIMESTAMP '2024-01-01 00:00:00'), "
+            "('A', TIMESTAMP '2024-01-01 02:00:00'), "
+            "('B', TIMESTAMP '2024-01-01 10:00:00'), "
+            "('B', TIMESTAMP '2024-01-01 13:00:00')"
+            ") AS t(patient, ts)"
+        )
+        result, _ = (
+            _plan(backend)
+            .math_diff_from_agg("ts", "min", "since_first", group_by="patient")
+            .process(rel)
+        )
+        vals = _col_values(result, "since_first")
+        hours = [v.total_seconds() / 3600 for v in vals]
+        assert hours == [0.0, 2.0, 0.0, 3.0]
+
+    def test_invalid_agg_raises(
+        self, backend: DuckDBBackend, numeric_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        with pytest.raises(ValueError, match="Invalid aggregate"):
+            (
+                _plan(backend)
+                .math_diff_from_agg("a", "invalid", "diff")  # type: ignore[arg-type]
+                .process(numeric_rel)
+            )

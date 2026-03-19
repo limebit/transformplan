@@ -294,6 +294,41 @@ class MathOps:
             },
         )
 
+    def math_diff_from_agg(
+        self,
+        column: str,
+        agg: Literal["first", "sum", "mean", "median", "min", "max", "count"],
+        new_column: str,
+        *,
+        group_by: str | list[str] | None = None,
+    ) -> Self:
+        """Compute the difference between each value and a group aggregate.
+
+        Calculates column - AGG(column) OVER (PARTITION BY group_by).
+        Works on numeric columns (result is numeric) and datetime columns
+        (result is a duration).
+
+        Args:
+            column: Source column.
+            agg: Aggregate function to compute within each group.
+            new_column: Name for result column.
+            group_by: Column(s) to partition by. None for global aggregate.
+
+        Returns:
+            Self for method chaining.
+        """
+        if isinstance(group_by, str):
+            group_by = [group_by]
+        return self._register(
+            "math_diff_from_agg",
+            {
+                "column": column,
+                "agg": agg,
+                "new_column": new_column,
+                "group_by": group_by,
+            },
+        )
+
     # =========================================================================
     # Scaling Operations
     # =========================================================================

@@ -1,5 +1,7 @@
 """Tests for math operations (ops/math.py)."""
 
+from datetime import datetime
+
 import polars as pl
 
 from transformplan import TransformPlan
@@ -354,3 +356,110 @@ class TestMathChaining:
         result, _ = plan.process(numeric_df)
         expected = [(a + b) * 0.1 for a, b in zip(numeric_df["a"], numeric_df["b"])]
         assert all(abs(r - e) < 0.001 for r, e in zip(result["sum"], expected))
+
+
+class TestMathDiffFromAgg:
+    """Tests for math_diff_from_agg operation."""
+
+    def test_numeric_min(self, numeric_df: pl.DataFrame) -> None:
+        """Test numeric column with agg=min."""
+        plan = TransformPlan().math_diff_from_agg("a", "min", "diff_min")
+        result, _ = plan.process(numeric_df)
+        # min(a) = 1, so diff = [0, 1, 2, 3, 4]
+        assert result["diff_min"].to_list() == [0, 1, 2, 3, 4]
+
+    def test_numeric_mean(self) -> None:
+        """Test numeric column with agg=mean produces float output."""
+        df = pl.DataFrame({"val": [10, 20, 30]})
+        plan = TransformPlan().math_diff_from_agg("val", "mean", "diff_mean")
+        result, _ = plan.process(df)
+        # mean = 20, so diff = [-10, 0, 10]
+        assert result["diff_mean"].to_list() == [-10.0, 0.0, 10.0]
+
+    def test_grouped(self) -> None:
+        """Test grouped operation with group_by."""
+        df = pl.DataFrame({
+            "dept": ["A", "A", "B", "B"],
+            "val": [10, 30, 100, 200],
+        })
+        plan = TransformPlan().math_diff_from_agg(
+            "val", "min", "diff", group_by="dept"
+        )
+        result, _ = plan.process(df)
+        # Group A: min=10, diff=[0, 20]. Group B: min=100, diff=[0, 100]
+        assert result["diff"].to_list() == [0, 20, 0, 100]
+
+    def test_global_aggregate(self, numeric_df: pl.DataFrame) -> None:
+        """Test global aggregate with group_by=None."""
+        plan = TransformPlan().math_diff_from_agg("a", "max", "diff_max")
+        result, _ = plan.process(numeric_df)
+        # max(a) = 5, so diff = [-4, -3, -2, -1, 0]
+        assert result["diff_max"].to_list() == [-4, -3, -2, -1, 0]
+
+    def test_datetime_column(self) -> None:
+        """Test datetime column produces duration output."""
+        df = pl.DataFrame({
+            "ts": [
+                datetime(2024, 1, 1, 0, 0),
+                datetime(2024, 1, 1, 1, 0),
+                datetime(2024, 1, 1, 3, 0),
+            ],
+        })
+        plan = TransformPlan().math_diff_from_agg("ts", "min", "since_first")
+        result, _ = plan.process(df)
+        assert result["since_first"].dtype == pl.Duration
+        # Convert to total hours for easy checking
+        hours = [d.total_seconds() / 3600 for d in result["since_first"].to_list()]
+        assert hours == [0.0, 1.0, 3.0]
+
+    def test_datetime_grouped(self) -> None:
+        """Test datetime column with group_by — the primary use case."""
+        df = pl.DataFrame({
+            "patient": ["A", "A", "B", "B"],
+            "ts": [
+                datetime(2024, 1, 1, 0, 0),
+                datetime(2024, 1, 1, 2, 0),
+                datetime(2024, 1, 1, 10, 0),
+                datetime(2024, 1, 1, 13, 0),
+            ],
+        })
+        plan = TransformPlan().math_diff_from_agg(
+            "ts", "min", "since_first", group_by="patient"
+        )
+        result, _ = plan.process(df)
+        hours = [d.total_seconds() / 3600 for d in result["since_first"].to_list()]
+        assert hours == [0.0, 2.0, 0.0, 3.0]
+
+    def test_validation_nonexistent_column(self, numeric_df: pl.DataFrame) -> None:
+        """Test validation catches non-existent column."""
+        plan = TransformPlan().math_diff_from_agg("nonexistent", "min", "diff")
+        result = plan.validate(numeric_df)
+        assert not result.is_valid
+        assert "does not exist" in str(result.errors[0])
+
+    def test_validation_wrong_type(self, basic_df: pl.DataFrame) -> None:
+        """Test validation catches string column."""
+        plan = TransformPlan().math_diff_from_agg("name", "min", "diff")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "numeric or datetime" in str(result.errors[0])
+
+    def test_validation_missing_group_by(self, numeric_df: pl.DataFrame) -> None:
+        """Test validation catches missing group_by column."""
+        plan = TransformPlan().math_diff_from_agg(
+            "a", "min", "diff", group_by="nonexistent"
+        )
+        result = plan.validate(numeric_df)
+        assert not result.is_valid
+        assert "Group-by" in str(result.errors[0])
+
+    def test_serialization_roundtrip(self, numeric_df: pl.DataFrame) -> None:
+        """Test JSON serialization round-trip."""
+        plan = TransformPlan().math_diff_from_agg(
+            "a", "min", "diff", group_by="b"
+        )
+        json_str = plan.to_json()
+        restored = TransformPlan.from_json(json_str)
+        result1, _ = plan.process(numeric_df)
+        result2, _ = restored.process(numeric_df)
+        assert result1["diff"].to_list() == result2["diff"].to_list()

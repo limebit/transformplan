@@ -1,6 +1,6 @@
 """Polars backend for TransformPlan.
 
-This module implements all 86 operations using the Polars DataFrame library.
+This module implements all 87 operations using the Polars DataFrame library.
 It is the default backend and the reference implementation.
 
 Classes:
@@ -72,7 +72,7 @@ class PolarsBackend(Backend):
         return dict(data.schema)
 
     # =========================================================================
-    # Type system methods (12)
+    # Type system methods (13)
     # =========================================================================
 
     def is_numeric_type(self, dtype: Any) -> bool:
@@ -107,6 +107,9 @@ class PolarsBackend(Backend):
 
     def date_type(self) -> pl.DataType:
         return pl.Date()
+
+    def duration_type(self) -> pl.DataType:
+        return pl.Duration()
 
     def type_name(self, dtype: Any) -> str:
         return str(dtype).split("(")[0]
@@ -206,7 +209,7 @@ class PolarsBackend(Backend):
         )
 
     # =========================================================================
-    # Math operations (26)
+    # Math operations (27)
     # =========================================================================
 
     def math_add(
@@ -348,6 +351,19 @@ class PolarsBackend(Backend):
         if group_by:
             expr = expr.over(group_by)
         return data.with_columns(expr.alias(new_column))
+
+    def math_diff_from_agg(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        agg: str,
+        new_column: str,
+        group_by: list[str] | None,
+    ) -> pl.DataFrame:
+        agg_expr = getattr(pl.col(column), agg)()
+        if group_by:
+            agg_expr = agg_expr.over(group_by)
+        return data.with_columns((pl.col(column) - agg_expr).alias(new_column))
 
     def math_standardize(
         self,

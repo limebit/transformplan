@@ -572,6 +572,11 @@ class SchemaTracker:
         """Date type for the current backend."""
         return self._backend.date_type()
 
+    @property
+    def duration_type(self) -> Any:  # noqa: ANN401
+        """Duration/interval type for the current backend."""
+        return self._backend.duration_type()
+
 
 # Type alias for validator functions
 ValidatorFunc = Callable[[SchemaTracker, dict[str, Any], ValidationResult, int], None]
@@ -893,6 +898,42 @@ def _validate_math_rank(
             )
 
     tracker.add_column(new_column, tracker.unsigned_int_type)
+
+
+def _validate_math_diff_from_agg(
+    tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
+) -> None:
+    column = params["column"]
+    new_column = params["new_column"]
+    group_by = params.get("group_by")
+
+    if _check_column_exists(tracker, column, result, step, "math_diff_from_agg"):
+        dtype = tracker.get_dtype(column)
+        if not (tracker.is_numeric(dtype) or tracker.is_datetime(dtype)):
+            result.add_error(
+                step,
+                "math_diff_from_agg",
+                f"Column '{column}' must be numeric or datetime, "
+                f"got {tracker.type_name(dtype)}",
+            )
+
+    if group_by:
+        missing = [c for c in group_by if not tracker.has_column(c)]
+        if missing:
+            result.add_error(
+                step,
+                "math_diff_from_agg",
+                f"Group-by columns do not exist: {missing}",
+            )
+
+    if tracker.has_column(column):
+        dtype = tracker.get_dtype(column)
+        out_type = (
+            tracker.duration_type if tracker.is_datetime(dtype) else tracker.float_type
+        )
+        tracker.add_column(new_column, out_type)
+    else:
+        tracker.add_column(new_column, tracker.float_type)
 
 
 def _validate_math_percent_of(
@@ -1522,6 +1563,7 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
     ),
     "math_cumsum": _validate_math_cumsum,
     "math_rank": _validate_math_rank,
+    "math_diff_from_agg": _validate_math_diff_from_agg,
     "math_percent_of": _validate_math_percent_of,
     # Scaling ops
     "math_standardize": partial(_validate_math_scaling, op_name="math_standardize"),

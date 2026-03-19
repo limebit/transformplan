@@ -74,7 +74,7 @@ print(df_result)
 
 ## Using the DuckDB Backend
 
-TransformPlan supports DuckDB as an alternative backend. All 86 operations, validation, and dry-run work identically — only the data type changes from Polars DataFrames to DuckDB relations.
+TransformPlan supports DuckDB as an alternative backend. All 87 operations, validation, and dry-run work identically — only the data type changes from Polars DataFrames to DuckDB relations.
 
 ```python
 import duckdb
