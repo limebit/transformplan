@@ -22,6 +22,9 @@ from transformplan.filters import (
     StrContains,
     StrEndsWith,
     StrStartsWith,
+    _sql_escape_like,
+    _sql_format_value,
+    _sql_quote_identifier,
 )
 
 
@@ -602,3 +605,153 @@ class TestFilterSerializationMissing:
         assert isinstance(restored, StrEndsWith)
         assert restored.column == "file"
         assert restored.suffix == ".csv"
+
+
+class TestSqlHelpers:
+    """Tests for SQL helper functions."""
+
+    def test_quote_identifier_simple(self) -> None:
+        assert _sql_quote_identifier("age") == '"age"'
+
+    def test_quote_identifier_with_double_quote(self) -> None:
+        assert _sql_quote_identifier('col"name') == '"col""name"'
+
+    def test_format_value_none(self) -> None:
+        assert _sql_format_value(None) == "NULL"
+
+    def test_format_value_bool_true(self) -> None:
+        assert _sql_format_value(True) == "TRUE"
+
+    def test_format_value_bool_false(self) -> None:
+        assert _sql_format_value(False) == "FALSE"
+
+    def test_format_value_int(self) -> None:
+        assert _sql_format_value(42) == "42"
+
+    def test_format_value_float(self) -> None:
+        assert _sql_format_value(2.5) == "2.5"
+
+    def test_format_value_string(self) -> None:
+        assert _sql_format_value("hello") == "'hello'"
+
+    def test_format_value_string_with_quote(self) -> None:
+        assert _sql_format_value("O'Brien") == "'O''Brien'"
+
+    def test_escape_like_metacharacters(self) -> None:
+        assert _sql_escape_like("100%_done") == "100\\%\\_done"
+
+    def test_escape_like_backslash(self) -> None:
+        assert _sql_escape_like("a\\b") == "a\\\\b"
+
+    def test_escape_like_single_quote(self) -> None:
+        assert _sql_escape_like("it's") == "it''s"
+
+
+class TestFilterToSql:
+    """Tests for to_sql() on all filter types."""
+
+    def test_eq_string(self) -> None:
+        assert Eq("name", "Alice").to_sql() == "\"name\" = 'Alice'"
+
+    def test_eq_int(self) -> None:
+        assert Eq("age", 30).to_sql() == '"age" = 30'
+
+    def test_eq_none(self) -> None:
+        assert Eq("name", None).to_sql() == '"name" IS NULL'
+
+    def test_eq_bool(self) -> None:
+        assert Eq("active", True).to_sql() == '"active" = TRUE'
+
+    def test_ne_string(self) -> None:
+        assert Ne("status", "deleted").to_sql() == "\"status\" != 'deleted'"
+
+    def test_ne_none(self) -> None:
+        assert Ne("name", None).to_sql() == '"name" IS NOT NULL'
+
+    def test_gt(self) -> None:
+        assert Gt("age", 18).to_sql() == '"age" > 18'
+
+    def test_ge(self) -> None:
+        assert Ge("age", 18).to_sql() == '"age" >= 18'
+
+    def test_lt(self) -> None:
+        assert Lt("age", 65).to_sql() == '"age" < 65'
+
+    def test_le(self) -> None:
+        assert Le("score", 99.5).to_sql() == '"score" <= 99.5'
+
+    def test_is_in(self) -> None:
+        assert IsIn("status", ["a", "b"]).to_sql() == "\"status\" IN ('a', 'b')"
+
+    def test_is_in_empty(self) -> None:
+        assert IsIn("status", []).to_sql() == "FALSE"
+
+    def test_is_in_ints(self) -> None:
+        assert IsIn("id", [1, 2, 3]).to_sql() == '"id" IN (1, 2, 3)'
+
+    def test_between_int(self) -> None:
+        assert Between("age", 18, 65).to_sql() == '"age" BETWEEN 18 AND 65'
+
+    def test_between_string(self) -> None:
+        assert Between("name", "A", "M").to_sql() == "\"name\" BETWEEN 'A' AND 'M'"
+
+    def test_is_null(self) -> None:
+        assert IsNull("name").to_sql() == '"name" IS NULL'
+
+    def test_is_not_null(self) -> None:
+        assert IsNotNull("name").to_sql() == '"name" IS NOT NULL'
+
+    def test_str_contains_literal(self) -> None:
+        result = StrContains("email", "@example").to_sql()
+        assert result == "\"email\" LIKE '%@example%' ESCAPE '\\'"
+
+    def test_str_contains_regex(self) -> None:
+        result = StrContains("text", r"\d+", literal=False).to_sql()
+        assert result == "regexp_matches(\"text\", '\\d+')"
+
+    def test_str_contains_like_escaping(self) -> None:
+        result = StrContains("col", "100%_done").to_sql()
+        assert result == "\"col\" LIKE '%100\\%\\_done%' ESCAPE '\\'"
+
+    def test_str_starts_with(self) -> None:
+        result = StrStartsWith("code", "PRD-").to_sql()
+        assert result == "\"code\" LIKE 'PRD-%' ESCAPE '\\'"
+
+    def test_str_ends_with(self) -> None:
+        result = StrEndsWith("file", ".csv").to_sql()
+        assert result == "\"file\" LIKE '%.csv' ESCAPE '\\'"
+
+    def test_and(self) -> None:
+        f = And(Ge("age", 18), Eq("active", True))
+        assert f.to_sql() == '("age" >= 18) AND ("active" = TRUE)'
+
+    def test_or(self) -> None:
+        f = Or(Eq("a", 1), Eq("a", 2))
+        assert f.to_sql() == '("a" = 1) OR ("a" = 2)'
+
+    def test_not(self) -> None:
+        f = Not(Eq("active", True))
+        assert f.to_sql() == 'NOT ("active" = TRUE)'
+
+    def test_complex_nested(self) -> None:
+        f = (Col("age") >= 18) & (Col("status") == "active")
+        assert f.to_sql() == '("age" >= 18) AND ("status" = \'active\')'
+
+    def test_or_and_not_nested(self) -> None:
+        f = Or(And(Gt("a", 0), Lt("a", 10)), Not(IsNull("b")))
+        expected = '(("a" > 0) AND ("a" < 10)) OR (NOT ("b" IS NULL))'
+        assert f.to_sql() == expected
+
+    def test_string_with_single_quote(self) -> None:
+        assert Eq("name", "O'Brien").to_sql() == "\"name\" = 'O''Brien'"
+
+    def test_column_with_double_quote(self) -> None:
+        assert Eq('col"x', 1).to_sql() == '"col""x" = 1'
+
+    def test_str_contains_regex_with_quote(self) -> None:
+        result = StrContains("col", "it's.*", literal=False).to_sql()
+        assert result == "regexp_matches(\"col\", 'it''s.*')"
+
+    def test_str_starts_with_quote_in_prefix(self) -> None:
+        result = StrStartsWith("col", "it's").to_sql()
+        assert result == "\"col\" LIKE 'it''s%' ESCAPE '\\'"
