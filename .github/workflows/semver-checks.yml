@@ -1,0 +1,87 @@
+name: Semver Checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled]
+    paths:
+      - "transformplan/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  python-semver-checks:
+    if: github.event.action != 'edited' && github.event.action != 'labeled'
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run griffe check
+        id: griffe
+        run: |
+          set +e
+          uvx griffe check transformplan \
+            --against ${{ github.event.pull_request.base.sha }} \
+            --format github
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          elif [ $EXIT_CODE -eq 1 ]; then
+            echo "result=breaking" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::griffe check failed with exit code $EXIT_CODE (not a breaking change detection)"
+            echo "result=error" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Label breaking changes
+        if: steps.griffe.outputs.result == 'breaking'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: ['breaking'],
+            });
+
+  check-breaking-title:
+    if: always()
+    needs: [python-semver-checks]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check breaking labels match title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const isBreaking = /^\w+(\(\w+\))?!:/.test(title);
+
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+
+            const labelNames = labels.map(l => l.name);
+            const hasBreakingLabel = labelNames.includes('breaking');
+
+            if (hasBreakingLabel && !isBreaking) {
+              core.setFailed(
+                'PR has breaking change labels but title is missing the ! indicator. '
+                + 'Update the title, e.g.: feat!: description'
+              );
+            }

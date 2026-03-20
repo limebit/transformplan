@@ -1,0 +1,17 @@
+name: Publish Coverage Badge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish-coverage-badge:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Trigger transformplan-static to update coverage badge
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.TRANSFORMPLAN_STATIC_TOKEN }}
+          repository: limebit/transformplan-static
+          event-type: publish-coverage-badge

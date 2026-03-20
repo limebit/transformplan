@@ -1,26 +1,126 @@
-name: Publish Package
+name: Publish Release
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  detect-release:
+    runs-on: ubuntu-22.04
+    outputs:
+      is_release: ${{ steps.check.outputs.is_release }}
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Check for release commit
+        id: check
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -1)
+
+          if echo "$FIRST_LINE" | grep -qE '^release: [0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION=$(echo "$FIRST_LINE" | sed 's/release: \([0-9.]*\).*/\1/')
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "tag=${VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: detect-release
+    if: needs.detect-release.outputs.is_release == 'true'
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          cache-dependency-glob: pyproject.toml
-          python-version: "3.10"
 
       - name: Build package
         run: uv build
 
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+  publish:
+    needs: [detect-release, build]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
       - name: Publish to PyPI
-        run: uv publish
+        run: uv publish dist/*
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+  release:
+    needs: [detect-release, publish]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Finalize GitHub release
+        id: release
+        uses: release-drafter/release-drafter@v6
+        with:
+          name: ${{ needs.detect-release.outputs.version }}
+          tag: ${{ needs.detect-release.outputs.tag }}
+          version: ${{ needs.detect-release.outputs.version }}
+          commitish: ${{ github.sha }}
+          disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub release
+        run: gh release edit "$TAG" --draft=false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+
+      - name: Upload artifacts to release
+        run: gh release upload "$TAG" dist/*
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+
+      - name: Trigger release workflows
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          event-type: python-release
+          client-payload: >
+            {
+              "version": "${{ needs.detect-release.outputs.version }}",
+              "tag": "${{ needs.detect-release.outputs.tag }}"
+            }
