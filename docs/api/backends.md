@@ -9,23 +9,22 @@ The backend determines how data is stored and transformed:
 - **PolarsBackend** (default): Operates on Polars DataFrames using native Polars expressions
 - **DuckDBBackend** (optional): Operates on DuckDB relations using SQL generation
 
-All operations, validation, dry-run, and serialization work identically regardless of backend. Pipelines serialized with one backend can be loaded and executed with another.
+A `TransformPlan` is a pure, backend-agnostic recipe of operations. The backend is chosen at execution time by passing it to `process()`, `validate()`, or `dry_run()`. If no backend is specified, `PolarsBackend` is used by default. Pipelines serialized with one backend can be loaded and executed with another.
 
 ```python
 from transformplan import TransformPlan
 
-# Default — uses PolarsBackend
-plan = TransformPlan()
+# Build a plan — no backend needed
+plan = TransformPlan().col_drop("temp").math_add("age", 1)
 
-# Explicit Polars backend
-from transformplan.backends.polars import PolarsBackend
-plan = TransformPlan(backend=PolarsBackend())
+# Execute with default PolarsBackend
+result, protocol = plan.process(polars_df)
 
-# DuckDB backend
+# Execute with DuckDB backend
 import duckdb
 from transformplan.backends.duckdb import DuckDBBackend
 con = duckdb.connect()
-plan = TransformPlan(backend=DuckDBBackend(con))
+result, protocol = plan.process(duckdb_rel, backend=DuckDBBackend(con))
 ```
 
 ## Backend ABC
@@ -96,26 +95,25 @@ con = duckdb.connect()
 rel = con.sql("SELECT * FROM 'data.parquet'")
 
 plan = (
-    TransformPlan(backend=DuckDBBackend(con))
+    TransformPlan()
     .col_rename(column="ID", new_name="id")
     .rows_filter(Col("age") >= 18)
     .math_standardize(column="score", new_column="z_score")
 )
 
-result, protocol = plan.process(rel)
+result, protocol = plan.process(rel, backend=DuckDBBackend(con))
 ```
 
 ## Cross-Backend Serialization
 
-Pipelines are backend-agnostic when serialized. You can build a pipeline with one backend and execute it with another:
+Pipelines are inherently backend-agnostic. The same serialized plan can be executed with any backend:
 
 ```python
-import polars as pl
 import duckdb
 from transformplan import TransformPlan, Col
 from transformplan.backends.duckdb import DuckDBBackend
 
-# Build and serialize with Polars (default)
+# Build and serialize
 plan = (
     TransformPlan()
     .col_rename(column="ID", new_name="id")
@@ -123,11 +121,14 @@ plan = (
 )
 plan.to_json("pipeline.json")
 
-# Load and execute with DuckDB
+# Load and execute with Polars (default)
+restored = TransformPlan.from_json("pipeline.json")
+result, protocol = restored.process(polars_df)
+
+# Or execute with DuckDB
 con = duckdb.connect()
 rel = con.sql("SELECT * FROM 'data.parquet'")
-plan_duckdb = TransformPlan.from_json("pipeline.json", backend=DuckDBBackend(con))
-result, protocol = plan_duckdb.process(rel)
+result, protocol = restored.process(rel, backend=DuckDBBackend(con))
 ```
 
 ## Type System

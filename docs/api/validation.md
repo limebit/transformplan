@@ -69,7 +69,7 @@ if not result.is_valid:
 
 ## DuckDB Validation
 
-Validation works identically with DuckDB relations:
+Validation works identically with DuckDB relations — pass the backend at validation time:
 
 ```python
 import duckdb
@@ -80,12 +80,12 @@ con = duckdb.connect()
 rel = con.sql("SELECT 'Alice' AS name, 25 AS age, 50000 AS salary")
 
 plan = (
-    TransformPlan(backend=DuckDBBackend(con))
+    TransformPlan()
     .col_drop("age")
     .rows_filter(Col("age") > 18)  # Error: age was dropped!
 )
 
-result = plan.validate(rel)
+result = plan.validate(rel, backend=DuckDBBackend(con))
 # ValidationResult(valid=False, errors=1)
 ```
 

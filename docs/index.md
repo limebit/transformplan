@@ -96,14 +96,15 @@ from transformplan.backends.duckdb import DuckDBBackend
 con = duckdb.connect()
 rel = con.sql("SELECT * FROM 'patients.parquet'")
 
+# Same plan — backend chosen at execution time
 plan = (
-    TransformPlan(backend=DuckDBBackend(con))
+    TransformPlan()
     .col_rename(column="PatientID", new_name="patient_id")
     .rows_filter(Col("age") >= 18)
     .math_round(column="score", decimals=2)
 )
 
-result, protocol = plan.process(rel)
+result, protocol = plan.process(rel, backend=DuckDBBackend(con))
 ```
 
 ## Available Operations
