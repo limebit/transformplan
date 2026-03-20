@@ -74,7 +74,7 @@ print(df_result)
 
 ## Using the DuckDB Backend
 
-TransformPlan supports DuckDB as an alternative backend. All 88 operations, validation, and dry-run work identically — only the data type changes from Polars DataFrames to DuckDB relations.
+TransformPlan supports DuckDB as an alternative backend. All 88 operations, validation, and dry-run work identically — the same plan works with both Polars DataFrames and DuckDB relations. Simply pass the backend at execution time:
 
 ```python
 import duckdb
@@ -89,18 +89,20 @@ rel = con.sql("""
     UNION ALL SELECT 'Diana', 'Sales', 70000, 2
 """)
 
+# Same plan as before — no backend in constructor
 plan = (
-    TransformPlan(backend=DuckDBBackend(con))
+    TransformPlan()
     .col_rename(column="name", new_name="employee")
     .math_multiply(column="salary", value=1.05)
     .math_round(column="salary", decimals=0)
     .rows_filter(Col("years") >= 3)
 )
 
-# Validate and execute — same API as Polars
-result = plan.validate(rel)
+# Pass backend at execution time
+backend = DuckDBBackend(con)
+result = plan.validate(rel, backend=backend)
 if result.is_valid:
-    df_result, protocol = plan.process(rel)
+    df_result, protocol = plan.process(rel, backend=backend)
 ```
 
 ## Viewing the Audit Protocol

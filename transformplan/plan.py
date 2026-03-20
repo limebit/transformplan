@@ -21,19 +21,23 @@ Example:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from transformplan.core import TransformPlanBase
-from transformplan.ops import ColumnOps, DatetimeOps, MapOps, MathOps, RowOps, StrOps
-
-if TYPE_CHECKING:
-    from transformplan.backends.base import Backend
+from transformplan.ops import (
+    ColumnOps,
+    DatetimeOps,
+    JoinOps,
+    MapOps,
+    MathOps,
+    RowOps,
+    StrOps,
+)
 
 
 class TransformPlan(
     TransformPlanBase,
     ColumnOps,
     DatetimeOps,
+    JoinOps,
     MapOps,
     MathOps,
     RowOps,
@@ -51,10 +55,6 @@ class TransformPlan(
         )
     """
 
-    def __init__(self, backend: Backend | None = None) -> None:
-        """Initialize TransformPlan with optional backend.
-
-        Args:
-            backend: Backend to use for execution. Defaults to PolarsBackend.
-        """
-        super().__init__(backend=backend)
+    def __init__(self) -> None:
+        """Initialize TransformPlan."""
+        super().__init__()

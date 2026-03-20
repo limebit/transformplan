@@ -1,6 +1,6 @@
 """Polars backend for TransformPlan.
 
-This module implements all 88 operations using the Polars DataFrame library.
+This module implements all 89 operations using the Polars DataFrame library.
 It is the default backend and the reference implementation.
 
 Classes:
@@ -1057,3 +1057,35 @@ class PolarsBackend(Backend):
             .otherwise(pl.col(column))
             .alias(column)
         )
+
+    # =========================================================================
+    # Join operations (1)
+    # =========================================================================
+
+    def join(
+        self,
+        data: pl.DataFrame,
+        right_data: pl.DataFrame,
+        on: list[str],
+        how: str,
+        suffix: str,
+        left_on: list[str] | None = None,
+        right_on: list[str] | None = None,
+        select_columns: list[str] | None = None,
+    ) -> pl.DataFrame:
+        right = right_data
+        effective_left_on = left_on or on
+        effective_right_on = right_on or on
+
+        if select_columns is not None:
+            keep = list(dict.fromkeys(effective_right_on + list(select_columns)))
+            right = right.select(keep)
+
+        join_kwargs: dict[str, Any] = {"how": how, "suffix": suffix}
+        if effective_left_on != effective_right_on:
+            join_kwargs["left_on"] = effective_left_on
+            join_kwargs["right_on"] = effective_right_on
+        else:
+            join_kwargs["on"] = on
+
+        return data.join(right, **join_kwargs)

@@ -4,7 +4,7 @@ The main class for building and executing transformation pipelines.
 
 ## Overview
 
-`TransformPlan` uses a deferred execution model: operations are registered via method chaining, then executed together when you call `process()`, `validate()`, or `dry_run()`. An optional `backend` parameter selects the execution engine (defaults to `PolarsBackend`).
+`TransformPlan` uses a deferred execution model: operations are registered via method chaining, then executed together when you call `process()`, `validate()`, or `dry_run()`. The plan itself is backend-agnostic — the backend is chosen at execution time (defaults to `PolarsBackend`).
 
 ```python
 from transformplan import TransformPlan, Col
@@ -22,15 +22,19 @@ df_result, protocol = plan.process(df)
 
 ## Backend Selection
 
+The backend is passed at execution time, not at construction:
+
 ```python
+from transformplan.backends.duckdb import DuckDBBackend
+
+plan = TransformPlan().col_drop("temp").math_add("age", 1)
+
 # Default (Polars)
-plan = TransformPlan()
+result, protocol = plan.process(polars_df)
 
 # DuckDB
-import duckdb
-from transformplan.backends.duckdb import DuckDBBackend
 con = duckdb.connect()
-plan = TransformPlan(backend=DuckDBBackend(con))
+result, protocol = plan.process(duckdb_rel, backend=DuckDBBackend(con))
 ```
 
 See [Backends](backends.md) for details on each backend.
