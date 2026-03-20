@@ -88,6 +88,7 @@ class TransformPlanBase:
         data: Any,  # noqa: ANN401
         *,
         validate: bool = True,
+        references: dict[str, Any] | None = None,
     ) -> tuple[Any, Protocol]:
         """Execute all registered operations and return transformed data with protocol.
 
@@ -96,13 +97,23 @@ class TransformPlanBase:
             validate: If True, validate schema before execution (default).
                 Set to False for performance in hot loops with pre-validated
                 pipelines.
+            references: Named reference tables for join operations. Keys are
+                symbolic names used in join(right_name=...), values are the
+                actual data (DataFrame or relation).
 
         Returns:
             Tuple of (processed data, Protocol).
+
+        Raises:
+            ValueError: If a join operation references a table not in references.
         """
         if validate:
+            ref_schemas = self._extract_reference_schemas(references)
             validate_schema(
-                self._operations, self._backend.get_schema(data), self._backend
+                self._operations,
+                self._backend.get_schema(data),
+                self._backend,
+                references=ref_schemas,
             ).raise_if_invalid()
 
         protocol = Protocol()
@@ -110,11 +121,30 @@ class TransformPlanBase:
             self._backend.compute_hash(data), self._backend.get_shape(data)
         )
 
+        # Record reference hashes in protocol metadata
+        if references:
+            ref_meta = {}
+            for name, ref_data in references.items():
+                ref_meta[name] = {
+                    "hash": self._backend.compute_hash(ref_data),
+                    "shape": list(self._backend.get_shape(ref_data)),
+                }
+            protocol.set_metadata(references=ref_meta)
+
         for op_name, params in self._operations:
             old_shape = self._backend.get_shape(data)
             start = time.perf_counter()
 
-            data = getattr(self._backend, op_name)(data, **params)
+            if op_name == "join":
+                right_name = params["right_name"]
+                if references is None or right_name not in references:
+                    msg = f"Reference '{right_name}' not found. Pass it via references={{'{right_name}': ...}} in process()."
+                    raise ValueError(msg)
+                dispatch_params = {k: v for k, v in params.items() if k != "right_name"}
+                dispatch_params["right_data"] = references[right_name]
+                data = getattr(self._backend, op_name)(data, **dispatch_params)
+            else:
+                data = getattr(self._backend, op_name)(data, **params)
 
             elapsed = time.perf_counter() - start
             protocol.add_step(
@@ -128,11 +158,32 @@ class TransformPlanBase:
 
         return data, protocol
 
-    def validate(self, data: Any) -> ValidationResult:  # noqa: ANN401
+    def _extract_reference_schemas(
+        self, references: dict[str, Any] | None
+    ) -> dict[str, dict[str, Any]] | None:
+        """Extract schemas from reference tables for validation.
+
+        Returns:
+            Dict mapping reference names to their schemas, or None.
+        """
+        if references is None:
+            return None
+        return {
+            name: self._backend.get_schema(ref_data)
+            for name, ref_data in references.items()
+        }
+
+    def validate(
+        self,
+        data: Any,  # noqa: ANN401
+        *,
+        references: dict[str, Any] | None = None,
+    ) -> ValidationResult:
         """Validate all operations against the data schema without executing.
 
         Args:
             data: Input data (Polars DataFrame, DuckDB relation, etc.).
+            references: Named reference tables for join operations.
 
         Returns:
             ValidationResult with any errors found.
@@ -146,11 +197,20 @@ class TransformPlanBase:
             else:
                 df, protocol = plan.process(df)
         """
+        ref_schemas = self._extract_reference_schemas(references)
         return validate_schema(
-            self._operations, self._backend.get_schema(data), self._backend
+            self._operations,
+            self._backend.get_schema(data),
+            self._backend,
+            references=ref_schemas,
         )
 
-    def dry_run(self, data: Any) -> DryRunResult:  # noqa: ANN401
+    def dry_run(
+        self,
+        data: Any,  # noqa: ANN401
+        *,
+        references: dict[str, Any] | None = None,
+    ) -> DryRunResult:
         """Preview what the pipeline will do without executing it.
 
         Performs validation and shows step-by-step schema changes,
@@ -158,6 +218,7 @@ class TransformPlanBase:
 
         Args:
             data: DataFrame to preview against.
+            references: Named reference tables for join operations.
 
         Returns:
             DryRunResult with step-by-step preview.
@@ -174,8 +235,12 @@ class TransformPlanBase:
             if preview.is_valid:
                 df, protocol = plan.process(df)
         """
+        ref_schemas = self._extract_reference_schemas(references)
         return dry_run_schema(
-            self._operations, self._backend.get_schema(data), self._backend
+            self._operations,
+            self._backend.get_schema(data),
+            self._backend,
+            references=ref_schemas,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -458,6 +523,7 @@ class TransformPlanBase:
         partition_key: str | list[str] | None = None,
         chunk_size: int = 100_000,
         validate: bool = True,
+        references: dict[str, Any] | None = None,
     ) -> tuple[pl.DataFrame, ChunkedProtocol]:
         """Process a large Parquet file in chunks.
 
@@ -475,6 +541,8 @@ class TransformPlanBase:
                 partition_key is set, as chunks are sized to respect group
                 boundaries).
             validate: Whether to validate operations before processing.
+            references: Named reference tables for join operations (reserved
+                for forward compatibility).
 
         Returns:
             Tuple of (result DataFrame, ChunkedProtocol with processing details).

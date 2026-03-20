@@ -1515,3 +1515,84 @@ class TestColExpr:
         ages = _col_values(basic_rel, "age")
         for age, cat in zip(ages, vals):
             assert cat == ("senior" if age > 30 else "junior")
+
+
+# =============================================================================
+# Join operations
+# =============================================================================
+
+
+class TestJoin:
+    """Tests for join operations with DuckDB backend."""
+
+    def test_inner_join(
+        self, con: duckdb.DuckDBPyConnection, backend: DuckDBBackend
+    ) -> None:
+        main_rel = con.sql(
+            "SELECT * FROM (VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')) "
+            "AS t(id, name)"
+        )
+        cohort_rel = con.sql("SELECT * FROM (VALUES (1,), (3,)) AS t(id)")
+        result, _ = (
+            _plan(backend)
+            .join(on="id", right_name="cohort", how="inner")
+            .process(main_rel, references={"cohort": cohort_rel})
+        )
+        rows = result.fetchall()
+        assert len(rows) == 2
+        ids = [r[0] for r in rows]
+        assert sorted(ids) == [1, 3]
+
+    def test_left_join(
+        self, con: duckdb.DuckDBPyConnection, backend: DuckDBBackend
+    ) -> None:
+        main_rel = con.sql(
+            "SELECT * FROM (VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')) "
+            "AS t(id, name)"
+        )
+        ref_rel = con.sql("SELECT * FROM (VALUES (1, 100), (3, 300)) AS t(id, score)")
+        result, _ = (
+            _plan(backend)
+            .join(on="id", right_name="ref", how="left")
+            .process(main_rel, references={"ref": ref_rel})
+        )
+        rows = result.fetchall()
+        assert len(rows) == 3
+        assert "score" in result.columns
+
+    def test_select_columns(
+        self, con: duckdb.DuckDBPyConnection, backend: DuckDBBackend
+    ) -> None:
+        main_rel = con.sql("SELECT * FROM (VALUES (1, 85), (2, 72)) AS t(id, score)")
+        ref_rel = con.sql(
+            "SELECT * FROM (VALUES (85, 'Excellent', 'A'), (72, 'Good', 'B')) "
+            "AS t(concept_id, concept_name, category)"
+        )
+        result, _ = (
+            _plan(backend)
+            .join(
+                on="score",
+                right_name="ref",
+                how="left",
+                right_on="concept_id",
+                select_columns=["concept_name"],
+            )
+            .process(main_rel, references={"ref": ref_rel})
+        )
+        assert "concept_name" in result.columns
+        assert "category" not in result.columns
+
+    def test_lazy_composition(
+        self, con: duckdb.DuckDBPyConnection, backend: DuckDBBackend
+    ) -> None:
+        """Verify that the result is a relation (lazy), not materialized."""
+        main_rel = con.sql(
+            "SELECT * FROM (VALUES (1, 'Alice'), (2, 'Bob')) AS t(id, name)"
+        )
+        ref_rel = con.sql("SELECT * FROM (VALUES (1, 100)) AS t(id, score)")
+        result, _ = (
+            _plan(backend)
+            .join(on="id", right_name="ref", how="left")
+            .process(main_rel, references={"ref": ref_rel})
+        )
+        assert isinstance(result, duckdb.DuckDBPyRelation)

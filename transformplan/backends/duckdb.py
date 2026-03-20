@@ -1,6 +1,6 @@
 """DuckDB backend for TransformPlan.
 
-This module implements all 88 operations using DuckDB's ``DuckDBPyRelation``
+This module implements all 89 operations using DuckDB's ``DuckDBPyRelation``
 as the data type.  Every operation takes a relation, generates SQL using the
 relation's ``sql_query()`` as a subquery, and returns a new relation — keeping
 the pipeline composable and lazy.
@@ -1439,6 +1439,60 @@ class DuckDBBackend(Backend):
         qc = _q(column)
         expr = f"CASE WHEN {qc} = {_v(value)} THEN NULL ELSE {qc} END"
         return self._replace_col(data, column, expr)
+
+    # =========================================================================
+    # Join operations (1)
+    # =========================================================================
+
+    def join(
+        self,
+        data: duckdb.DuckDBPyRelation,
+        right_data: duckdb.DuckDBPyRelation,
+        on: list[str],
+        how: str,
+        suffix: str,
+        left_on: list[str] | None = None,
+        right_on: list[str] | None = None,
+        select_columns: list[str] | None = None,
+    ) -> duckdb.DuckDBPyRelation:
+        left_cols = left_on or on
+        right_cols = right_on or on
+        right_join_col_set = set(right_cols)
+
+        # Determine which right-side columns to include
+        right_schema_cols = list(right_data.columns)
+        if select_columns is not None:
+            right_keep = list(dict.fromkeys(right_cols + list(select_columns)))
+            right_schema_cols = [c for c in right_schema_cols if c in set(right_keep)]
+
+        left_col_set = set(data.columns)
+
+        # Build SELECT list
+        select_parts = [f"_left.{_q(c)}" for c in data.columns]
+        for c in right_schema_cols:
+            if c in right_join_col_set:
+                continue
+            alias = f"{c}{suffix}" if c in left_col_set else c
+            select_parts.append(f"_right.{_q(c)} AS {_q(alias)}")
+
+        select_sql = ", ".join(select_parts)
+
+        # Build ON clause
+        on_parts = [
+            f"_left.{_q(lc)} = _right.{_q(rc)}"
+            for lc, rc in zip(left_cols, right_cols, strict=False)
+        ]
+        on_sql = " AND ".join(on_parts)
+
+        join_type = "INNER" if how == "inner" else "LEFT"
+        left_sub = f"({data.sql_query()}) AS _left"
+        right_sub = f"({right_data.sql_query()}) AS _right"
+
+        sql = (
+            f"SELECT {select_sql} FROM {left_sub} "
+            f"{join_type} JOIN {right_sub} ON {on_sql}"
+        )
+        return self._con.sql(sql)
 
     # =========================================================================
     # Internal helpers

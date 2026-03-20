@@ -11,6 +11,7 @@ Mixins:
     StrOps: String operations (replace, split, concat, extract, etc.).
     DatetimeOps: Date/time operations (extract year/month, parse, format, etc.).
     MapOps: Value mapping operations (map_values, discretize, etc.).
+    JoinOps: Join operations (join with reference tables).
 
 The TransformPlan class combines all these mixins with TransformPlanBase to
 provide the complete transformation API.
@@ -18,6 +19,7 @@ provide the complete transformation API.
 
 from transformplan.ops.column import ColumnOps
 from transformplan.ops.datetime import DatetimeOps
+from transformplan.ops.join import JoinOps
 from transformplan.ops.map import MapOps
 from transformplan.ops.math import MathOps
 from transformplan.ops.rows import RowOps
@@ -26,6 +28,7 @@ from transformplan.ops.string import StrOps
 __all__ = [
     "ColumnOps",
     "DatetimeOps",
+    "JoinOps",
     "MapOps",
     "MathOps",
     "RowOps",

@@ -1,11 +1,11 @@
 """Abstract base class for TransformPlan backends.
 
-This module defines the Backend ABC with all 88 operation methods that each
+This module defines the Backend ABC with all 89 operation methods that each
 backend must implement. Using ABC (not typing.Protocol) gives runtime enforcement
 that all methods are implemented, catching mistakes at instantiation.
 
 Classes:
-    Backend: Abstract base class with 88 abstract methods.
+    Backend: Abstract base class with 89 abstract methods.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ AggFunction = Literal["first", "sum", "mean", "median", "min", "max", "count"]
 class Backend(ABC):
     """Abstract base class defining the operation interface for backends.
 
-    Each backend must implement all 88 operations. Methods receive data
+    Each backend must implement all 89 operations. Methods receive data
     and operation-specific parameters, and return transformed data.
 
     Subclasses must set the ``name`` class variable to a unique identifier
@@ -699,3 +699,20 @@ class Backend(ABC):
 
     @abstractmethod
     def map_value_to_null(self, data: Any, column: str, value: Any) -> Any: ...
+
+    # =========================================================================
+    # Join operations (1)
+    # =========================================================================
+
+    @abstractmethod
+    def join(
+        self,
+        data: Any,
+        right_data: Any,
+        on: list[str],
+        how: str,
+        suffix: str,
+        left_on: list[str] | None = None,
+        right_on: list[str] | None = None,
+        select_columns: list[str] | None = None,
+    ) -> Any: ...

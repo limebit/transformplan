@@ -24,7 +24,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from transformplan.core import TransformPlanBase
-from transformplan.ops import ColumnOps, DatetimeOps, MapOps, MathOps, RowOps, StrOps
+from transformplan.ops import (
+    ColumnOps,
+    DatetimeOps,
+    JoinOps,
+    MapOps,
+    MathOps,
+    RowOps,
+    StrOps,
+)
 
 if TYPE_CHECKING:
     from transformplan.backends.base import Backend
@@ -34,6 +42,7 @@ class TransformPlan(
     TransformPlanBase,
     ColumnOps,
     DatetimeOps,
+    JoinOps,
     MapOps,
     MathOps,
     RowOps,

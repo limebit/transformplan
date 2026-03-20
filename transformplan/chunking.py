@@ -147,6 +147,8 @@ OPERATION_CHUNK_REGISTRY: dict[str, OperationMeta] = {
     "rows_sample": OperationMeta(ChunkMode.GLOBAL),
     "rows_head": OperationMeta(ChunkMode.GLOBAL),
     "rows_tail": OperationMeta(ChunkMode.GLOBAL),
+    # Join operations - global (reference table needed in full)
+    "join": OperationMeta(ChunkMode.GLOBAL),
 }
 
 

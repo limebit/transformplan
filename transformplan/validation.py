@@ -1656,10 +1656,71 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
 }
 
 
+# =============================================================================
+# Join operation validator
+# =============================================================================
+
+
+def _validate_join(
+    tracker: SchemaTracker,
+    params: dict[str, Any],
+    result: ValidationResult,
+    step: int,
+    references: dict[str, dict[str, Any]] | None = None,
+) -> None:
+    on = params["on"]
+    left_on = params.get("left_on", on)
+    right_on = params.get("right_on", on)
+    right_name = params["right_name"]
+    suffix = params.get("suffix", "_right")
+    select_columns = params.get("select_columns")
+
+    # Check left-side join columns
+    for col in left_on:
+        _check_column_exists(tracker, col, result, step, "join")
+
+    # If reference schema is available, validate right side and update tracker
+    if references is not None and right_name in references:
+        ref_schema = references[right_name]
+        right_col_set = set(ref_schema.keys())
+
+        # Check right-side join columns exist in reference
+        for col in right_on:
+            if col not in right_col_set:
+                result.add_error(
+                    step,
+                    "join",
+                    f"Column '{col}' does not exist in reference '{right_name}'",
+                )
+                return
+
+        # Determine which right-side columns to add
+        right_join_col_set = set(right_on)
+        if select_columns is not None:
+            right_output_cols = [
+                c for c in select_columns if c not in right_join_col_set
+            ]
+        else:
+            right_output_cols = [c for c in ref_schema if c not in right_join_col_set]
+
+        left_col_set = tracker.columns
+        for col in right_output_cols:
+            if col not in ref_schema:
+                result.add_error(
+                    step,
+                    "join",
+                    f"Column '{col}' does not exist in reference '{right_name}'",
+                )
+                continue
+            alias = f"{col}{suffix}" if col in left_col_set else col
+            tracker.add_column(alias, ref_schema[col])
+
+
 def validate_schema(
     operations: list[tuple[str, dict[str, Any]]],
     schema: dict[str, Any],
     backend: Backend | None = None,
+    references: dict[str, dict[str, Any]] | None = None,
 ) -> ValidationResult:
     """Validate all operations against the given schema.
 
@@ -1667,6 +1728,7 @@ def validate_schema(
         operations: List of (op_name, params) tuples from TransformPlan.
         schema: Initial DataFrame schema.
         backend: Backend for type classification. Defaults to PolarsBackend.
+        references: Schema dicts for reference tables (for join validation).
 
     Returns:
         ValidationResult with any errors found.
@@ -1675,9 +1737,12 @@ def validate_schema(
     tracker = SchemaTracker(schema, backend=backend)
 
     for step, (op_name, params) in enumerate(operations, start=1):
-        validator = _VALIDATORS.get(op_name)
-        if validator:
-            validator(tracker, params, result, step)
+        if op_name == "join":
+            _validate_join(tracker, params, result, step, references=references)
+        else:
+            validator = _VALIDATORS.get(op_name)
+            if validator:
+                validator(tracker, params, result, step)
 
     return result
 
@@ -1686,6 +1751,7 @@ def dry_run_schema(
     operations: list[tuple[str, dict[str, Any]]],
     schema: dict[str, Any],
     backend: Backend | None = None,
+    references: dict[str, dict[str, Any]] | None = None,
 ) -> DryRunResult:
     """Perform a dry run showing what each operation will do.
 
@@ -1693,6 +1759,7 @@ def dry_run_schema(
         operations: List of (op_name, params) tuples from TransformPlan.
         schema: Initial DataFrame schema.
         backend: Backend for type classification. Defaults to PolarsBackend.
+        references: Schema dicts for reference tables (for join validation).
 
     Returns:
         DryRunResult with step-by-step preview and validation.
@@ -1708,9 +1775,14 @@ def dry_run_schema(
 
         # Run validation (which also updates tracker)
         step_errors_before = len(validation_result.errors)
-        validator = _VALIDATORS.get(op_name)
-        if validator:
-            validator(tracker, params, validation_result, step_num)
+        if op_name == "join":
+            _validate_join(
+                tracker, params, validation_result, step_num, references=references
+            )
+        else:
+            validator = _VALIDATORS.get(op_name)
+            if validator:
+                validator(tracker, params, validation_result, step_num)
 
         # Capture schema after
         schema_after = {k: tracker.type_name(v) for k, v in tracker._schema.items()}
