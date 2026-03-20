@@ -1,0 +1,65 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            docs
+            ci
+            chore
+            test
+            build
+            release
+          requireScope: false
+
+  label-pr:
+    needs: validate-title
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Label PR by type
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const prNumber = context.payload.pull_request.number;
+
+            const typeMatch = title.match(/^(\w+)/);
+            const labelsToAdd = [];
+            const type = typeMatch ? typeMatch[1] : '';
+
+            const changelogTypes = ['feat', 'fix', 'refactor', 'docs', 'test', 'build'];
+            if (changelogTypes.includes(type)) {
+              labelsToAdd.push(type);
+            }
+
+            if (type === 'release') {
+              labelsToAdd.push('release');
+            }
+
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: labelsToAdd,
+              });
+            }

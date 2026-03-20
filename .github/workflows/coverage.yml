@@ -1,11 +1,15 @@
-name: Format Pull Request
+name: Check Python Coverage
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 jobs:
-  format:
+  coverage:
     runs-on: ubuntu-22.04
+    permissions:
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v5
@@ -19,7 +23,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --group dev
+          uv sync --group tests
 
-      - name: Format with ruff
-        run: uv run ruff format --check
+      - name: Create coverage report
+        run: |
+          uv run coverage run -m pytest
+          uv run coverage report -m --fail-under=99
