@@ -61,14 +61,21 @@ class TransformPlanBase:
 
     VERSION = "1.0"
 
-    def __init__(self, backend: Backend | None = None) -> None:
-        """Initialize an empty TransformPlanBase.
+    def __init__(self) -> None:
+        """Initialize an empty TransformPlanBase."""
+        self._operations: list[tuple[str, dict[str, Any]]] = []
+
+    @staticmethod
+    def _resolve_backend(backend: Backend | None = None) -> Backend:
+        """Resolve backend, defaulting to PolarsBackend.
 
         Args:
-            backend: Backend to use for execution. Defaults to PolarsBackend.
+            backend: Optional backend override.
+
+        Returns:
+            The resolved backend instance.
         """
-        self._operations: list[tuple[str, dict[str, Any]]] = []
-        self._backend: Backend = backend or PolarsBackend()
+        return backend or PolarsBackend()
 
     def _register(
         self,
@@ -89,6 +96,7 @@ class TransformPlanBase:
         *,
         validate: bool = True,
         references: dict[str, Any] | None = None,
+        backend: Backend | None = None,
     ) -> tuple[Any, Protocol]:
         """Execute all registered operations and return transformed data with protocol.
 
@@ -100,6 +108,7 @@ class TransformPlanBase:
             references: Named reference tables for join operations. Keys are
                 symbolic names used in join(right_name=...), values are the
                 actual data (DataFrame or relation).
+            backend: Backend to use for execution. Defaults to PolarsBackend.
 
         Returns:
             Tuple of (processed data, Protocol).
@@ -107,32 +116,32 @@ class TransformPlanBase:
         Raises:
             ValueError: If a join operation references a table not in references.
         """
+        resolved = self._resolve_backend(backend)
+
         if validate:
-            ref_schemas = self._extract_reference_schemas(references)
+            ref_schemas = self._extract_reference_schemas(references, resolved)
             validate_schema(
                 self._operations,
-                self._backend.get_schema(data),
-                self._backend,
+                resolved.get_schema(data),
+                resolved,
                 references=ref_schemas,
             ).raise_if_invalid()
 
         protocol = Protocol()
-        protocol.set_input(
-            self._backend.compute_hash(data), self._backend.get_shape(data)
-        )
+        protocol.set_input(resolved.compute_hash(data), resolved.get_shape(data))
 
         # Record reference hashes in protocol metadata
         if references:
             ref_meta = {}
             for name, ref_data in references.items():
                 ref_meta[name] = {
-                    "hash": self._backend.compute_hash(ref_data),
-                    "shape": list(self._backend.get_shape(ref_data)),
+                    "hash": resolved.compute_hash(ref_data),
+                    "shape": list(resolved.get_shape(ref_data)),
                 }
             protocol.set_metadata(references=ref_meta)
 
         for op_name, params in self._operations:
-            old_shape = self._backend.get_shape(data)
+            old_shape = resolved.get_shape(data)
             start = time.perf_counter()
 
             if op_name == "join":
@@ -142,26 +151,31 @@ class TransformPlanBase:
                     raise ValueError(msg)
                 dispatch_params = {k: v for k, v in params.items() if k != "right_name"}
                 dispatch_params["right_data"] = references[right_name]
-                data = getattr(self._backend, op_name)(data, **dispatch_params)
+                data = getattr(resolved, op_name)(data, **dispatch_params)
             else:
-                data = getattr(self._backend, op_name)(data, **params)
+                data = getattr(resolved, op_name)(data, **params)
 
             elapsed = time.perf_counter() - start
             protocol.add_step(
                 operation=op_name,
                 params=params,
                 old_shape=old_shape,
-                new_shape=self._backend.get_shape(data),
+                new_shape=resolved.get_shape(data),
                 elapsed=elapsed,
-                output_hash=self._backend.compute_hash(data),
+                output_hash=resolved.compute_hash(data),
             )
 
         return data, protocol
 
+    @staticmethod
     def _extract_reference_schemas(
-        self, references: dict[str, Any] | None
+        references: dict[str, Any] | None, backend: Backend
     ) -> dict[str, dict[str, Any]] | None:
         """Extract schemas from reference tables for validation.
+
+        Args:
+            references: Named reference tables.
+            backend: Backend to use for schema extraction.
 
         Returns:
             Dict mapping reference names to their schemas, or None.
@@ -169,8 +183,7 @@ class TransformPlanBase:
         if references is None:
             return None
         return {
-            name: self._backend.get_schema(ref_data)
-            for name, ref_data in references.items()
+            name: backend.get_schema(ref_data) for name, ref_data in references.items()
         }
 
     def validate(
@@ -178,12 +191,14 @@ class TransformPlanBase:
         data: Any,  # noqa: ANN401
         *,
         references: dict[str, Any] | None = None,
+        backend: Backend | None = None,
     ) -> ValidationResult:
         """Validate all operations against the data schema without executing.
 
         Args:
             data: Input data (Polars DataFrame, DuckDB relation, etc.).
             references: Named reference tables for join operations.
+            backend: Backend to use for validation. Defaults to PolarsBackend.
 
         Returns:
             ValidationResult with any errors found.
@@ -197,11 +212,12 @@ class TransformPlanBase:
             else:
                 df, protocol = plan.process(df)
         """
-        ref_schemas = self._extract_reference_schemas(references)
+        resolved = self._resolve_backend(backend)
+        ref_schemas = self._extract_reference_schemas(references, resolved)
         return validate_schema(
             self._operations,
-            self._backend.get_schema(data),
-            self._backend,
+            resolved.get_schema(data),
+            resolved,
             references=ref_schemas,
         )
 
@@ -210,6 +226,7 @@ class TransformPlanBase:
         data: Any,  # noqa: ANN401
         *,
         references: dict[str, Any] | None = None,
+        backend: Backend | None = None,
     ) -> DryRunResult:
         """Preview what the pipeline will do without executing it.
 
@@ -219,6 +236,7 @@ class TransformPlanBase:
         Args:
             data: DataFrame to preview against.
             references: Named reference tables for join operations.
+            backend: Backend to use for dry run. Defaults to PolarsBackend.
 
         Returns:
             DryRunResult with step-by-step preview.
@@ -235,11 +253,12 @@ class TransformPlanBase:
             if preview.is_valid:
                 df, protocol = plan.process(df)
         """
-        ref_schemas = self._extract_reference_schemas(references)
+        resolved = self._resolve_backend(backend)
+        ref_schemas = self._extract_reference_schemas(references, resolved)
         return dry_run_schema(
             self._operations,
-            self._backend.get_schema(data),
-            self._backend,
+            resolved.get_schema(data),
+            resolved,
             references=ref_schemas,
         )
 
@@ -258,26 +277,18 @@ class TransformPlanBase:
                 }
             )
 
-        result: dict[str, Any] = {
+        return {
             "version": self.VERSION,
             "steps": steps,
         }
 
-        # Include backend identifier for forward compatibility
-        if not isinstance(self._backend, PolarsBackend):
-            result["backend"] = self._backend.name
-
-        return result
-
     @classmethod
-    def from_dict(cls, data: dict[str, Any], backend: Backend | None = None) -> Self:
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         """Deserialize a pipeline from a dictionary.
 
         Args:
-            data: Dictionary with 'steps' list.
-            backend: Optional backend override. If provided, uses this backend
-                instead of the one stored in the serialized data. This is
-                required for DuckDB when you need a specific connection.
+            data: Dictionary with 'steps' list. Any 'backend' key from
+                older serialized plans is silently ignored.
 
         Returns:
             New TransformPlan instance with operations loaded.
@@ -285,20 +296,7 @@ class TransformPlanBase:
         Raises:
             ValueError: If an unknown operation or invalid parameters are encountered.
         """
-        if backend is None:
-            # Read backend from serialized data (default: polars)
-            backend_name = data.get("backend", "polars")
-            if backend_name == "polars":
-                backend = None  # default
-            elif backend_name == "duckdb":
-                from transformplan.backends.duckdb import DuckDBBackend
-
-                backend = DuckDBBackend()
-            else:
-                msg = f"Unsupported backend: {backend_name}"
-                raise ValueError(msg)
-
-        plan = cls(backend=backend)
+        plan = cls()
 
         for step in data.get("steps", []):
             op_name = step["operation"]
@@ -337,13 +335,11 @@ class TransformPlanBase:
         return json_str
 
     @classmethod
-    def from_json(cls, source: str | Path, backend: Backend | None = None) -> Self:
+    def from_json(cls, source: str | Path) -> Self:
         """Deserialize a pipeline from JSON.
 
         Args:
             source: Either a JSON string or a path to a JSON file.
-            backend: Optional backend override. If provided, uses this backend
-                instead of the one stored in the serialized data.
 
         Returns:
             New TransformPlan instance.
@@ -353,7 +349,7 @@ class TransformPlanBase:
         else:
             content = source
 
-        return cls.from_dict(json.loads(content), backend=backend)
+        return cls.from_dict(json.loads(content))
 
     def __len__(self) -> int:
         """Return number of registered operations.
@@ -524,6 +520,7 @@ class TransformPlanBase:
         chunk_size: int = 100_000,
         validate: bool = True,
         references: dict[str, Any] | None = None,
+        backend: Backend | None = None,
     ) -> tuple[pl.DataFrame, ChunkedProtocol]:
         """Process a large Parquet file in chunks.
 
@@ -543,6 +540,7 @@ class TransformPlanBase:
             validate: Whether to validate operations before processing.
             references: Named reference tables for join operations (reserved
                 for forward compatibility).
+            backend: Backend to use for execution. Defaults to PolarsBackend.
 
         Returns:
             Tuple of (result DataFrame, ChunkedProtocol with processing details).
@@ -567,6 +565,7 @@ class TransformPlanBase:
             )
             protocol.print()
         """
+        resolved = self._resolve_backend(backend)
         source_path = Path(source)
         if not source_path.exists():
             msg = f"Source file not found: {source_path}"
@@ -595,7 +594,7 @@ class TransformPlanBase:
         if validate:
             from transformplan.validation import validate_schema
 
-            schema_validation = validate_schema(self._operations, schema, self._backend)
+            schema_validation = validate_schema(self._operations, schema, resolved)
             schema_validation.raise_if_invalid()
 
         # Initialize protocol
@@ -621,14 +620,14 @@ class TransformPlanBase:
 
         for chunk_index, chunk_df in enumerate(chunk_iter):
             start = time.perf_counter()
-            input_hash = self._backend.compute_hash(chunk_df)
+            input_hash = resolved.compute_hash(chunk_df)
             input_rows = len(chunk_df)
 
             # Apply all operations to this chunk
             for op_name, params in self._operations:
-                chunk_df = getattr(self._backend, op_name)(chunk_df, **params)
+                chunk_df = getattr(resolved, op_name)(chunk_df, **params)
 
-            output_hash = self._backend.compute_hash(chunk_df)
+            output_hash = resolved.compute_hash(chunk_df)
             elapsed = time.perf_counter() - start
 
             protocol.add_chunk(
