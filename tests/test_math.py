@@ -465,3 +465,167 @@ class TestMathDiffFromAgg:
         result1, _ = plan.process(numeric_df)
         result2, _ = restored.process(numeric_df)
         assert result1["diff"].to_list() == result2["diff"].to_list()
+
+
+class TestMathDiffLag:
+    """Tests for math_diff_lag operation."""
+
+    def test_numeric_basic(self) -> None:
+        """Test lag=1 on integers ordered by id; first row null."""
+        df = pl.DataFrame({"id": [1, 2, 3, 4], "val": [10, 30, 35, 50]})
+        plan = TransformPlan().math_diff_lag("val", order_by="id", new_column="diff")
+        result, _ = plan.process(df)
+        assert result["diff"].to_list() == [None, 20.0, 5.0, 15.0]
+
+    def test_numeric_lag2(self) -> None:
+        """Test lag=2; first two rows null."""
+        df = pl.DataFrame({"id": [1, 2, 3, 4], "val": [10, 30, 35, 50]})
+        plan = TransformPlan().math_diff_lag(
+            "val", order_by="id", new_column="diff", lag=2
+        )
+        result, _ = plan.process(df)
+        assert result["diff"].to_list() == [None, None, 25.0, 20.0]
+
+    def test_grouped_numeric(self) -> None:
+        """Test partition by group; nulls restart per group."""
+        df = pl.DataFrame(
+            {
+                "grp": ["A", "A", "A", "B", "B", "B"],
+                "seq": [1, 2, 3, 1, 2, 3],
+                "val": [10, 30, 35, 100, 150, 160],
+            }
+        )
+        plan = TransformPlan().math_diff_lag(
+            "val", order_by="seq", new_column="diff", group_by="grp"
+        )
+        result, _ = plan.process(df)
+        expected = [None, 20.0, 5.0, None, 50.0, 10.0]
+        assert result["diff"].to_list() == expected
+
+    def test_datetime_column(self) -> None:
+        """Test datetime input produces duration output."""
+        df = pl.DataFrame(
+            {
+                "id": [1, 2, 3],
+                "ts": [
+                    datetime(2024, 1, 1, 0, 0),
+                    datetime(2024, 1, 1, 1, 0),
+                    datetime(2024, 1, 1, 3, 0),
+                ],
+            }
+        )
+        plan = TransformPlan().math_diff_lag("ts", order_by="id", new_column="gap")
+        result, _ = plan.process(df)
+        assert result["gap"].dtype == pl.Duration
+        vals = result["gap"].to_list()
+        assert vals[0] is None
+        assert vals[1].total_seconds() == 3600
+        assert vals[2].total_seconds() == 7200
+
+    def test_datetime_grouped(self) -> None:
+        """Test primary use case: time between events per patient."""
+        df = pl.DataFrame(
+            {
+                "patient": ["A", "A", "B", "B"],
+                "ts": [
+                    datetime(2024, 1, 1, 0, 0),
+                    datetime(2024, 1, 1, 2, 0),
+                    datetime(2024, 1, 1, 10, 0),
+                    datetime(2024, 1, 1, 13, 0),
+                ],
+            }
+        )
+        plan = TransformPlan().math_diff_lag(
+            "ts", order_by="ts", new_column="gap", group_by="patient"
+        )
+        result, _ = plan.process(df)
+        assert result["gap"].dtype == pl.Duration
+        vals = result["gap"].to_list()
+        assert vals[0] is None
+        assert vals[1].total_seconds() / 3600 == 2.0
+        assert vals[2] is None
+        assert vals[3].total_seconds() / 3600 == 3.0
+
+    def test_order_by_different_column(self) -> None:
+        """Test diffing 'value' ordered by 'timestamp'."""
+        df = pl.DataFrame(
+            {
+                "ts": [
+                    datetime(2024, 1, 1),
+                    datetime(2024, 1, 2),
+                    datetime(2024, 1, 3),
+                ],
+                "val": [100, 130, 125],
+            }
+        )
+        plan = TransformPlan().math_diff_lag("val", order_by="ts", new_column="change")
+        result, _ = plan.process(df)
+        assert result["change"].to_list() == [None, 30.0, -5.0]
+
+    def test_order_by_list(self) -> None:
+        """Test multi-column order_by."""
+        df = pl.DataFrame(
+            {
+                "a": [1, 1, 2, 2],
+                "b": [1, 2, 1, 2],
+                "val": [10, 20, 30, 40],
+            }
+        )
+        plan = TransformPlan().math_diff_lag(
+            "val", order_by=["a", "b"], new_column="diff"
+        )
+        result, _ = plan.process(df)
+        assert result["diff"].to_list() == [None, 10.0, 10.0, 10.0]
+
+    def test_global_no_group(self) -> None:
+        """Test no group_by, global ordering."""
+        df = pl.DataFrame({"seq": [3, 1, 2], "val": [30, 10, 20]})
+        plan = TransformPlan().math_diff_lag("val", order_by="seq", new_column="diff")
+        result, _ = plan.process(df)
+        # After sorting by seq: [10, 20, 30], diffs: [None, 10, 10]
+        assert result["diff"].to_list() == [None, 10.0, 10.0]
+
+    def test_validation_nonexistent_column(self, numeric_df: pl.DataFrame) -> None:
+        """Test validation catches non-existent column."""
+        plan = TransformPlan().math_diff_lag(
+            "nonexistent", order_by="a", new_column="diff"
+        )
+        result = plan.validate(numeric_df)
+        assert not result.is_valid
+        assert "does not exist" in str(result.errors[0])
+
+    def test_validation_wrong_type(self, basic_df: pl.DataFrame) -> None:
+        """Test validation catches string column."""
+        plan = TransformPlan().math_diff_lag("name", order_by="id", new_column="diff")
+        result = plan.validate(basic_df)
+        assert not result.is_valid
+        assert "numeric or datetime" in str(result.errors[0])
+
+    def test_validation_missing_order_by(self, numeric_df: pl.DataFrame) -> None:
+        """Test validation catches missing order_by column."""
+        plan = TransformPlan().math_diff_lag(
+            "a", order_by="nonexistent", new_column="diff"
+        )
+        result = plan.validate(numeric_df)
+        assert not result.is_valid
+        assert "Order-by" in str(result.errors[0])
+
+    def test_validation_missing_group_by(self, numeric_df: pl.DataFrame) -> None:
+        """Test validation catches missing group_by column."""
+        plan = TransformPlan().math_diff_lag(
+            "a", order_by="a", new_column="diff", group_by="nonexistent"
+        )
+        result = plan.validate(numeric_df)
+        assert not result.is_valid
+        assert "Group-by" in str(result.errors[0])
+
+    def test_serialization_roundtrip(self, numeric_df: pl.DataFrame) -> None:
+        """Test JSON serialization round-trip."""
+        plan = TransformPlan().math_diff_lag(
+            "a", order_by="a", new_column="diff", group_by="b", lag=2
+        )
+        json_str = plan.to_json()
+        restored = TransformPlan.from_json(json_str)
+        result1, _ = plan.process(numeric_df)
+        result2, _ = restored.process(numeric_df)
+        assert result1["diff"].to_list() == result2["diff"].to_list()

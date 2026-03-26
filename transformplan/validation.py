@@ -961,6 +961,51 @@ def _validate_math_diff_from_agg(
         tracker.add_column(new_column, tracker.float_type)
 
 
+def _validate_math_diff_lag(
+    tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
+) -> None:
+    column = params["column"]
+    order_by = params["order_by"]
+    new_column = params["new_column"]
+    group_by = params.get("group_by")
+
+    if _check_column_exists(tracker, column, result, step, "math_diff_lag"):
+        dtype = tracker.get_dtype(column)
+        if not (tracker.is_numeric(dtype) or tracker.is_datetime(dtype)):
+            result.add_error(
+                step,
+                "math_diff_lag",
+                f"Column '{column}' must be numeric or datetime, "
+                f"got {tracker.type_name(dtype)}",
+            )
+
+    missing_order = [c for c in order_by if not tracker.has_column(c)]
+    if missing_order:
+        result.add_error(
+            step,
+            "math_diff_lag",
+            f"Order-by columns do not exist: {missing_order}",
+        )
+
+    if group_by:
+        missing_group = [c for c in group_by if not tracker.has_column(c)]
+        if missing_group:
+            result.add_error(
+                step,
+                "math_diff_lag",
+                f"Group-by columns do not exist: {missing_group}",
+            )
+
+    if tracker.has_column(column):
+        dtype = tracker.get_dtype(column)
+        out_type = (
+            tracker.duration_type if tracker.is_datetime(dtype) else tracker.float_type
+        )
+        tracker.add_column(new_column, out_type)
+    else:
+        tracker.add_column(new_column, tracker.float_type)
+
+
 def _validate_math_percent_of(
     tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
 ) -> None:
@@ -1590,6 +1635,7 @@ _VALIDATORS: dict[str, ValidatorFunc] = {
     "math_cumsum": _validate_math_cumsum,
     "math_rank": _validate_math_rank,
     "math_diff_from_agg": _validate_math_diff_from_agg,
+    "math_diff_lag": _validate_math_diff_lag,
     "math_percent_of": _validate_math_percent_of,
     # Scaling ops
     "math_standardize": partial(_validate_math_scaling, op_name="math_standardize"),

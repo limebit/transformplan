@@ -366,6 +366,25 @@ class PolarsBackend(Backend):
             agg_expr = agg_expr.over(group_by)
         return data.with_columns((pl.col(column) - agg_expr).alias(new_column))
 
+    def math_diff_lag(
+        self,
+        data: pl.DataFrame,
+        column: str,
+        order_by: list[str],
+        new_column: str,
+        group_by: list[str] | None,
+        lag: int,
+    ) -> pl.DataFrame:
+        if group_by:
+            expr = pl.col(column) - pl.col(column).shift(lag).over(
+                partition_by=group_by, order_by=order_by
+            )
+            return data.with_columns(expr.alias(new_column))
+        data = data.sort(order_by)
+        return data.with_columns(
+            (pl.col(column) - pl.col(column).shift(lag)).alias(new_column)
+        )
+
     def math_standardize(
         self,
         data: pl.DataFrame,

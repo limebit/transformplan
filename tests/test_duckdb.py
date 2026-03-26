@@ -1617,6 +1617,131 @@ class TestMathDiffFromAgg:
             )
 
 
+class TestMathDiffLag:
+    """Tests for math_diff_lag with DuckDB backend."""
+
+    def test_numeric_basic(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES (1, 10), (2, 30), (3, 35), (4, 50)) AS t(id, val)"
+        )
+        result, _ = (
+            TransformPlan()
+            .math_diff_lag("val", order_by="id", new_column="diff")
+            .process(rel, backend=backend)
+        )
+        vals = _col_values(result, "diff")
+        assert vals[0] is None
+        assert vals[1:] == [20, 5, 15]
+
+    def test_numeric_lag2(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES (1, 10), (2, 30), (3, 35), (4, 50)) AS t(id, val)"
+        )
+        result, _ = (
+            TransformPlan()
+            .math_diff_lag("val", order_by="id", new_column="diff", lag=2)
+            .process(rel, backend=backend)
+        )
+        vals = _col_values(result, "diff")
+        assert vals[0] is None
+        assert vals[1] is None
+        assert vals[2:] == [25, 20]
+
+    def test_grouped_numeric(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES "
+            "('A', 1, 10), ('A', 2, 30), ('A', 3, 35), "
+            "('B', 1, 100), ('B', 2, 150), ('B', 3, 160)"
+            ") AS t(grp, seq, val)"
+        )
+        result, _ = (
+            TransformPlan()
+            .math_diff_lag("val", order_by="seq", new_column="diff", group_by="grp")
+            .rows_sort(["grp", "seq"])
+            .process(rel, backend=backend)
+        )
+        vals = _col_values(result, "diff")
+        assert vals == [None, 20, 5, None, 50, 10]
+
+    def test_datetime_column(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES "
+            "(1, TIMESTAMP '2024-01-01 00:00:00'), "
+            "(2, TIMESTAMP '2024-01-01 01:00:00'), "
+            "(3, TIMESTAMP '2024-01-01 03:00:00')"
+            ") AS t(id, ts)"
+        )
+        result, _ = (
+            TransformPlan()
+            .math_diff_lag("ts", order_by="id", new_column="gap")
+            .process(rel, backend=backend)
+        )
+        vals = _col_values(result, "gap")
+        assert vals[0] is None
+        assert vals[1].total_seconds() == 3600
+        assert vals[2].total_seconds() == 7200
+
+    def test_datetime_grouped(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES "
+            "('A', TIMESTAMP '2024-01-01 00:00:00'), "
+            "('A', TIMESTAMP '2024-01-01 02:00:00'), "
+            "('B', TIMESTAMP '2024-01-01 10:00:00'), "
+            "('B', TIMESTAMP '2024-01-01 13:00:00')"
+            ") AS t(patient, ts)"
+        )
+        result, _ = (
+            TransformPlan()
+            .math_diff_lag("ts", order_by="ts", new_column="gap", group_by="patient")
+            .rows_sort(["patient", "ts"])
+            .process(rel, backend=backend)
+        )
+        vals = _col_values(result, "gap")
+        assert vals[0] is None
+        assert vals[1].total_seconds() / 3600 == 2.0
+        assert vals[2] is None
+        assert vals[3].total_seconds() / 3600 == 3.0
+
+    def test_order_by_list(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql(
+            "SELECT * FROM (VALUES "
+            "(1, 1, 10), (1, 2, 20), (2, 1, 30), (2, 2, 40)"
+            ") AS t(a, b, val)"
+        )
+        result, _ = (
+            TransformPlan()
+            .math_diff_lag("val", order_by=["a", "b"], new_column="diff")
+            .process(rel, backend=backend)
+        )
+        vals = _col_values(result, "diff")
+        assert vals == [None, 10, 10, 10]
+
+    def test_global_no_group(
+        self, backend: DuckDBBackend, con: duckdb.DuckDBPyConnection
+    ) -> None:
+        rel = con.sql("SELECT * FROM (VALUES (3, 30), (1, 10), (2, 20)) AS t(seq, val)")
+        result, _ = (
+            TransformPlan()
+            .math_diff_lag("val", order_by="seq", new_column="diff")
+            .process(rel, backend=backend)
+        )
+        vals = _col_values(result, "diff")
+        assert vals[0] is None
+        assert vals[1:] == [10, 10]
+
+
 class TestColExpr:
     """Tests for col_expr on DuckDB backend."""
 

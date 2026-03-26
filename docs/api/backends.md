@@ -1,6 +1,6 @@
 # Backends
 
-TransformPlan uses a pluggable backend system. Each backend implements the `Backend` ABC, providing all 88 operations plus meta methods for hashing, schema inspection, and type classification.
+TransformPlan uses a pluggable backend system. Each backend implements the `Backend` ABC, providing all 89 operations plus meta methods for hashing, schema inspection, and type classification.
 
 ## Overview
 

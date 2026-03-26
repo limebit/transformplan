@@ -327,6 +327,46 @@ class MathOps:
             },
         )
 
+    def math_diff_lag(
+        self,
+        column: str,
+        *,
+        order_by: str | list[str],
+        new_column: str,
+        group_by: str | list[str] | None = None,
+        lag: int = 1,
+    ) -> Self:
+        """Compute row-to-row difference using lag.
+
+        Calculates column - LAG(column, lag) ordered by order_by and optionally
+        partitioned by group_by. Works on numeric columns (result is float) and
+        datetime columns (result is duration).
+
+        Args:
+            column: Source column (numeric or datetime).
+            order_by: Column(s) defining row order.
+            new_column: Name for result column.
+            group_by: Column(s) to partition by. None for global ordering.
+            lag: Number of rows to look back (must be >= 1).
+
+        Returns:
+            Self for method chaining.
+        """
+        if isinstance(order_by, str):
+            order_by = [order_by]
+        if isinstance(group_by, str):
+            group_by = [group_by]
+        return self._register(
+            "math_diff_lag",
+            {
+                "column": column,
+                "order_by": order_by,
+                "new_column": new_column,
+                "group_by": group_by,
+                "lag": lag,
+            },
+        )
+
     # =========================================================================
     # Scaling Operations
     # =========================================================================
