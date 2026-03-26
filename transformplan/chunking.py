@@ -97,6 +97,7 @@ OPERATION_CHUNK_REGISTRY: dict[str, OperationMeta] = {
     "math_diff_from_agg": OperationMeta(
         ChunkMode.GROUP_DEPENDENT, group_param="group_by"
     ),
+    "math_diff_lag": OperationMeta(ChunkMode.GROUP_DEPENDENT, group_param="group_by"),
     # String operations - all chunkable
     "str_replace": OperationMeta(ChunkMode.CHUNKABLE),
     "str_slice": OperationMeta(ChunkMode.CHUNKABLE),

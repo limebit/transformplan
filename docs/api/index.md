@@ -96,6 +96,8 @@ All TransformPlan operations at a glance. Click method names for detailed docume
 | [`math_log`](ops/math.md) | Logarithmic transform |
 | [`math_sqrt`](ops/math.md) | Square root transform |
 | [`math_power`](ops/math.md) | Power transform |
+| [`math_diff_from_agg`](ops/math.md) | Difference from a group aggregate (min, mean, etc.) |
+| [`math_diff_lag`](ops/math.md) | Row-to-row difference using lag (numeric or datetime) |
 | [`math_winsorize`](ops/math.md) | Clip values to percentiles or bounds |
 
 ### Row Operations

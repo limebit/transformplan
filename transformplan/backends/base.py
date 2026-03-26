@@ -310,6 +310,17 @@ class Backend(ABC):
     ) -> Any: ...
 
     @abstractmethod
+    def math_diff_lag(
+        self,
+        data: Any,
+        column: str,
+        order_by: list[str],
+        new_column: str,
+        group_by: list[str] | None,
+        lag: int,
+    ) -> Any: ...
+
+    @abstractmethod
     def math_standardize(
         self,
         data: Any,

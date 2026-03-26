@@ -582,6 +582,26 @@ class DuckDBBackend(Backend):
         )
         return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
 
+    def math_diff_lag(
+        self,
+        data: duckdb.DuckDBPyRelation,
+        column: str,
+        order_by: list[str],
+        new_column: str,
+        group_by: list[str] | None,
+        lag: int,
+    ) -> duckdb.DuckDBPyRelation:
+        partition = ""
+        if group_by:
+            partition = "PARTITION BY " + ", ".join(_q(g) for g in group_by)
+        order = "ORDER BY " + ", ".join(_q(o) for o in order_by)
+        window = f"{partition} {order}".strip()
+        expr = (
+            f"({_q(column)} - LAG({_q(column)}, {lag}) OVER ({window})) "
+            f"AS {_q(new_column)}"
+        )
+        return self._con.sql(f"SELECT *, {expr} FROM {_sub(data)}")
+
     def math_standardize(
         self,
         data: duckdb.DuckDBPyRelation,

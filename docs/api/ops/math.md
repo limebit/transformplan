@@ -40,6 +40,7 @@ plan = (
         - math_cumsum
         - math_rank
         - math_diff_from_agg
+        - math_diff_lag
         - math_standardize
         - math_minmax
         - math_robust_scale
@@ -161,6 +162,29 @@ plan = TransformPlan().math_diff_from_agg(
     column="value",
     agg="max",
     new_column="diff_from_max",
+)
+
+# Row-to-row difference (lag)
+plan = TransformPlan().math_diff_lag(
+    column="timestamp",
+    order_by="timestamp",
+    new_column="time_between",
+    group_by="patient_id",
+)
+
+# Numeric change ordered by date
+plan = TransformPlan().math_diff_lag(
+    column="price",
+    order_by="date",
+    new_column="daily_change",
+)
+
+# Lag of 2 rows
+plan = TransformPlan().math_diff_lag(
+    column="value",
+    order_by="seq",
+    new_column="diff_2",
+    lag=2,
 )
 ```
 
