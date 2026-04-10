@@ -96,8 +96,8 @@ class DuckDBBackend(Backend):
             f"COALESCE({_q(c)}::VARCHAR, '')" for c in cols
         )
         sql = (
-            f"SELECT md5(string_agg(row_str, '\\n' ORDER BY row_str)) AS h "
-            f"FROM (SELECT {concat_expr} AS row_str "
+            f"SELECT md5(string_agg(row_hash, '' ORDER BY row_hash)) AS h "
+            f"FROM (SELECT md5({concat_expr}) AS row_hash "
             f"FROM (SELECT {col_list} FROM {_sub(data)}) AS _s) AS _r"
         )
         result = self._con.sql(sql).fetchone()
