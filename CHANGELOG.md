@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-04-10
+
+### Features
+
+- fixed shared hashing that caused memory issues (#23)
+
 ## [0.2.0] - 2026-03-26
 
 ### Breaking Changes
