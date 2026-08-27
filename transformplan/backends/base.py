@@ -126,6 +126,22 @@ class Backend(ABC):
         """Return a human-readable name for a dtype."""
         ...
 
+    def resolve_dtype(self, dtype: Any) -> Any:
+        """Resolve a canonical dtype name to this backend's type.
+
+        Plans store dtypes as canonical name strings so they stay serializable
+        (see ``transformplan.dtypes``). Backends override this to map a name to
+        their own type system. The default passes the value through unchanged,
+        so backends predating this method keep working.
+
+        Args:
+            dtype: Canonical dtype name, or a native dtype to pass through.
+
+        Returns:
+            The backend's dtype.
+        """
+        return dtype
+
     # =========================================================================
     # Column operations (14)
     # =========================================================================

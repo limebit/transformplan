@@ -268,6 +268,99 @@ class TestProtocolSummary:
         assert "TRANSFORM PROTOCOL" in captured.out
 
 
+class TestProtocolSectionsAndReasons:
+    """Tests for section grouping and reasons in the protocol."""
+
+    def test_summary_shows_section_balance(self, basic_df: pl.DataFrame) -> None:
+        """Test that a per-section balance is rendered."""
+        plan = (
+            TransformPlan()
+            .section("Cleanup")
+            .col_drop("age")
+            .col_drop("salary")
+            .section("Types")
+            .col_cast("id", "Float64")
+        )
+        _, protocol = plan.process(basic_df)
+        summary = protocol.summary()
+
+        assert "SECTIONS" in summary
+        assert "Cleanup" in summary
+        assert "Types" in summary
+        assert "2 steps" in summary
+
+    def test_summary_shows_reason(self, basic_df: pl.DataFrame) -> None:
+        """Test that a reason appears under its step."""
+        plan = TransformPlan().col_drop("age").because("not needed downstream")
+        _, protocol = plan.process(basic_df)
+        assert "not needed downstream" in protocol.summary()
+
+    def test_summary_unchanged_without_sections(self, basic_df: pl.DataFrame) -> None:
+        """Test that plans without sections render as before."""
+        plan = TransformPlan().col_drop("age")
+        _, protocol = plan.process(basic_df)
+        assert "SECTIONS" not in protocol.summary()
+
+    def test_dataframe_has_metadata_columns(self, basic_df: pl.DataFrame) -> None:
+        """Test that section and reason reach the DataFrame export."""
+        plan = TransformPlan().section("A").col_drop("age").because("why")
+        _, protocol = plan.process(basic_df)
+        df = protocol.to_dataframe()
+
+        assert "section" in df.columns
+        assert "reason" in df.columns
+        assert df.filter(pl.col("step") == 1)["section"][0] == "A"
+        assert df.filter(pl.col("step") == 1)["reason"][0] == "why"
+
+    def test_csv_has_metadata_columns(self, basic_df: pl.DataFrame) -> None:
+        """Test that section and reason reach the CSV export."""
+        plan = TransformPlan().section("A").col_drop("age").because("why")
+        _, protocol = plan.process(basic_df)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "protocol.csv"
+            protocol.to_csv(path)
+            content = path.read_text()
+
+        assert "section" in content
+        assert "why" in content
+
+    def test_dict_round_trip_keeps_metadata(self, basic_df: pl.DataFrame) -> None:
+        """Test that metadata survives a protocol round trip."""
+        plan = TransformPlan().section("A").col_drop("age").because("why")
+        _, protocol = plan.process(basic_df)
+
+        restored = Protocol.from_dict(protocol.to_dict())
+        step = restored.to_dict()["steps"][0]
+        assert step["section"] == "A"
+        assert step["reason"] == "why"
+
+    def test_from_dict_tolerates_missing_metadata(self) -> None:
+        """Test that protocols written before metadata existed still load."""
+        legacy = {
+            "version": "1.0",
+            "created_at": "2024-01-01T00:00:00",
+            "metadata": {},
+            "input": {"hash": "abc123", "shape": [5, 3]},
+            "steps": [
+                {
+                    "step": 1,
+                    "operation": "col_drop",
+                    "params": {"column": "age"},
+                    "old_shape": [5, 3],
+                    "new_shape": [5, 2],
+                    "rows_changed": 0,
+                    "cols_changed": 1,
+                    "elapsed_seconds": 0.001,
+                    "output_hash": "def456",
+                }
+            ],
+        }
+        restored = Protocol.from_dict(legacy)
+        assert len(restored) == 1
+        assert restored.to_dict()["steps"][0]["section"] is None
+
+
 class TestProtocolStepTracking:
     """Tests for Protocol step tracking."""
 

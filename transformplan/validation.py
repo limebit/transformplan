@@ -442,6 +442,17 @@ class SchemaTracker:
             backend = PolarsBackend()
         self._backend = backend
 
+    def resolve_dtype(self, dtype: Any) -> Any:  # noqa: ANN401
+        """Resolve a canonical dtype name to the backend's type.
+
+        Args:
+            dtype: Canonical dtype name or a native dtype.
+
+        Returns:
+            The backend's dtype.
+        """
+        return self._backend.resolve_dtype(dtype)
+
     @property
     def columns(self) -> set[str]:
         """Get set of column names.
@@ -704,7 +715,9 @@ def _validate_col_cast(
     tracker: SchemaTracker, params: dict[str, Any], result: ValidationResult, step: int
 ) -> None:
     column = params["column"]
-    target_dtype = params["dtype"]
+    # Plans store dtypes as canonical names; resolve to the backend's type so
+    # downstream validators see the same dtype objects as the rest of the schema.
+    target_dtype = tracker.resolve_dtype(params["dtype"])
     if _check_column_exists(tracker, column, result, step, "col_cast"):
         tracker.set_dtype(column, target_dtype)
 

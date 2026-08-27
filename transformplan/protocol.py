@@ -96,6 +96,8 @@ class Protocol:
         new_shape: tuple[int, int],
         elapsed: float,
         output_hash: str,
+        section: str | None = None,
+        reason: str | None = None,
     ) -> None:
         """Record a transformation step in the protocol.
 
@@ -106,6 +108,8 @@ class Protocol:
             new_shape: Shape after operation (rows, cols).
             elapsed: Time taken in seconds.
             output_hash: Hash of the output DataFrame.
+            section: Name of the section this step belongs to, if any.
+            reason: Why this step is part of the pipeline, if given.
         """
         self._steps.append(
             {
@@ -118,6 +122,8 @@ class Protocol:
                 "cols_changed": old_shape[1] - new_shape[1],
                 "elapsed_seconds": round(elapsed, 4),
                 "output_hash": output_hash,
+                "section": section,
+                "reason": reason,
             }
         )
 
@@ -171,6 +177,8 @@ class Protocol:
                     "cols_changed": 0,
                     "elapsed_seconds": 0.0,
                     "output_hash": self._input_hash,
+                    "section": None,
+                    "reason": None,
                 }
             )
 
@@ -202,6 +210,8 @@ class Protocol:
                     "cols_changed": 0,
                     "elapsed_seconds": 0.0,
                     "output_hash": self._input_hash,
+                    "section": None,
+                    "reason": None,
                 }
             )
 
@@ -216,6 +226,8 @@ class Protocol:
                 "cols_changed": step["cols_changed"],
                 "elapsed_seconds": step["elapsed_seconds"],
                 "output_hash": step["output_hash"],
+                "section": step.get("section"),
+                "reason": step.get("reason"),
             }
             for step in self._steps
         )
@@ -247,6 +259,8 @@ class Protocol:
                     "cols_changed": s["cols_changed"],
                     "elapsed_seconds": s["elapsed_seconds"],
                     "output_hash": s["output_hash"],
+                    "section": s.get("section"),
+                    "reason": s.get("reason"),
                 }
                 for s in self._steps
             ],
@@ -280,6 +294,9 @@ class Protocol:
                     "cols_changed": step["cols_changed"],
                     "elapsed_seconds": step["elapsed_seconds"],
                     "output_hash": step["output_hash"],
+                    # Older protocol files predate these keys.
+                    "section": step.get("section"),
+                    "reason": step.get("reason"),
                 }
             )
 
@@ -374,9 +391,16 @@ class Protocol:
 
         # Total time
         total_time = sum(s["elapsed_seconds"] for s in self._steps)
+        lines.append(f"Total time: {total_time:.4f}s")
+
+        # Per-section balance, only when sections are in use
+        section_lines = self._section_summary()
+        if section_lines:
+            lines.extend(["-" * 70, "", "SECTIONS", ""])
+            lines.extend(section_lines)
+
         lines.extend(
             [
-                f"Total time: {total_time:.4f}s",
                 "-" * 70,
                 "",
                 f"{'#':<4} {'Operation':<20} {'Rows':<12} {'Cols':<12} {'Time':<10} {'Hash':<16}",
@@ -393,6 +417,7 @@ class Protocol:
 
         # Operation rows
         no_effect_steps = []
+        current_section: str | None = None
         for step in self._steps:
             step_num = str(step["step"])
             op = step["operation"]
@@ -427,6 +452,13 @@ class Protocol:
             # Add marker for no-effect steps
             marker = " ○" if no_effect else ""
 
+            # Section heading whenever the section changes
+            section = step.get("section")
+            if section != current_section:
+                if section is not None:
+                    lines.append(f"[{section}]")
+                current_section = section
+
             lines.append(
                 f"{step_num:<4} {op:<20} {row_str:<12} {col_str:<12} {time_str:<10} {hash_str:<16}{marker}"
             )
@@ -435,6 +467,10 @@ class Protocol:
             if show_params and step["params"]:
                 params_str = self._format_params(step["params"])
                 lines.append(f"     └─ {params_str}")
+
+            # Reason
+            if step.get("reason"):
+                lines.append(f"     ↳ {step['reason']}")
 
         lines.append("=" * 70)
 
@@ -445,6 +481,39 @@ class Protocol:
             )
 
         return "\n".join(lines)
+
+    def _section_summary(self) -> list[str]:
+        """Build the per-section balance lines.
+
+        Returns:
+            Formatted lines, or an empty list if no step carries a section.
+        """
+        if not any(s.get("section") for s in self._steps):
+            return []
+
+        groups: list[tuple[str | None, list[dict[str, Any]]]] = []
+        for step in self._steps:
+            section = step.get("section")
+            if groups and groups[-1][0] == section:
+                groups[-1][1].append(step)
+            else:
+                groups.append((section, [step]))
+
+        lines = []
+        for section, steps in groups:
+            label = section if section is not None else "(no section)"
+            rows_before = steps[0]["old_shape"][0]
+            rows_after = steps[-1]["new_shape"][0]
+            cols_delta = steps[-1]["new_shape"][1] - steps[0]["old_shape"][1]
+
+            detail = f"{len(steps)} step{'s' if len(steps) != 1 else ''}"
+            if cols_delta:
+                detail += f", {cols_delta:+d} cols"
+
+            lines.append(
+                f"  {label:<24} {rows_before:>8} → {rows_after:>8} rows   ({detail})"
+            )
+        return lines
 
     def _format_params(self, params: dict[str, Any], max_length: int = 60) -> str:
         """Format params dict as a readable string.

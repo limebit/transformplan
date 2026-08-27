@@ -47,7 +47,9 @@ Example:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Union
+from typing import TYPE_CHECKING, Literal, Sequence, Union
+
+from transformplan.ops._common import as_columns
 
 if TYPE_CHECKING:
     from typing import Any
@@ -70,41 +72,59 @@ class MathOps:
             params: dict[str, Any],
         ) -> Self: ...
 
-    def math_add(self, column: str, value: Numeric) -> Self:
+        def _register_each(
+            self,
+            op_name: str,
+            params_list: list[dict[str, Any]],
+        ) -> Self: ...
+
+    def math_add(self, column: str | Sequence[str], value: Numeric) -> Self:
         """Add a scalar value to a column.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("math_add", {"column": column, "value": value})
+        return self._register_each(
+            "math_add",
+            [{"column": col, "value": value} for col in as_columns(column)],
+        )
 
-    def math_subtract(self, column: str, value: Numeric) -> Self:
+    def math_subtract(self, column: str | Sequence[str], value: Numeric) -> Self:
         """Subtract a scalar value from a column.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("math_subtract", {"column": column, "value": value})
+        return self._register_each(
+            "math_subtract",
+            [{"column": col, "value": value} for col in as_columns(column)],
+        )
 
-    def math_multiply(self, column: str, value: Numeric) -> Self:
+    def math_multiply(self, column: str | Sequence[str], value: Numeric) -> Self:
         """Multiply a column by a scalar value.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("math_multiply", {"column": column, "value": value})
+        return self._register_each(
+            "math_multiply",
+            [{"column": col, "value": value} for col in as_columns(column)],
+        )
 
-    def math_divide(self, column: str, value: Numeric) -> Self:
+    def math_divide(self, column: str | Sequence[str], value: Numeric) -> Self:
         """Divide a column by a scalar value.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("math_divide", {"column": column, "value": value})
+        return self._register_each(
+            "math_divide",
+            [{"column": col, "value": value} for col in as_columns(column)],
+        )
 
     def math_clamp(
         self,
-        column: str,
+        column: str | Sequence[str],
         lower: Numeric | None = None,
         upper: Numeric | None = None,
     ) -> Self:
@@ -113,8 +133,12 @@ class MathOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "math_clamp", {"column": column, "lower": lower, "upper": upper}
+        return self._register_each(
+            "math_clamp",
+            [
+                {"column": col, "lower": lower, "upper": upper}
+                for col in as_columns(column)
+            ],
         )
 
     def math_add_columns(self, column_a: str, column_b: str, new_column: str) -> Self:
@@ -167,41 +191,49 @@ class MathOps:
             {"column_a": column_a, "column_b": column_b, "new_column": new_column},
         )
 
-    def math_set_min(self, column: str, min_value: Numeric) -> Self:
+    def math_set_min(self, column: str | Sequence[str], min_value: Numeric) -> Self:
         """Set a minimum value for a column (values below are raised to min).
 
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "math_set_min", {"column": column, "min_value": min_value}
+        return self._register_each(
+            "math_set_min",
+            [{"column": col, "min_value": min_value} for col in as_columns(column)],
         )
 
-    def math_set_max(self, column: str, max_value: Numeric) -> Self:
+    def math_set_max(self, column: str | Sequence[str], max_value: Numeric) -> Self:
         """Set a maximum value for a column (values above are lowered to max).
 
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "math_set_max", {"column": column, "max_value": max_value}
+        return self._register_each(
+            "math_set_max",
+            [{"column": col, "max_value": max_value} for col in as_columns(column)],
         )
 
-    def math_abs(self, column: str) -> Self:
+    def math_abs(self, column: str | Sequence[str]) -> Self:
         """Take absolute value of a column.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("math_abs", {"column": column})
+        return self._register_each(
+            "math_abs",
+            [{"column": col} for col in as_columns(column)],
+        )
 
-    def math_round(self, column: str, decimals: int = 0) -> Self:
+    def math_round(self, column: str | Sequence[str], decimals: int = 0) -> Self:
         """Round a column to specified decimal places.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("math_round", {"column": column, "decimals": decimals})
+        return self._register_each(
+            "math_round",
+            [{"column": col, "decimals": decimals} for col in as_columns(column)],
+        )
 
     def math_percent_of(
         self,

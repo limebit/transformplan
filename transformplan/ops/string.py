@@ -28,7 +28,9 @@ Example:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
+
+from transformplan.ops._common import as_columns
 
 if TYPE_CHECKING:
     from typing import Any
@@ -47,9 +49,15 @@ class StrOps:
             params: dict[str, Any],
         ) -> Self: ...
 
+        def _register_each(
+            self,
+            op_name: str,
+            params_list: list[dict[str, Any]],
+        ) -> Self: ...
+
     def str_replace(
         self,
-        column: str,
+        column: str | Sequence[str],
         pattern: str,
         replacement: str,
         *,
@@ -58,7 +66,7 @@ class StrOps:
         """Replace occurrences of a pattern in a string column.
 
         Args:
-            column: Column to modify.
+            column: Column name, or a sequence of names, to modify.
             pattern: Pattern to search for.
             replacement: String to replace with.
             literal: If True, treat pattern as literal string. If False, treat as regex.
@@ -66,50 +74,62 @@ class StrOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
+        return self._register_each(
             "str_replace",
-            {
-                "column": column,
-                "pattern": pattern,
-                "replacement": replacement,
-                "literal": literal,
-            },
+            [
+                {
+                    "column": col,
+                    "pattern": pattern,
+                    "replacement": replacement,
+                    "literal": literal,
+                }
+                for col in as_columns(column)
+            ],
         )
 
     def str_slice(
         self,
-        column: str,
+        column: str | Sequence[str],
         offset: int,
         length: int | None = None,
     ) -> Self:
         """Extract a substring from a string column.
 
         Args:
-            column: Column to modify.
+            column: Column name, or a sequence of names, to modify.
             offset: Start position (0-indexed, negative counts from end).
             length: Number of characters to extract (None = to end).
 
         Returns:
             Self for method chaining.
         """
-        return self._register(
-            "str_slice", {"column": column, "offset": offset, "length": length}
+        return self._register_each(
+            "str_slice",
+            [
+                {"column": col, "offset": offset, "length": length}
+                for col in as_columns(column)
+            ],
         )
 
-    def str_truncate(self, column: str, max_length: int, suffix: str = "...") -> Self:
+    def str_truncate(
+        self, column: str | Sequence[str], max_length: int, suffix: str = "..."
+    ) -> Self:
         """Truncate strings to a maximum length with optional suffix.
 
         Args:
-            column: Column to modify.
+            column: Column name, or a sequence of names, to modify.
             max_length: Maximum length of the string (including suffix).
             suffix: Suffix to append to truncated strings.
 
         Returns:
             Self for method chaining.
         """
-        return self._register(
+        return self._register_each(
             "str_truncate",
-            {"column": column, "max_length": max_length, "suffix": suffix},
+            [
+                {"column": col, "max_length": max_length, "suffix": suffix}
+                for col in as_columns(column)
+            ],
         )
 
     def str_split(
@@ -141,37 +161,46 @@ class StrOps:
             },
         )
 
-    def str_lower(self, column: str) -> Self:
+    def str_lower(self, column: str | Sequence[str]) -> Self:
         """Convert string column to lowercase.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("str_lower", {"column": column})
+        return self._register_each(
+            "str_lower",
+            [{"column": col} for col in as_columns(column)],
+        )
 
-    def str_upper(self, column: str) -> Self:
+    def str_upper(self, column: str | Sequence[str]) -> Self:
         """Convert string column to uppercase.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("str_upper", {"column": column})
+        return self._register_each(
+            "str_upper",
+            [{"column": col} for col in as_columns(column)],
+        )
 
-    def str_strip(self, column: str, chars: str | None = None) -> Self:
+    def str_strip(self, column: str | Sequence[str], chars: str | None = None) -> Self:
         """Strip leading and trailing characters from a string column.
 
         Args:
-            column: Column to modify.
+            column: Column name, or a sequence of names, to modify.
             chars: Characters to strip (None = whitespace).
 
         Returns:
             Self for method chaining.
         """
-        return self._register("str_strip", {"column": column, "chars": chars})
+        return self._register_each(
+            "str_strip",
+            [{"column": col, "chars": chars} for col in as_columns(column)],
+        )
 
     def str_pad(
         self,
-        column: str,
+        column: str | Sequence[str],
         length: int,
         fill_char: str = " ",
         side: str = "left",
@@ -179,7 +208,7 @@ class StrOps:
         """Pad a string column to a specified length.
 
         Args:
-            column: Column to modify.
+            column: Column name, or a sequence of names, to modify.
             length: Target length.
             fill_char: Character to pad with.
             side: 'left' or 'right'.
@@ -187,9 +216,12 @@ class StrOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
+        return self._register_each(
             "str_pad",
-            {"column": column, "length": length, "fill_char": fill_char, "side": side},
+            [
+                {"column": col, "length": length, "fill_char": fill_char, "side": side}
+                for col in as_columns(column)
+            ],
         )
 
     def str_concat(

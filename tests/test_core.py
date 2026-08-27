@@ -216,6 +216,159 @@ class TestSerialization:
         assert original_result.equals(restored_result)
 
 
+class TestPipe:
+    """Tests for pipe() composition."""
+
+    def test_pipe_keeps_the_chain(self, basic_df: pl.DataFrame) -> None:
+        """Test that pipe applies a function without breaking the chain."""
+
+        def rename_block(
+            plan: TransformPlan, source: str, target: str
+        ) -> TransformPlan:
+            return plan.col_rename(source, target)
+
+        plan = (
+            TransformPlan()
+            .col_drop("age")
+            .pipe(rename_block, "name", "full_name")
+            .col_drop("salary")
+        )
+        result, _ = plan.process(basic_df)
+        assert "full_name" in result.columns
+        assert len(plan) == 3
+
+    def test_pipe_forwards_keyword_arguments(self, basic_df: pl.DataFrame) -> None:
+        """Test that keyword arguments reach the piped function."""
+
+        def drop_it(plan: TransformPlan, *, column: str) -> TransformPlan:
+            return plan.col_drop(column)
+
+        plan = TransformPlan().pipe(drop_it, column="age")
+        result, _ = plan.process(basic_df)
+        assert "age" not in result.columns
+
+    def test_pipe_leaves_protocol_unchanged(self, basic_df: pl.DataFrame) -> None:
+        """Test that pipe itself registers no step."""
+
+        def noop(plan: TransformPlan) -> TransformPlan:
+            return plan
+
+        plan = TransformPlan().col_drop("age").pipe(noop)
+        _, protocol = plan.process(basic_df)
+        assert len(protocol) == 1
+
+
+class TestExtend:
+    """Tests for extend() and plan addition."""
+
+    def test_extend_appends_steps(self, basic_df: pl.DataFrame) -> None:
+        """Test that extend appends another plan's steps."""
+        block = TransformPlan().col_drop("salary")
+        plan = TransformPlan().col_drop("age").extend(block)
+        result, _ = plan.process(basic_df)
+        assert "age" not in result.columns
+        assert "salary" not in result.columns
+        assert len(plan) == 2
+
+    def test_extend_deep_copies_params(self) -> None:
+        """Test that a reused block does not share mutable state."""
+        block = TransformPlan().col_fill_null("name", value="X")
+
+        first = TransformPlan().extend(block)
+        second = TransformPlan().extend(block)
+
+        first._operations[0][1]["value"] = "CHANGED"
+
+        assert second._operations[0][1]["value"] == "X"
+        assert block._operations[0][1]["value"] == "X"
+
+    def test_extend_is_serializable(self, basic_df: pl.DataFrame) -> None:
+        """Test that extended steps survive a JSON round trip."""
+        block = TransformPlan().col_drop("salary")
+        plan = TransformPlan().col_drop("age").extend(block)
+        restored = TransformPlan.from_json(plan.to_json())
+        assert len(restored) == 2
+
+        expected, _ = plan.process(basic_df)
+        actual, _ = restored.process(basic_df)
+        assert actual.equals(expected)
+
+    def test_add_leaves_operands_untouched(self) -> None:
+        """Test that plan_a + plan_b builds a new plan."""
+        left = TransformPlan().col_drop("age")
+        right = TransformPlan().col_drop("salary")
+        combined = left + right
+
+        assert len(left) == 1
+        assert len(right) == 1
+        assert len(combined) == 2
+
+    def test_extend_inherits_target_section(self) -> None:
+        """Test that a block without sections adopts the target's section."""
+        block = TransformPlan().col_drop("salary")
+        plan = TransformPlan().section("Cleanup").extend(block)
+        assert plan.to_dict()["steps"][0]["section"] == "Cleanup"
+
+    def test_extend_keeps_block_section(self) -> None:
+        """Test that a block's own section wins over the target's."""
+        block = TransformPlan().section("Block").col_drop("salary")
+        plan = TransformPlan().section("Target").extend(block)
+        assert plan.to_dict()["steps"][0]["section"] == "Block"
+
+
+class TestSectionAndReason:
+    """Tests for section() and because() metadata."""
+
+    def test_section_labels_following_steps(self) -> None:
+        """Test that steps inherit the current section."""
+        plan = (
+            TransformPlan()
+            .section("Filters")
+            .col_drop("age")
+            .col_drop("salary")
+            .section("Types")
+            .col_cast("id", "Float64")
+        )
+        sections = [s.get("section") for s in plan.to_dict()["steps"]]
+        assert sections == ["Filters", "Filters", "Types"]
+
+    def test_section_none_ends_the_section(self) -> None:
+        """Test that section(None) stops labelling."""
+        plan = TransformPlan().section("A").col_drop("age").section(None).col_drop("id")
+        steps = plan.to_dict()["steps"]
+        assert steps[0]["section"] == "A"
+        assert "section" not in steps[1]
+
+    def test_because_annotates_the_last_step(self) -> None:
+        """Test that because attaches a reason."""
+        plan = TransformPlan().col_drop("age").because("not needed downstream")
+        assert plan.to_dict()["steps"][0]["reason"] == "not needed downstream"
+
+    def test_because_annotates_every_step_of_a_sequence(self) -> None:
+        """Test that a sequence call gets the reason on all its steps."""
+        plan = TransformPlan().col_drop(["age", "salary"]).because("unused")
+        reasons = [s.get("reason") for s in plan.to_dict()["steps"]]
+        assert reasons == ["unused", "unused"]
+
+    def test_because_without_operation_raises(self) -> None:
+        """Test that because before any operation is an error."""
+        with pytest.raises(ValueError, match="must follow an operation"):
+            TransformPlan().because("nothing to explain")
+
+    def test_metadata_survives_round_trip(self) -> None:
+        """Test that section and reason survive a JSON round trip."""
+        plan = TransformPlan().section("Cleanup").col_drop("age").because("not needed")
+        restored = TransformPlan.from_json(plan.to_json())
+        step = restored.to_dict()["steps"][0]
+        assert step["section"] == "Cleanup"
+        assert step["reason"] == "not needed"
+
+    def test_plain_plan_serializes_without_metadata_keys(self) -> None:
+        """Test that plans without metadata are unchanged in JSON."""
+        step = TransformPlan().col_drop("age").to_dict()["steps"][0]
+        assert set(step) == {"operation", "params"}
+
+
 class TestToPython:
     """Tests for to_python() method."""
 
@@ -232,6 +385,21 @@ class TestToPython:
         plan = TransformPlan().col_drop("x")
         code = plan.to_python(variable_name="my_plan")
         assert "my_plan = (" in code
+
+    def test_to_python_is_executable_with_cast(self) -> None:
+        """Test that generated code compiles when a dtype is involved."""
+        plan = TransformPlan().col_cast("age", pl.Float64)
+        code = plan.to_python()
+        assert 'dtype="Float64"' in code
+        compile(code, "<generated>", "exec")
+
+    def test_to_python_renders_section_and_reason(self) -> None:
+        """Test that metadata is reproduced in generated code."""
+        plan = TransformPlan().section("Cleanup").col_drop("age").because("not needed")
+        code = plan.to_python()
+        assert '.section("Cleanup")' in code
+        assert '.because("not needed")' in code
+        compile(code, "<generated>", "exec")
 
     def test_to_python_with_filter(self, basic_df: pl.DataFrame) -> None:
         """Test Python code generation with filter."""

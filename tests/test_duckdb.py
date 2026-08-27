@@ -10,6 +10,7 @@ from datetime import date
 from typing import Any
 
 import duckdb
+import polars as pl
 import pytest
 
 from transformplan import Col, TransformPlan
@@ -211,6 +212,52 @@ class TestColCast:
         )
         vals = _col_values(result, "id")
         assert vals[0] == "1"
+
+
+class TestColCastDtypeParity:
+    """Casting must produce the same logical type across backends."""
+
+    def test_polars_dtype_maps_to_double(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """A Polars dtype must not silently degrade to VARCHAR."""
+        result, _ = (
+            TransformPlan()
+            .col_cast("age", pl.Float64)
+            .process(basic_rel, backend=backend)
+        )
+        assert result.types[result.columns.index("age")] == "DOUBLE"
+
+    def test_canonical_name_maps_to_double(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """A canonical dtype name resolves to the DuckDB type."""
+        result, _ = (
+            TransformPlan()
+            .col_cast("age", "Float64")
+            .process(basic_rel, backend=backend)
+        )
+        assert result.types[result.columns.index("age")] == "DOUBLE"
+
+    def test_int64_maps_to_bigint(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """Integer widths are mapped explicitly, not by fallback."""
+        result, _ = (
+            TransformPlan().col_cast("age", "Int64").process(basic_rel, backend=backend)
+        )
+        assert result.types[result.columns.index("age")] == "BIGINT"
+
+    def test_both_backends_agree(
+        self, backend: DuckDBBackend, basic_rel: duckdb.DuckDBPyRelation
+    ) -> None:
+        """The same plan yields the same values on both backends."""
+        plan = TransformPlan().col_cast("age", "Float64")
+
+        duck_result, _ = plan.process(basic_rel, backend=backend)
+        polars_result, _ = plan.process(basic_rel.pl())
+
+        assert _col_values(duck_result, "age") == polars_result["age"].to_list()
 
 
 class TestColReorder:
