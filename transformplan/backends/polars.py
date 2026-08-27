@@ -866,23 +866,24 @@ class PolarsBackend(Backend):
         default: Any,
         keep_unmapped: bool,  # noqa: FBT001
     ) -> pl.DataFrame:
-        expr = pl.col(column)
-        items = list(mapping.items())
-        if not items:
+        # A when/then chain nests one expression per entry and overflows the
+        # stack for large mappings; replace_strict is flat and size-independent.
+        # A `None` key never matched under the chain (``col == None`` is null,
+        # not true), so it is dropped to keep nulls falling through to the
+        # fallback -- matching the DuckDB backend, where ``= NULL`` is never true.
+        if not mapping:
             return data
 
-        first_key, first_val = items[0]
-        chain = pl.when(expr == first_key).then(pl.lit(first_val))
+        expr = pl.col(column)
+        fallback = expr if keep_unmapped else pl.lit(default)
 
-        for key, val in items[1:]:
-            chain = chain.when(expr == key).then(pl.lit(val))
-
-        if keep_unmapped:
-            chain = chain.otherwise(expr)
-        else:
-            chain = chain.otherwise(pl.lit(default))
-
-        return data.with_columns(chain.alias(column))
+        pairs = {k: v for k, v in mapping.items() if k is not None}
+        if not pairs:
+            # Every key was None, so nothing can ever match: the fallback wins.
+            return data.with_columns(fallback.alias(column))
+        return data.with_columns(
+            expr.replace_strict(pairs, default=fallback).alias(column)
+        )
 
     def map_case(
         self,
@@ -892,18 +893,24 @@ class PolarsBackend(Backend):
         default: Any,
         new_column: str,
     ) -> pl.DataFrame:
-        if not cases:
+        # A when/then chain nests one expression per case and overflows the
+        # stack for long case lists; replace_strict is flat and size-independent.
+        # `None` conditions never matched under the chain (``col == None`` is
+        # null, not true), and duplicate conditions resolved first-match-wins,
+        # so both are normalised away before handing the cases to polars.
+        mapping: dict[Any, Any] = {}
+        for cond_val, result_val in cases:
+            if cond_val is not None and cond_val not in mapping:
+                mapping[cond_val] = result_val
+
+        if not mapping:
             return data.with_columns(pl.lit(default).alias(new_column))
 
-        col = pl.col(column)
-        cond_val, result_val = cases[0]
-        chain = pl.when(col == cond_val).then(pl.lit(result_val))
-
-        for cond_val, result_val in cases[1:]:
-            chain = chain.when(col == cond_val).then(pl.lit(result_val))
-
-        chain = chain.otherwise(pl.lit(default))
-        return data.with_columns(chain.alias(new_column))
+        return data.with_columns(
+            pl.col(column)
+            .replace_strict(mapping, default=pl.lit(default))
+            .alias(new_column)
+        )
 
     def map_from_column(
         self,

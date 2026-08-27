@@ -49,6 +49,27 @@ class TestMapValues:
         result, _ = plan.process(df)
         assert result["code"].to_list() == ["One", "Two", "Three", "One", "Two"]
 
+    def test_map_values_none_key_never_matches(self) -> None:
+        """Test that a None key does not match null values."""
+        df = pl.DataFrame({"status": ["A", None]})
+        plan = TransformPlan().map_values("status", {"A": "x", None: "was_null"})
+        result, _ = plan.process(df)
+        assert result["status"].to_list() == ["x", None]
+
+    def test_map_values_large_mapping_chunked(self) -> None:
+        """Test a large mapping on a multi-chunk frame (used to segfault)."""
+        n_keys = 2000
+        df = pl.concat(
+            [pl.DataFrame({"id": [i]}) for i in range(2)],
+            rechunk=False,
+        )
+        assert df["id"].n_chunks() == 2
+
+        mapping = {i: f"name {i}" for i in range(n_keys)}
+        plan = TransformPlan().map_values("id", mapping)
+        result, _ = plan.process(df, validate=True)
+        assert result["id"].to_list() == ["name 0", "name 1"]
+
 
 class TestMapDiscretize:
     """Tests for map_discretize operation."""
@@ -166,6 +187,43 @@ class TestMapCase:
         result, _ = plan.process(map_df)
         assert "status_code" in result.columns
         assert "status" in result.columns  # Original preserved
+
+    def test_map_case_large_case_list_chunked(self) -> None:
+        """Test a long case list on a multi-chunk frame (used to segfault)."""
+        df = pl.concat(
+            [pl.DataFrame({"id": [i]}) for i in range(2)],
+            rechunk=False,
+        )
+        assert df["id"].n_chunks() == 2
+
+        cases = [(i, f"name {i}") for i in range(2000)]
+        plan = TransformPlan().map_case(
+            "id", cases=cases, default="other", new_column="name"
+        )
+        result, _ = plan.process(df, validate=True)
+        assert result["name"].to_list() == ["name 0", "name 1"]
+
+    def test_map_case_duplicate_condition_first_wins(self) -> None:
+        """Test that the first matching case wins."""
+        df = pl.DataFrame({"status": ["A", "B"]})
+        plan = TransformPlan().map_case(
+            "status",
+            cases=[("A", "first"), ("A", "second")],
+            default="other",
+        )
+        result, _ = plan.process(df)
+        assert result["status"].to_list() == ["first", "other"]
+
+    def test_map_case_none_condition_never_matches(self) -> None:
+        """Test that a None condition does not match null values."""
+        df = pl.DataFrame({"status": ["A", None]})
+        plan = TransformPlan().map_case(
+            "status",
+            cases=[("A", "x"), (None, "was_null")],
+            default="other",
+        )
+        result, _ = plan.process(df)
+        assert result["status"].to_list() == ["x", "other"]
 
     def test_map_case_empty_cases(self, map_df: pl.DataFrame) -> None:
         """Test case mapping with empty cases list."""
