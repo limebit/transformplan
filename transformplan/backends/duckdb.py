@@ -11,7 +11,6 @@ Classes:
 
 from __future__ import annotations
 
-import datetime
 import hashlib
 import math
 import secrets
@@ -29,6 +28,7 @@ from transformplan.backends.base import (
     Numeric,
     RankMethod,
 )
+from transformplan.dtypes import to_duckdb_type
 from transformplan.filters import Filter
 from transformplan.sql_utils import sql_format_value as _v
 from transformplan.sql_utils import sql_quote_identifier as _q
@@ -37,25 +37,7 @@ from transformplan.sql_utils import sql_quote_identifier as _q
 # SQL helpers
 # =============================================================================
 
-_DTYPE_TO_DUCKDB: dict[type, str] = {
-    int: "BIGINT",
-    float: "DOUBLE",
-    str: "VARCHAR",
-    bool: "BOOLEAN",
-    datetime.datetime: "TIMESTAMP",
-    datetime.date: "DATE",
-}
-
 _VALID_AGG_FUNCTIONS = {"first", "sum", "mean", "median", "min", "max", "count"}
-
-
-def _dtype_to_duckdb(dtype: type) -> str:
-    """Map Python type to DuckDB SQL type name.
-
-    Returns:
-        DuckDB type string.
-    """
-    return _DTYPE_TO_DUCKDB.get(dtype, "VARCHAR")
 
 
 def _sub(rel: duckdb.DuckDBPyRelation) -> str:
@@ -216,10 +198,13 @@ class DuckDBBackend(Backend):
         col_list = ", ".join(cols)
         return self._con.sql(f"SELECT {col_list} FROM {_sub(data)}")
 
+    def resolve_dtype(self, dtype: Any) -> str:
+        return to_duckdb_type(dtype)
+
     def col_cast(
-        self, data: duckdb.DuckDBPyRelation, column: str, dtype: type
+        self, data: duckdb.DuckDBPyRelation, column: str, dtype: str | type
     ) -> duckdb.DuckDBPyRelation:
-        ddb_type = _dtype_to_duckdb(dtype)
+        ddb_type = self.resolve_dtype(dtype)
         cols = [
             f"CAST({_q(c)} AS {ddb_type}) AS {_q(c)}" if c == column else _q(c)
             for c in data.columns

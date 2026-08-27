@@ -14,10 +14,11 @@ This enables validation and dry-run previews before actual data modification.
 
 from __future__ import annotations
 
+import copy
 import json
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 from typing import Protocol as TypingProtocol
 
 import polars as pl
@@ -41,7 +42,9 @@ from transformplan.validation import (
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
 
-    from typing_extensions import Self
+    from typing_extensions import Concatenate, ParamSpec, Self
+
+    P = ParamSpec("P")
 
     from transformplan.backends.base import Backend
 
@@ -55,6 +58,12 @@ class HasRegister(TypingProtocol):
         params: dict[str, Any],
     ) -> Self: ...
 
+    def _register_each(
+        self,
+        op_name: str,
+        params_list: list[dict[str, Any]],
+    ) -> Self: ...
+
 
 class TransformPlanBase:
     """Base class providing operation registration and execution."""
@@ -64,6 +73,15 @@ class TransformPlanBase:
     def __init__(self) -> None:
         """Initialize an empty TransformPlanBase."""
         self._operations: list[tuple[str, dict[str, Any]]] = []
+        # Step metadata (section, reason) is kept parallel to _operations rather
+        # than inside params, because params are dispatched to the backend as
+        # keyword arguments. Same length as _operations, one dict per step.
+        self._step_meta: list[dict[str, Any]] = []
+        self._current_section: str | None = None
+        # Number of steps registered by the most recent operation call. A single
+        # call may register several steps when given a sequence of columns, and
+        # because() must annotate all of them.
+        self._last_registered: int = 0
 
     @staticmethod
     def _resolve_backend(backend: Backend | None = None) -> Backend:
@@ -88,7 +106,147 @@ class TransformPlanBase:
             Self for method chaining.
         """
         self._operations.append((op_name, params))
+        meta: dict[str, Any] = {}
+        if self._current_section is not None:
+            meta["section"] = self._current_section
+        self._step_meta.append(meta)
+        self._last_registered = 1
         return self
+
+    def _register_each(
+        self,
+        op_name: str,
+        params_list: list[dict[str, Any]],
+    ) -> Self:
+        """Register one operation per parameter set as a single logical call.
+
+        Used by operations that accept a sequence of columns. because() then
+        annotates every step the call produced, not just the last one.
+
+        Returns:
+            Self for method chaining.
+        """
+        for params in params_list:
+            self._register(op_name, params)
+        self._last_registered = len(params_list)
+        return self
+
+    def pipe(
+        self,
+        fn: Callable[Concatenate[Self, P], Self],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> Self:
+        """Apply a function that takes and returns a plan.
+
+        Lets repeated blocks live in their own function without breaking the
+        method chain. The function registers ordinary steps, so the protocol is
+        unchanged.
+
+        Args:
+            fn: Callable receiving this plan plus any extra arguments.
+            *args: Positional arguments forwarded to fn.
+            **kwargs: Keyword arguments forwarded to fn.
+
+        Returns:
+            Whatever fn returns, normally the plan itself.
+
+        Example:
+            >>> def decimal_hour(plan, source, target):
+            ...     return plan.dt_format(source, "%H", target)
+            >>> plan = TransformPlan().pipe(decimal_hour, "START", "HOUR")
+        """
+        return fn(self, *args, **kwargs)
+
+    def section(self, name: str | None) -> Self:
+        """Start a named section that groups the following steps.
+
+        Every step registered afterwards carries this label until the next
+        section() call. The protocol groups steps by section and reports a
+        per-section balance. Pass None to end the current section.
+
+        Args:
+            name: Section label, or None to end the current section.
+
+        Returns:
+            Self for method chaining.
+
+        Example:
+            >>> plan = TransformPlan().section("Row filters")
+            >>> plan = plan.rows_drop_nulls("SHIPPED_AT")
+        """
+        self._current_section = name
+        return self
+
+    def because(self, reason: str) -> Self:
+        """Attach a reason to the step(s) just registered.
+
+        The protocol records that rows were removed; the reason records why.
+        When the preceding call registered several steps (a sequence of
+        columns), the reason is attached to all of them.
+
+        Args:
+            reason: Why this step is part of the pipeline.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            ValueError: If no operation has been registered yet.
+
+        Example:
+            >>> plan = TransformPlan().rows_drop_nulls("DRG_CODE")
+            >>> plan = plan.because("PEPP cases carry no DRG")
+        """
+        if not self._step_meta or self._last_registered == 0:
+            msg = "because() must follow an operation."
+            raise ValueError(msg)
+
+        for meta in self._step_meta[-self._last_registered :]:
+            meta["reason"] = reason
+        return self
+
+    def extend(self, other: TransformPlanBase) -> Self:
+        """Append another plan's steps to this plan.
+
+        Lets a reusable building block be defined as its own plan and inserted
+        where needed. Steps are deep-copied, so the block can be reused in
+        several plans without them sharing mutable parameters.
+
+        Args:
+            other: Plan whose steps are appended.
+
+        Returns:
+            Self for method chaining.
+
+        Example:
+            >>> BLOCK = TransformPlan().str_strip("NAME").str_upper("NAME")
+            >>> plan = TransformPlan().col_drop("temp").extend(BLOCK)
+        """
+        for (op_name, params), meta in zip(
+            other._operations,
+            other._step_meta,
+            strict=False,
+        ):
+            self._operations.append((op_name, copy.deepcopy(params)))
+            new_meta = copy.deepcopy(meta)
+            # A block's own sections win; otherwise the target plan's section applies.
+            if "section" not in new_meta and self._current_section is not None:
+                new_meta["section"] = self._current_section
+            self._step_meta.append(new_meta)
+
+        self._last_registered = len(other._operations)
+        return self
+
+    def __add__(self, other: TransformPlanBase) -> Self:
+        """Combine two plans into a new plan.
+
+        Returns:
+            New plan with the steps of both, leaving both operands unchanged.
+        """
+        combined = copy.deepcopy(self)
+        combined.extend(other)
+        return combined
 
     def process(
         self,
@@ -140,7 +298,8 @@ class TransformPlanBase:
                 }
             protocol.set_metadata(references=ref_meta)
 
-        for op_name, params in self._operations:
+        for index, (op_name, params) in enumerate(self._operations):
+            meta = self._step_meta[index] if index < len(self._step_meta) else {}
             old_shape = resolved.get_shape(data)
             start = time.perf_counter()
 
@@ -163,6 +322,8 @@ class TransformPlanBase:
                 new_shape=resolved.get_shape(data),
                 elapsed=elapsed,
                 output_hash=resolved.compute_hash(data),
+                section=meta.get("section"),
+                reason=meta.get("reason"),
             )
 
         return data, protocol
@@ -269,13 +430,18 @@ class TransformPlanBase:
             Dictionary representation of the pipeline.
         """
         steps = []
-        for op_name, params in self._operations:
-            steps.append(
-                {
-                    "operation": op_name,
-                    "params": params,
-                }
-            )
+        for index, (op_name, params) in enumerate(self._operations):
+            step: dict[str, Any] = {
+                "operation": op_name,
+                "params": params,
+            }
+            meta = self._step_meta[index] if index < len(self._step_meta) else {}
+            # Only written when set, so plans without metadata serialize as before.
+            if meta.get("section") is not None:
+                step["section"] = meta["section"]
+            if meta.get("reason") is not None:
+                step["reason"] = meta["reason"]
+            steps.append(step)
 
         return {
             "version": self.VERSION,
@@ -314,6 +480,14 @@ class TransformPlanBase:
             except TypeError as e:
                 msg = f"Invalid parameters for operation '{op_name}': {e}"
                 raise ValueError(msg) from e
+
+            # Metadata keys are absent in plans written before they existed.
+            if plan._step_meta:
+                meta = plan._step_meta[-1]
+                if step.get("section") is not None:
+                    meta["section"] = step["section"]
+                if step.get("reason") is not None:
+                    meta["reason"] = step["reason"]
 
         return plan
 
@@ -379,9 +553,22 @@ class TransformPlanBase:
         lines = ["from transformplan import TransformPlan, Col", ""]
         lines.extend((f"{variable_name} = (", "    TransformPlan()"))
 
-        for op_name, params in self._operations:
+        current_section: str | None = None
+        for index, (op_name, params) in enumerate(self._operations):
+            meta = self._step_meta[index] if index < len(self._step_meta) else {}
+
+            section = meta.get("section")
+            if section != current_section:
+                arg = f'"{section}"' if section is not None else "None"
+                lines.append(f"    .section({arg})")
+                current_section = section
+
             param_str = self._format_params_as_python(params)
             lines.append(f"    .{op_name}({param_str})")
+
+            reason = meta.get("reason")
+            if reason is not None:
+                lines.append(f'    .because("{reason}")')
 
         lines.append(")")
         return "\n".join(lines)

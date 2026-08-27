@@ -30,6 +30,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Sequence
 
+from transformplan.dtypes import normalize_dtype
+from transformplan.ops._common import as_columns
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -49,13 +52,24 @@ class ColumnOps:
             params: dict[str, Any],
         ) -> Self: ...
 
-    def col_drop(self, column: str) -> Self:
-        """Drop a column from the DataFrame.
+        def _register_each(
+            self,
+            op_name: str,
+            params_list: list[dict[str, Any]],
+        ) -> Self: ...
+
+    def col_drop(self, column: str | Sequence[str]) -> Self:
+        """Drop one or more columns from the DataFrame.
+
+        Args:
+            column: Column name, or a sequence of names to drop.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("col_drop", {"column": column})
+        return self._register_each(
+            "col_drop", [{"column": col} for col in as_columns(column)]
+        )
 
     def col_rename(self, column: str, new_name: str) -> Self:
         """Rename a column.
@@ -65,13 +79,26 @@ class ColumnOps:
         """
         return self._register("col_rename", {"column": column, "new_name": new_name})
 
-    def col_cast(self, column: str, dtype: type) -> Self:
-        """Cast a column to a different dtype.
+    def col_cast(self, column: str | Sequence[str], dtype: str | type) -> Self:
+        """Cast one or more columns to a different dtype.
+
+        The dtype is stored under its canonical name (e.g. ``"Float64"``) so the
+        plan stays serializable. Polars dtypes and builtin Python types are
+        accepted and normalized; each backend resolves the name to its own type.
+
+        Args:
+            column: Column name, or a sequence of names to cast.
+            dtype: Target dtype as a canonical name (``"Float64"``), a Polars
+                dtype (``pl.Float64``), or a Python type (``float``).
 
         Returns:
             Self for method chaining.
         """
-        return self._register("col_cast", {"column": column, "dtype": dtype})
+        normalized = normalize_dtype(dtype)
+        return self._register_each(
+            "col_cast",
+            [{"column": col, "dtype": normalized} for col in as_columns(column)],
+        )
 
     def col_reorder(self, columns: Sequence[str]) -> Self:
         """Reorder columns. Unlisted columns are dropped.
@@ -91,14 +118,14 @@ class ColumnOps:
 
     def col_fill_null(
         self,
-        column: str,
+        column: str | Sequence[str],
         value: Any = None,  # noqa: ANN401
         strategy: FillNullStrategy | None = None,
     ) -> Self:
         """Fill null values in a column.
 
         Args:
-            column: Column to fill.
+            column: Column name, or a sequence of names to fill.
             value: Value to fill nulls with (if strategy is None).
             strategy: Fill strategy - 'forward', 'backward', 'mean', 'min', 'max',
                 'zero', 'one'.
@@ -106,9 +133,12 @@ class ColumnOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
+        return self._register_each(
             "col_fill_null",
-            {"column": column, "value": value, "strategy": strategy},
+            [
+                {"column": col, "value": value, "strategy": strategy}
+                for col in as_columns(column)
+            ],
         )
 
     def col_drop_null(self, columns: str | Sequence[str] | None = None) -> Self:
@@ -124,13 +154,18 @@ class ColumnOps:
             columns = [columns]
         return self._register("col_drop_null", {"columns": columns})
 
-    def col_drop_zero(self, column: str) -> Self:
-        """Drop rows where the specified column is zero.
+    def col_drop_zero(self, column: str | Sequence[str]) -> Self:
+        """Drop rows where the specified column(s) are zero.
+
+        Args:
+            column: Column name, or a sequence of names to check.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("col_drop_zero", {"column": column})
+        return self._register_each(
+            "col_drop_zero", [{"column": col} for col in as_columns(column)]
+        )
 
     def col_add(
         self,

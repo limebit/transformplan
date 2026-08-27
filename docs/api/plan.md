@@ -50,11 +50,102 @@ See [Backends](backends.md) for details on each backend.
         - validate
         - validate_chunked
         - dry_run
+        - pipe
+        - extend
+        - section
+        - because
         - to_dict
         - from_dict
         - to_json
         - from_json
         - to_python
+
+## Structuring Long Plans
+
+Plans with dozens of steps become hard to read as a flat chain. Four methods
+give them structure without changing what they do.
+
+### pipe
+
+Apply a function that takes and returns a plan, so repeated blocks can live in
+their own function without breaking the chain.
+
+```python
+def decimal_hour(plan, source, target):
+    return (
+        plan.dt_format(source, "%H", target)
+        .col_cast(target, "Float64")
+    )
+
+plan = (
+    TransformPlan()
+    .dt_diff_days("admitted", "discharged", "stay_days")
+    .pipe(decimal_hour, "admitted_at", "admit_hour")
+    .pipe(decimal_hour, "discharged_at", "discharge_hour")
+)
+```
+
+`pipe` registers no step of its own — the function registers ordinary steps, so
+the protocol is unchanged.
+
+### extend
+
+Append another plan's steps, so a reusable block can be defined once as its own
+plan. Steps are deep-copied, so a block can be reused across plans without them
+sharing state.
+
+```python
+CLEAN_NAMES = TransformPlan().str_strip("name").str_upper("name")
+
+plan = TransformPlan().col_drop("temp").extend(CLEAN_NAMES)
+combined = plan_a + plan_b  # same thing, as a new plan
+```
+
+Unlike `pipe`, the block's steps become part of the plan and are serialized with it.
+
+### section
+
+Group the following steps under a label. The protocol then reports a balance per
+section instead of one flat list.
+
+```python
+plan = (
+    TransformPlan()
+    .section("Row filters")
+    .rows_drop_nulls("shipped_at")
+    .rows_drop_nulls("order_id")
+    .section("Split product code")
+    .col_duplicate("code", "code_group")
+    .str_slice("code_group", 0, 3)
+)
+```
+
+```
+SECTIONS
+
+  Row filters                   1500 →       49 rows   (2 steps)
+  Split product code              49 →       49 rows   (2 steps, +1 cols)
+```
+
+Pass `None` to end a section. Plans without sections render exactly as before.
+
+### because
+
+Attach a reason to the step just registered. The protocol records that rows were
+removed; the reason records why — the question an audit actually asks.
+
+```python
+plan = (
+    TransformPlan()
+    .rows_drop(Col("provider") != "MDK02")
+    .because("cases where the reviewer awards the insurer nothing")
+    .rows_drop_nulls("drg_code")
+    .because("PEPP cases carry no DRG")
+)
+```
+
+When the preceding call covered several columns, the reason is attached to every
+step it produced.
 
 ## Execution Methods
 

@@ -27,6 +27,7 @@ from transformplan.backends.base import (
     Numeric,
     RankMethod,
 )
+from transformplan.dtypes import to_polars_dtype
 from transformplan.filters import Filter
 from transformplan.protocol import frame_hash
 
@@ -126,8 +127,13 @@ class PolarsBackend(Backend):
     ) -> pl.DataFrame:
         return data.rename({column: new_name})
 
-    def col_cast(self, data: pl.DataFrame, column: str, dtype: type) -> pl.DataFrame:
-        return data.with_columns(pl.col(column).cast(dtype))
+    def resolve_dtype(self, dtype: Any) -> Any:
+        return to_polars_dtype(dtype)
+
+    def col_cast(
+        self, data: pl.DataFrame, column: str, dtype: str | type
+    ) -> pl.DataFrame:
+        return data.with_columns(pl.col(column).cast(self.resolve_dtype(dtype)))
 
     def col_reorder(self, data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         return data.select(columns)

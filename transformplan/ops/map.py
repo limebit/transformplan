@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Sequence
 
+from transformplan.ops._common import as_columns
+
 if TYPE_CHECKING:
     from typing_extensions import Self
 
@@ -49,9 +51,15 @@ class MapOps:
             params: dict[str, Any],
         ) -> Self: ...
 
+        def _register_each(
+            self,
+            op_name: str,
+            params_list: list[dict[str, Any]],
+        ) -> Self: ...
+
     def map_values(
         self,
-        column: str,
+        column: str | Sequence[str],
         mapping: dict[Any, Any],
         default: Any = None,  # noqa: ANN401
         *,
@@ -60,7 +68,7 @@ class MapOps:
         """Map values in a column using a dictionary.
 
         Args:
-            column: Column to transform.
+            column: Column name, or a sequence of names, to transform.
             mapping: Dictionary mapping old values to new values.
             default: Default value for unmapped values (if keep_unmapped=False).
             keep_unmapped: If True, keep original value when not in mapping.
@@ -68,14 +76,17 @@ class MapOps:
         Returns:
             Self for method chaining.
         """
-        return self._register(
+        return self._register_each(
             "map_values",
-            {
-                "column": column,
-                "mapping": mapping,
-                "default": default,
-                "keep_unmapped": keep_unmapped,
-            },
+            [
+                {
+                    "column": col,
+                    "mapping": mapping,
+                    "default": default,
+                    "keep_unmapped": keep_unmapped,
+                }
+                for col in as_columns(column)
+            ],
         )
 
     def map_discretize(
@@ -110,29 +121,38 @@ class MapOps:
             },
         )
 
-    def map_bool_to_int(self, column: str) -> Self:
+    def map_bool_to_int(self, column: str | Sequence[str]) -> Self:
         """Convert a boolean column to integer (True=1, False=0).
 
         Returns:
             Self for method chaining.
         """
-        return self._register("map_bool_to_int", {"column": column})
+        return self._register_each(
+            "map_bool_to_int",
+            [{"column": col} for col in as_columns(column)],
+        )
 
-    def map_null_to_value(self, column: str, value: Any) -> Self:  # noqa: ANN401
+    def map_null_to_value(self, column: str | Sequence[str], value: Any) -> Self:  # noqa: ANN401
         """Replace null values with a specific value.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("map_null_to_value", {"column": column, "value": value})
+        return self._register_each(
+            "map_null_to_value",
+            [{"column": col, "value": value} for col in as_columns(column)],
+        )
 
-    def map_value_to_null(self, column: str, value: Any) -> Self:  # noqa: ANN401
+    def map_value_to_null(self, column: str | Sequence[str], value: Any) -> Self:  # noqa: ANN401
         """Replace a specific value with null.
 
         Returns:
             Self for method chaining.
         """
-        return self._register("map_value_to_null", {"column": column, "value": value})
+        return self._register_each(
+            "map_value_to_null",
+            [{"column": col, "value": value} for col in as_columns(column)],
+        )
 
     def map_case(
         self,

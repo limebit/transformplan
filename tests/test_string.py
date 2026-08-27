@@ -314,3 +314,27 @@ class TestStringEdgeCases:
         result, _ = plan.process(df)
         assert result["text"][0] == "HÉLLO"
         assert result["text"][1] == "WÖRLD"
+
+
+class TestStringSequences:
+    """Tests for string operations accepting a sequence of columns."""
+
+    def test_str_slice_sequence(self, string_df: pl.DataFrame) -> None:
+        """Test slicing two columns with identical parameters."""
+        plan = TransformPlan().str_slice(["code", "first_name"], 0, 3)
+        result, _ = plan.process(string_df)
+        assert result["code"][0] == "PRD"
+        assert result["first_name"][0] == "Joh"
+        assert len(plan) == 2
+
+    def test_str_upper_sequence(self, string_df: pl.DataFrame) -> None:
+        """Test uppercasing several columns at once."""
+        plan = TransformPlan().str_upper(["first_name", "last_name"])
+        result, _ = plan.process(string_df)
+        assert result["first_name"][0] == "JOHN"
+        assert result["last_name"][0] == "DOE"
+
+    def test_str_single_column_unchanged(self, string_df: pl.DataFrame) -> None:
+        """Test that a single name still registers exactly one step."""
+        plan = TransformPlan().str_upper("first_name")
+        assert len(plan) == 1

@@ -629,3 +629,26 @@ class TestMathDiffLag:
         result1, _ = plan.process(numeric_df)
         result2, _ = restored.process(numeric_df)
         assert result1["diff"].to_list() == result2["diff"].to_list()
+
+
+class TestMathSequences:
+    """Tests for math operations accepting a sequence of columns."""
+
+    def test_math_multiply_sequence(self, numeric_df: pl.DataFrame) -> None:
+        """Test multiplying several columns by the same factor."""
+        cols = [c for c in numeric_df.columns if numeric_df[c].dtype.is_numeric()][:2]
+        expected = [[v * 2 for v in numeric_df[c].to_list()] for c in cols]
+
+        plan = TransformPlan().math_multiply(cols, 2)
+        result, _ = plan.process(numeric_df)
+
+        for col, exp in zip(cols, expected, strict=True):
+            assert result[col].to_list() == exp
+        assert len(plan) == 2
+
+    def test_math_round_sequence(self, numeric_df: pl.DataFrame) -> None:
+        """Test rounding several columns at once."""
+        cols = [c for c in numeric_df.columns if numeric_df[c].dtype.is_numeric()][:2]
+        plan = TransformPlan().math_round(cols, 1)
+        result, _ = plan.process(numeric_df)
+        assert result.height == numeric_df.height

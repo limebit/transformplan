@@ -399,3 +399,26 @@ class TestMapDiscretizeRightFalse:
         assert result["grade"][2] == "C"
         assert result["grade"][3] == "B"
         assert result["grade"][4] == "A"
+
+
+class TestMapSequences:
+    """Tests for map operations accepting a sequence of columns."""
+
+    def test_map_values_sequence(self) -> None:
+        """Test applying one mapping to several columns."""
+        df = pl.DataFrame({"a": ["x", "y"], "b": ["y", "x"]})
+        plan = TransformPlan().map_values(["a", "b"], {"x": "X", "y": "Y"})
+        result, _ = plan.process(df)
+
+        assert result["a"].to_list() == ["X", "Y"]
+        assert result["b"].to_list() == ["Y", "X"]
+        assert len(plan) == 2
+
+    def test_map_null_to_value_sequence(self) -> None:
+        """Test replacing nulls in several columns at once."""
+        df = pl.DataFrame({"a": ["x", None], "b": [None, "y"]})
+        plan = TransformPlan().map_null_to_value(["a", "b"], "MISSING")
+        result, _ = plan.process(df)
+
+        assert result["a"].to_list() == ["x", "MISSING"]
+        assert result["b"].to_list() == ["MISSING", "y"]

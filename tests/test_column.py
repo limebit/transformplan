@@ -1,6 +1,7 @@
 """Tests for column operations (ops/column.py)."""
 
 import polars as pl
+import pytest
 
 from transformplan import TransformPlan
 
@@ -61,8 +62,87 @@ class TestColRename:
         assert "already exists" in str(result.errors[0])
 
 
+class TestColumnSequences:
+    """Tests for column operations accepting a sequence of columns."""
+
+    def test_col_drop_sequence(self, basic_df: pl.DataFrame) -> None:
+        """Test dropping several columns in one call."""
+        plan = TransformPlan().col_drop(["age", "salary"])
+        result, _ = plan.process(basic_df)
+        assert "age" not in result.columns
+        assert "salary" not in result.columns
+        assert len(plan) == 2
+
+    def test_col_drop_single_unchanged(self, basic_df: pl.DataFrame) -> None:
+        """Test that a single column name still registers one step."""
+        plan = TransformPlan().col_drop("age")
+        result, _ = plan.process(basic_df)
+        assert "age" not in result.columns
+        assert len(plan) == 1
+
+    def test_col_fill_null_sequence(self, df_with_nulls: pl.DataFrame) -> None:
+        """Test filling nulls in several columns in one call."""
+        cols = [c for c in ("name", "city") if c in df_with_nulls.columns]
+        plan = TransformPlan().col_fill_null(cols, value="N/A")
+        result, _ = plan.process(df_with_nulls)
+        for col in cols:
+            assert result[col].null_count() == 0
+
+    def test_sequence_steps_are_individually_protocolled(
+        self, basic_df: pl.DataFrame
+    ) -> None:
+        """Test that each column of a sequence becomes its own protocol step."""
+        plan = TransformPlan().col_drop(["age", "salary"])
+        _, protocol = plan.process(basic_df)
+        assert len(protocol) == 2
+        steps = protocol.to_dict()["steps"]
+        assert [s["params"]["column"] for s in steps] == ["age", "salary"]
+
+
 class TestColCast:
     """Tests for col_cast operation."""
+
+    def test_col_cast_canonical_name(self, basic_df: pl.DataFrame) -> None:
+        """Test casting with a canonical dtype name."""
+        plan = TransformPlan().col_cast("age", "Float64")
+        result, _ = plan.process(basic_df)
+        assert result["age"].dtype == pl.Float64
+
+    def test_col_cast_alias_name(self, basic_df: pl.DataFrame) -> None:
+        """Test that Utf8 is accepted as an alias for String."""
+        plan = TransformPlan().col_cast("id", "Utf8")
+        result, _ = plan.process(basic_df)
+        assert result["id"].dtype == pl.String
+
+    def test_col_cast_python_type(self, basic_df: pl.DataFrame) -> None:
+        """Test casting with a builtin Python type."""
+        plan = TransformPlan().col_cast("age", float)
+        result, _ = plan.process(basic_df)
+        assert result["age"].dtype == pl.Float64
+
+    def test_col_cast_normalizes_to_name(self) -> None:
+        """Test that a Polars dtype is stored as its canonical name."""
+        plan = TransformPlan().col_cast("age", pl.Float64)
+        assert plan.to_dict()["steps"][0]["params"]["dtype"] == "Float64"
+
+    def test_col_cast_unknown_name_raises_on_build(self) -> None:
+        """Test that a bad dtype name fails when the plan is built."""
+        with pytest.raises(ValueError, match="Unknown dtype name"):
+            TransformPlan().col_cast("age", "Floot64")
+
+    def test_col_cast_exotic_dtype_passes_through(self, basic_df: pl.DataFrame) -> None:
+        """Test that a parameterized dtype keeps working unchanged."""
+        plan = TransformPlan().col_cast("name", pl.Categorical)
+        result, _ = plan.process(basic_df)
+        assert result["name"].dtype == pl.Categorical
+
+    def test_col_cast_sequence(self, basic_df: pl.DataFrame) -> None:
+        """Test casting several columns in one call."""
+        plan = TransformPlan().col_cast(["age", "id"], "Float64")
+        result, _ = plan.process(basic_df)
+        assert result["age"].dtype == pl.Float64
+        assert result["id"].dtype == pl.Float64
+        assert len(plan) == 2
 
     def test_col_cast_int_to_float(self, basic_df: pl.DataFrame) -> None:
         """Test casting int to float."""
